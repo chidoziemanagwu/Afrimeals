@@ -59,7 +59,7 @@ Contributions to Afrimeals are not currently accepted as it is a private project
 
 ## Contact
 
-For inquiries, please contact [your-email@example.com](mailto:your-email@example.com).
+For inquiries, please contact [chidozie.managwu@gmail.com](mailto:chidozie.managwu@gmail.com).
 
 ## AI Titans Network
 
