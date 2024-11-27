@@ -29,19 +29,19 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 3. **Install the required packages**:
-   ```bash
+```bash
 pip install -r requirements.txt
 ```
 4. **Set up environment variables**:
  - Create a `.env` file in the project root and add your configuration:
-   ```
-   SECRET_KEY=your-django-secret-key
-   DEBUG=True
-   GOOGLE_CLIENT_ID=your-google-client-id
-   GOOGLE_CLIENT_SECRET=your-google-client-secret
-   ```
+```bash
+SECRET_KEY=your-django-secret-key
+DEBUG=True
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
 5. **Run migrations and start the server**:
- ```  bash
+```bash
 python manage.py migrate
 python manage.py runserver
 ```
