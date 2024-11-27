@@ -19,6 +19,6 @@ To set up Afrimeals locally, follow these steps:
 
 1. **Clone the repository**:
 
-bash
+```bash
 git clone https://github.com/yourusername/afrimeals.git
 cd afrimeals
