@@ -34,12 +34,12 @@ pip install -r requirements.txt
 ```
 4. **Set up environment variables**:
  - Create a `.env` file in the project root and add your configuration:
-```plaintext
-SECRET_KEY=your-django-secret-key
-DEBUG=True
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-```
+   ```
+   SECRET_KEY=your-django-secret-key
+   DEBUG=True
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   ```
 5. **Run migrations and start the server**:
  ```  bash
 python manage.py migrate
