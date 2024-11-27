@@ -22,3 +22,45 @@ To set up Afrimeals locally, follow these steps:
 ```bash
 git clone https://github.com/yourusername/afrimeals.git
 cd afrimeals
+```
+2. **Create a virtual environment and activate it**:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+3. **Install the required packages**:
+   ```bash
+pip install -r requirements.txt
+```
+4. **Set up environment variables**:
+ - Create a `.env` file in the project root and add your configuration:
+```plaintext
+SECRET_KEY=your-django-secret-key
+DEBUG=True
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
+5. **Run migrations and start the server**:
+ ```  bash
+python manage.py migrate
+python manage.py runserver
+```
+## Deployment
+
+Afrimeals is designed for deployment on platforms like Render. For detailed deployment instructions, refer to the Render documentation.
+
+## License
+
+Afrimeals is a private project. However, AfriGloss, its cultural glossary component, is open-source and available under the MIT License. See the [Afrigloss repository](https://github.com/yourusername/afrigloss) for more details.
+
+## Contributing
+
+Contributions to Afrimeals are not currently accepted as it is a private project. However, contributions to AfriGloss are welcome and encouraged.
+
+## Contact
+
+For inquiries, please contact [your-email@example.com](mailto:your-email@example.com).
+
+## AI Titans Network
+
+Afrimeals is part of the AI Titans Network, a community initiative focused on AI education and empowerment. The network leverages Afrimeals and AfriGloss for educational activities, providing real-world examples in AI, ML, and NLP.
