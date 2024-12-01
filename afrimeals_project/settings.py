@@ -151,4 +151,4 @@ if not DEBUG:
   SECURE_SSL_REDIRECT = True
   SESSION_COOKIE_SECURE = True
   CSRF_COOKIE_SECURE = True
-  CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com']
+  CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com', '*']
