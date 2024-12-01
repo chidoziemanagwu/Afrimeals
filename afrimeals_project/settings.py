@@ -44,24 +44,30 @@ MIDDLEWARE = [
   'django.contrib.auth.middleware.AuthenticationMiddleware',
   'django.contrib.messages.middleware.MessageMiddleware',
   'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+  'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'afrimeals_project.urls'
 
+
+
 TEMPLATES = [
-  {
-      'BACKEND': 'django.template.backends.django.DjangoTemplates',
-      'DIRS': [],
-      'APP_DIRS': True,
-      'OPTIONS': {
-          'context_processors': [
-              'django.template.context_processors.debug',
-              'django.template.context_processors.request',
-              'django.contrib.auth.context_processors.auth',
-              'django.contrib.messages.context_processors.messages',
-          ],
-      },
-  },
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [os.path.join(BASE_DIR, 'templates'), os.path.join(BASE_DIR, 'dashboard', 'templates')],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'debug': False,
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.template.context_processors.media',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
 ]
 
 WSGI_APPLICATION = 'afrimeals_project.wsgi.application'
@@ -93,10 +99,18 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static files settings
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+# STATIC_URL = '/static/'
+# STATICFILES_DIRS = [
+#     os.path.join(BASE_DIR, 'static'),
+# ]
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [
+  os.path.join(BASE_DIR, 'static'),
+]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -110,17 +124,22 @@ SITE_ID = 1
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
-# Google OAuth settings
 SOCIALACCOUNT_PROVIDERS = {
   'google': {
       'APP': {
           'client_id': os.getenv('GOOGLE_CLIENT_ID'),
           'secret': os.getenv('GOOGLE_CLIENT_SECRET'),
           'key': ''
-      }
+      },
+      'SCOPE': [
+          'profile',
+          'email',
+      ],
+      'AUTH_PARAMS': {
+          'access_type': 'online',
+      },
   }
 }
-
 # Allauth settings
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False

@@ -1,0 +1,43 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block head_title %}{% endblock head_title %}</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/flowbite@1.6.5/dist/flowbite.min.css" rel="stylesheet">
+{% block extra_head %}{% endblock extra_head %}
+</head>
+<body class="bg-gray-100">
+<main class="flex items-center justify-center min-h-screen">
+    <div class="container mx-auto p-4">
+        {% block body %}
+            {% if messages %}
+                <div class="mb-4">
+                    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+                        <p class="font-bold">{% trans "Messages:" %}</p>
+                        <ul>
+                            {% for message in messages %}
+                                <li>{{ message }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
+            <div class="bg-white rounded-lg p-6 text-center">
+                {% block content %}
+                    <h1 class="text-2xl font-bold mb-4">Sign In Via Google</h1>
+                    <p class="mb-6">You are about to sign in using a third-party account from Google.</p>
+                    <a href="{% url 'socialaccount_login' 'google' %}" class="inline-block bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                        Continue
+                    </a>
+                {% endblock content %}
+            </div>
+        {% endblock body %}
+    </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/flowbite@1.6.5/dist/flowbite.min.js"></script>
+{% block extra_body %}{% endblock extra_body %}
+</body>
+</html>

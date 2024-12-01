@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+<nav class="bg-white shadow-lg">
+    <div class="max-w-6xl mx-auto px-4">
+        <div class="flex justify-between items-center py-4">
+            <div class="flex items-center">
+                <span class="text-xl font-bold text-gray-800">Afrimeals</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-gray-600">{{ user.email }}</span>
+                <a href="{% url 'account_logout' %}" 
+                   class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
+                    Logout
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Meal Planning Preferences</h2>
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-gray-700">Dietary Preferences:</label>
+                <input type="text" name="dietary_preferences" class="w-full p-2 border rounded" placeholder="e.g., Vegetarian, Vegan">
+            </div>
+            <div>
+                <label class="block text-gray-700">Preferred Cuisine:</label>
+                <input type="text" name="preferred_cuisine" class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label class="block text-gray-700">Health Goals:</label>
+                <input type="text" name="health_goals" class="w-full p-2 border rounded" placeholder="e.g., Weight Loss, Muscle Gain">
+            </div>
+            <div>
+                <label class="block text-gray-700">Allergies:</label>
+                <input type="text" name="allergies" class="w-full p-2 border rounded" placeholder="List any food allergies">
+            </div>
+            <div>
+                <label class="block text-gray-700">Number of meals per day:</label>
+                <input type="number" name="meals_per_day" class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label class="block text-gray-700">Number of snacks per day:</label>
+                <input type="number" name="snacks_per_day" class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label class="block text-gray-700">Weekly/Monthly budget:</label>
+                <input type="text" name="budget" class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label class="block text-gray-700">Cooking Skill Level:</label>
+                <input type="text" name="skill_level" class="w-full p-2 border rounded" placeholder="e.g., Beginner, Intermediate, Advanced">
+            </div>
+            <div>
+                <label class="block text-gray-700">Time available for meal prep:</label>
+                <input type="text" name="prep_time" class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label class="block text-gray-700">Number of people:</label>
+                <input type="number" name="family_size" class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label class="block text-gray-700">Preferred Ingredients:</label>
+                <input type="text" name="preferred_ingredients" class="w-full p-2 border rounded" placeholder="List of favorite ingredients">
+            </div>
+            <div>
+                <label class="block text-gray-700">Disliked Ingredients:</label>
+                <input type="text" name="disliked_ingredients" class="w-full p-2 border rounded" placeholder="List of ingredients to avoid">
+            </div>
+            <div>
+                <label class="block text-gray-700">Meal Type Preferences:</label>
+                <input type="text" name="meal_types" class="w-full p-2 border rounded" placeholder="e.g., Breakfast, Lunch, Dinner, Snacks">
+            </div>
+            <button type="submit" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Submit</button>
+        </form>
+    </div>
+</div>
+
+{% if meal_plan %}
+<h3 class="text-xl font-bold mt-6">Generated Meal Plan</h3>
+<p>{{ meal_plan }}</p>
+{% endif %}
+
+{% if grocery_list %}
+<h3 class="text-xl font-bold mt-6">Grocery List</h3>
+<p>{{ grocery_list }}</p>
+{% endif %}
+
+{% if error %}
+<p class="text-red-500">{{ error }}</p>
+{% endif %}
+</div>
+{% endblock %}
