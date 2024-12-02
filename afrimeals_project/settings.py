@@ -151,7 +151,8 @@ if not DEBUG:
   SECURE_SSL_REDIRECT = True
   SESSION_COOKIE_SECURE = True
   CSRF_COOKIE_SECURE = True
-  CSRF_TRUSTED_ORIGINS = [
-    'https://afrimeals-production.up.railway.app',
-    'https://afrimeals.onrender.com',  # Add any other deployment URLs here
-    ]
+CSRF_TRUSTED_ORIGINS = [
+'https://afrimeals-production.up.railway.app',
+'https://afrimeals.onrender.com',  # Add any other deployment URLs here
+'*'
+]
