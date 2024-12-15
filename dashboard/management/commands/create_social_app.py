@@ -3,6 +3,7 @@
 from django.core.management.base import BaseCommand  
 from allauth.socialaccount.models import SocialApp  
 from django.contrib.sites.models import Site  
+import os  
 
 class Command(BaseCommand):  
     help = 'Create Google social application if it does not exist'  
@@ -14,8 +15,8 @@ class Command(BaseCommand):
             app = SocialApp.objects.create(  
                 provider='google',  
                 name='Google',  
-                client_id='1001374382394-fiem273li7benj9b4e8igclu5q5eu5t5.apps.googleusercontent.com',  # Replace with your actual client ID  
-                secret='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',  # Replace with your actual client secret  
+                client_id=os.getenv('GOOGLE_CLIENT_ID'),  # Use environment variable  
+                secret=os.getenv('GOOGLE_CLIENT_SECRET'),  # Use environment variable  
             )  
             app.sites.add(site)  
             self.stdout.write(self.style.SUCCESS('Successfully created Google social application.'))  
