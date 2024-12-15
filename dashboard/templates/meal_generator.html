@@ -1,98 +1,406 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.2.2/css/buttons.dataTables.min.css">
+{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gray-100">
-<nav class="bg-white shadow-lg">
-    <div class="max-w-6xl mx-auto px-4">
-        <div class="flex justify-between items-center py-4">
-            <div class="flex items-center">
-                <span class="text-xl font-bold text-gray-800">Afrimeals</span>
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold text-gray-800">Afrimeals</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-600">{{ user.email }}</span>
+                    <a href="{% url 'account_logout' %}" 
+                       class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
+                        Logout
+                    </a>
+                </div>
             </div>
-            <div class="flex items-center space-x-4">
-                <span class="text-gray-600">{{ user.email }}</span>
-                <a href="{% url 'account_logout' %}" 
-                   class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
-                    Logout
-                </a>
+        </div>
+    </nav>
+
+    <!-- Progress Bar -->
+    <div class="max-w-3xl mx-auto pt-8">
+        <div class="p-4">
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-500" id="progress-bar" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between mt-2">
+                <span class="text-sm font-medium text-blue-600" id="step1-indicator">Personal Preferences</span>
+                <span class="text-sm font-medium text-gray-500" id="step2-indicator">Meal Details</span>
+                <span class="text-sm font-medium text-gray-500" id="step3-indicator">Generation</span>
             </div>
         </div>
     </div>
-</nav>
 
-<div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-6">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Meal Planning Preferences</h2>
-        <form method="post" class="space-y-4">
-            {% csrf_token %}
-            <div>
-                <label class="block text-gray-700">Dietary Preferences:</label>
-                <input type="text" name="dietary_preferences" class="w-full p-2 border rounded" placeholder="e.g., Vegetarian, Vegan">
+    <!-- Form Container -->
+    <div class="max-w-3xl mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <form id="mealPlanForm" class="space-y-4" method="POST" action="{% url 'meal_generator' %}">
+                {% csrf_token %}
+                
+                <!-- Step 1 -->
+                <div id="step1" class="step">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Personal Preferences</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-gray-700 mb-2">
+                                <i class="fas fa-utensils mr-2"></i>Dietary Preferences
+                            </label>
+                            <input type="text" name="dietary_preferences" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="e.g., Vegetarian, Vegan">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">
+                                <i class="fas fa-globe-americas mr-2"></i>Preferred Cuisine
+                            </label>
+                            <input type="text" name="preferred_cuisine" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">
+                                <i class="fas fa-heart mr-2"></i>Health Goals
+                            </label>
+                            <input type="text" name="health_goals" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="e.g., Weight Loss, Muscle Gain">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>Allergies
+                            </label>
+                            <input type="text" name="allergies" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="List any food allergies">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div id="step2" class="step hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Meal Details</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-gray-700 mb-2">
+                                <i class="fas fa-clock mr-2"></i>Number of meals per day
+                            </label>
+                            <input type="number" name="meals_per_day" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">
+                                <i class="fas fa-wallet mr-2"></i>Weekly/Monthly budget
+                            </label>
+                            <input type="text" name="budget" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">
+                                <i class="fas fa-chart-line mr-2"></i>Cooking Skill Level
+                            </label>
+                            <input type="text" name="skill_level" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="e.g., Beginner, Intermediate, Advanced">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">
+                                <i class="fas fa-users mr-2"></i>Number of people
+                            </label>
+                            <input type="number" name="family_size" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div id="step3" class="step hidden">
+                    <!-- Loading Animation -->
+                    <div id="generating" class="text-center py-12">
+                        <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                        <h3 class="text-xl font-semibold text-gray-700">Generating Your Personalized Meal Plan...</h3>
+                        <p class="text-gray-500">This may take a few moments</p>
+                    </div>
+
+                    <!-- Success Message (Initially Hidden) -->
+                    <div id="success" class="hidden text-center py-12">
+                        <div class="mb-4">
+                            <i class="fas fa-check-circle text-6xl text-green-500 animate-bounce"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">Success!</h3>
+                        <p class="text-gray-600 mb-8">Your personalized meal plan has been generated.</p>
+                    </div>
+                </div>
+
+                <!-- Navigation Buttons -->
+                <div class="flex justify-between mt-8">
+                    <button type="button" id="prevBtn" class="hidden bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i>Previous
+                    </button>
+                    <button type="button" id="nextBtn" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                        Next<i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Section (Initially Hidden) -->
+    <div id="results" class="max-w-6xl mx-auto px-4 py-8 hidden">
+        <!-- Meal Plan Table -->
+<!-- Replace the existing table structure -->
+<div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+    <h3 class="text-2xl font-bold text-gray-800 mb-4">Your 7-Day Meal Plan</h3>
+    <table id="mealPlanTable" class="w-full">
+        <thead>
+            <tr>
+                <th>Day</th>
+                <th>Breakfast</th>
+                <th>Lunch</th>
+                <th>Snack</th>
+                <th>Dinner</th>
+            </tr>
+        </thead>
+        <tbody id="mealPlanBody">
+            <!-- Dynamically populated -->
+        </tbody>
+    </table>
+</div>
+
+        <!-- Ingredients List -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">Shopping List</h3>
+            <div id="ingredientsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Dynamically populated -->
             </div>
-            <div>
-                <label class="block text-gray-700">Preferred Cuisine:</label>
-                <input type="text" name="preferred_cuisine" class="w-full p-2 border rounded">
-            </div>
-            <div>
-                <label class="block text-gray-700">Health Goals:</label>
-                <input type="text" name="health_goals" class="w-full p-2 border rounded" placeholder="e.g., Weight Loss, Muscle Gain">
-            </div>
-            <div>
-                <label class="block text-gray-700">Allergies:</label>
-                <input type="text" name="allergies" class="w-full p-2 border rounded" placeholder="List any food allergies">
-            </div>
-            <div>
-                <label class="block text-gray-700">Number of meals per day:</label>
-                <input type="number" name="meals_per_day" class="w-full p-2 border rounded">
-            </div>
-            <div>
-                <label class="block text-gray-700">Number of snacks per day:</label>
-                <input type="number" name="snacks_per_day" class="w-full p-2 border rounded">
-            </div>
-            <div>
-                <label class="block text-gray-700">Weekly/Monthly budget:</label>
-                <input type="text" name="budget" class="w-full p-2 border rounded">
-            </div>
-            <div>
-                <label class="block text-gray-700">Cooking Skill Level:</label>
-                <input type="text" name="skill_level" class="w-full p-2 border rounded" placeholder="e.g., Beginner, Intermediate, Advanced">
-            </div>
-            <div>
-                <label class="block text-gray-700">Time available for meal prep:</label>
-                <input type="text" name="prep_time" class="w-full p-2 border rounded">
-            </div>
-            <div>
-                <label class="block text-gray-700">Number of people:</label>
-                <input type="number" name="family_size" class="w-full p-2 border rounded">
-            </div>
-            <div>
-                <label class="block text-gray-700">Preferred Ingredients:</label>
-                <input type="text" name="preferred_ingredients" class="w-full p-2 border rounded" placeholder="List of favorite ingredients">
-            </div>
-            <div>
-                <label class="block text-gray-700">Disliked Ingredients:</label>
-                <input type="text" name="disliked_ingredients" class="w-full p-2 border rounded" placeholder="List of ingredients to avoid">
-            </div>
-            <div>
-                <label class="block text-gray-700">Meal Type Preferences:</label>
-                <input type="text" name="meal_types" class="w-full p-2 border rounded" placeholder="e.g., Breakfast, Lunch, Dinner, Snacks">
-            </div>
-            <button type="submit" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Submit</button>
-        </form>
+        </div>
+
+        <!-- Download Buttons -->
+        <div class="flex space-x-4">
+            <button id="downloadMealPlan" class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600">
+                <i class="fas fa-download mr-2"></i>Download Meal Plan
+            </button>
+            <button id="downloadIngredients" class="bg-purple-500 text-white px-6 py-2 rounded-lg hover:bg-purple-600">
+                <i class="fas fa-download mr-2"></i>Download Shopping List
+            </button>
+            <button id="downloadRecipes" class="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600">
+                <i class="fas fa-download mr-2"></i>Download Recipes
+            </button>
+        </div>
     </div>
 </div>
+{% endblock %}
 
-{% if meal_plan %}
-<h3 class="text-xl font-bold mt-6">Generated Meal Plan</h3>
-<p>{{ meal_plan }}</p>
-{% endif %}
+{% block extra_scripts %}
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- DataTables -->
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.2/js/dataTables.buttons.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.html5.min.js"></script>
 
-{% if grocery_list %}
-<h3 class="text-xl font-bold mt-6">Grocery List</h3>
-<p>{{ grocery_list }}</p>
-{% endif %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentStep = 1;
+    const totalSteps = 3;
+    
+    const nextBtn = document.getElementById('nextBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const progressBar = document.getElementById('progress-bar');
 
-{% if error %}
-<p class="text-red-500">{{ error }}</p>
-{% endif %}
-</div>
+    // Validate current step
+    function validateStep(step) {
+        const inputs = document.querySelectorAll(`#step${step} input`);
+        let isValid = true;
+        
+        inputs.forEach(input => {
+            if (!input.value.trim()) {
+                isValid = false;
+                input.classList.add('border-red-500');
+            } else {
+                input.classList.remove('border-red-500');
+            }
+        });
+        
+        return isValid;
+    }
+
+    // Update progress bar
+    function updateProgress() {
+        const progress = ((currentStep - 1) / (totalSteps - 1)) * 100;
+        progressBar.style.width = `${progress}%`;
+        
+        // Update step indicators
+        for (let i = 1; i <= totalSteps; i++) {
+            const indicator = document.getElementById(`step${i}-indicator`);
+            if (i <= currentStep) {
+                indicator.classList.remove('text-gray-500');
+                indicator.classList.add('text-blue-600');
+            } else {
+                indicator.classList.remove('text-blue-600');
+                indicator.classList.add('text-gray-500');
+            }
+        }
+    }
+
+    // Handle next button click
+    nextBtn.addEventListener('click', function(e) {
+        console.log('ok');
+        e.preventDefault();
+ 
+        
+        if (validateStep(currentStep)) {
+            if (currentStep < totalSteps) {
+                document.getElementById(`step${currentStep}`).classList.add('hidden');
+                currentStep++;
+                document.getElementById(`step${currentStep}`).classList.remove('hidden');
+                
+                if (currentStep === totalSteps) {
+                    nextBtn.classList.add('hidden');
+                    simulateGeneration();
+                }
+                
+                if (currentStep > 1) {
+                    prevBtn.classList.remove('hidden');
+                }
+                
+                updateProgress();
+            }
+        } else {
+            // Show error message
+            alert('Please fill in all fields before proceeding.');
+        }
+    });
+
+    // Handle previous button click
+    prevBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        if (currentStep > 1) {
+            document.getElementById(`step${currentStep}`).classList.add('hidden');
+            currentStep--;
+            document.getElementById(`step${currentStep}`).classList.remove('hidden');
+            
+            if (currentStep === 1) {
+                prevBtn.classList.add('hidden');
+            }
+            
+            nextBtn.classList.remove('hidden');
+            updateProgress();
+        }
+    });
+
+// In your script section, modify the simulateGeneration function:
+
+function simulateGeneration() {
+    $('#generating').removeClass('hidden');
+    
+    const formData = new FormData(document.getElementById('mealPlanForm'));
+    
+    $.ajax({
+        url: '{% url "meal_generator" %}',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            $('#generating').addClass('hidden');
+            $('#success').removeClass('hidden');
+            
+            setTimeout(function() {
+                $('#results').removeClass('hidden');
+                
+                // Populate meal plan table with structured data
+                let mealPlanHtml = '';
+                response.meal_plan.forEach(day => {
+                    mealPlanHtml += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="border px-4 py-2 font-medium">${day.day}</td>
+                            <td class="border px-4 py-2">${day.meals.breakfast}</td>
+                            <td class="border px-4 py-2">${day.meals.lunch}</td>
+                            <td class="border px-4 py-2">${day.meals.snack}</td>
+                            <td class="border px-4 py-2">${day.meals.dinner}</td>
+                        </tr>
+                    `;
+                });
+                $('#mealPlanBody').html(mealPlanHtml);
+                
+                // Populate ingredients list with structured data
+                let ingredientsHtml = '';
+                response.grocery_list.forEach(ingredient => {
+                    ingredientsHtml += `
+                        <div class="p-3 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+                            <div class="flex items-center">
+                                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                <span class="text-gray-700">${ingredient}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                $('#ingredientsList').html(ingredientsHtml);
+                
+                // Initialize DataTable with custom configuration
+                if ($.fn.DataTable.isDataTable('#mealPlanTable')) {
+                    $('#mealPlanTable').DataTable().destroy();
+                }
+                
+                $('#mealPlanTable').DataTable({
+                    dom: 'Bfrtip',
+                    buttons: [
+                        {
+                            extend: 'csv',
+                            text: 'Download CSV',
+                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg mr-2'
+                        },
+                        {
+                            extend: 'excel',
+                            text: 'Download Excel',
+                            className: 'bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg mr-2'
+                        },
+                        {
+                            extend: 'pdf',
+                            text: 'Download PDF',
+                            className: 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg'
+                        }
+                    ],
+                    responsive: true,
+                    pageLength: 7,
+                    ordering: true,
+                    searching: true,
+                    info: true,
+                    paging: false
+                });
+            }, 1500);
+        },
+        error: function(xhr, status, error) {
+            $('#generating').addClass('hidden');
+            alert('Error generating meal plan. Please try again.');
+        }
+    });
+}
+
+
+
+// Initialize DataTables
+    function initializeTables() {
+        $('#mealPlanTable').DataTable({
+            dom: 'Bfrtip',
+            buttons: ['csv', 'excel', 'pdf'],
+            responsive: true
+        });
+    }
+
+    // Download handlers
+    document.getElementById('downloadMealPlan').addEventListener('click', function() {
+        // Implement download logic
+    });
+
+    document.getElementById('downloadIngredients').addEventListener('click', function() {
+        // Implement download logic
+    });
+
+    document.getElementById('downloadRecipes').addEventListener('click', function() {
+        // Implement download logic
+    });
+});
+</script>
 {% endblock %}

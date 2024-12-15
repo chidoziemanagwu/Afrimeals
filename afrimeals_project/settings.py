@@ -124,22 +124,41 @@ SITE_ID = 1
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
+# SOCIALACCOUNT_PROVIDERS = {
+#   'google': {
+#       'APP': {
+#           'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+#           'secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+#           'key': ''
+#       },
+#       'SCOPE': [
+#           'profile',
+#           'email',
+#       ],
+#       'AUTH_PARAMS': {
+#           'access_type': 'online',
+#       },
+#   }
+# }
+
+
 SOCIALACCOUNT_PROVIDERS = {
-  'google': {
-      'APP': {
-          'client_id': os.getenv('GOOGLE_CLIENT_ID'),
-          'secret': os.getenv('GOOGLE_CLIENT_SECRET'),
-          'key': ''
-      },
-      'SCOPE': [
-          'profile',
-          'email',
-      ],
-      'AUTH_PARAMS': {
-          'access_type': 'online',
-      },
-  }
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'OAUTH_PKCE_ENABLED': True,
+    }
 }
+
+# Optional: Skip the sign-in confirmation page
+SOCIALACCOUNT_AUTO_SIGNUP = True  # Set to False if you want users to fill additional info before signing up
+SOCIALACCOUNT_LOGIN_ON_GET = True
+
 # Allauth settings
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
