@@ -1,187 +1,147 @@
-import os
-from pathlib import Path
-from dotenv import load_dotenv
+import os  
+from pathlib import Path  
+from dotenv import load_dotenv  
 
-load_dotenv()
+load_dotenv()  
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Build paths inside the project like this: BASE_DIR / 'subdir'.  
+BASE_DIR = Path(__file__).resolve().parent.parent  
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+# SECURITY WARNING: keep the secret key used in production secret!  
+SECRET_KEY = os.getenv('SECRET_KEY')  
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+# SECURITY WARNING: don't run with debug turned on in production!  
+DEBUG = os.getenv('DEBUG', 'False') == 'True'  
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com','*']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com']  
 
-# Application definition
-INSTALLED_APPS = [
-  'django.contrib.admin',
-  'django.contrib.auth',
-  'django.contrib.contenttypes',
-  'django.contrib.sessions',
-  'django.contrib.messages',
-  'django.contrib.staticfiles',
-  'django.contrib.sites',
+# Application definition  
+INSTALLED_APPS = [  
+    'django.contrib.admin',  
+    'django.contrib.auth',  
+    'django.contrib.contenttypes',  
+    'django.contrib.sessions',  
+    'django.contrib.messages',  
+    'django.contrib.staticfiles',  
+    'django.contrib.sites',  
+    'allauth',  
+    'allauth.account',  
+    'allauth.socialaccount',  
+    'allauth.socialaccount.providers.google',  
+    'dashboard',  
+]  
 
-  # Third party apps
-  'allauth',
-  'allauth.account',
-  'allauth.socialaccount',
-  'allauth.socialaccount.providers.google',
+MIDDLEWARE = [  
+    'django.middleware.security.SecurityMiddleware',  
+    'whitenoise.middleware.WhiteNoiseMiddleware',  
+    'django.contrib.sessions.middleware.SessionMiddleware',  
+    'django.middleware.common.CommonMiddleware',  
+    'django.middleware.csrf.CsrfViewMiddleware',  
+    'django.contrib.auth.middleware.AuthenticationMiddleware',  
+    'django.contrib.messages.middleware.MessageMiddleware',  
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',  
+    'allauth.account.middleware.AccountMiddleware',  
+]  
 
-  # Local apps
-  'dashboard',
-]
+ROOT_URLCONF = 'afrimeals_project.urls'  
 
-MIDDLEWARE = [
-  'django.middleware.security.SecurityMiddleware',
-  'whitenoise.middleware.WhiteNoiseMiddleware',
-  'django.contrib.sessions.middleware.SessionMiddleware',
-  'django.middleware.common.CommonMiddleware',
-  'django.middleware.csrf.CsrfViewMiddleware',
-  'django.contrib.auth.middleware.AuthenticationMiddleware',
-  'django.contrib.messages.middleware.MessageMiddleware',
-  'django.middleware.clickjacking.XFrameOptionsMiddleware',
+TEMPLATES = [  
+    {  
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',  
+        'DIRS': [os.path.join(BASE_DIR, 'templates'), os.path.join(BASE_DIR, 'dashboard', 'templates')],  
+        'APP_DIRS': True,  
+        'OPTIONS': {  
+            'context_processors': [  
+                'django.template.context_processors.debug',  
+                'django.template.context_processors.request',  
+                'django.template.context_processors.media',  
+                'django.contrib.auth.context_processors.auth',  
+                'django.contrib.messages.context_processors.messages',  
+            ],  
+        },  
+    },  
+]  
 
-  'allauth.account.middleware.AccountMiddleware',
-]
+WSGI_APPLICATION = 'afrimeals_project.wsgi.application'  
 
-ROOT_URLCONF = 'afrimeals_project.urls'
-
-
-
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates'), os.path.join(BASE_DIR, 'dashboard', 'templates')],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'debug': False,
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.template.context_processors.media',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
-]
-
-WSGI_APPLICATION = 'afrimeals_project.wsgi.application'
-
+# Database configuration  
 DATABASES = {  
     'default': {  
-        'ENGINE': 'django.db.backends.sqlite3',  
-        'NAME': BASE_DIR / 'db.sqlite3',  # Default to SQLite  
-    }  
-}  
-
-# Check if we are in production  
-if os.getenv('ENV') == 'production':  
-    DATABASES['default'] = {  
         'ENGINE': 'django.db.backends.postgresql',  
         'NAME': 'afrimeals',  
         'USER': 'afrimeals',  
         'PASSWORD': 'Knr9aAXbFymKINpKLxhZB8fG1NtTfe60',  
-        'HOST': 'dpg-ctfdbtpu0jms7391ktug-a',  # Internal hostname  
+        'HOST': 'dpg-ctfdbtpu0jms7391ktug-a.oregon-postgres.render.com',  # External hostname  
         'PORT': '5432',  
     }  
+}  
 
-AUTH_PASSWORD_VALIDATORS = [
-  {
-      'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-  },
-  {
-      'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-  },
-  {
-      'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-  },
-  {
-      'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-  },
-]
+AUTH_PASSWORD_VALIDATORS = [  
+    {  
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',  
+    },  
+    {  
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',  
+    },  
+    {  
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',  
+    },  
+    {  
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',  
+    },  
+]  
 
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_TZ = True
-
-
-# STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-# STATIC_URL = '/static/'
-# STATICFILES_DIRS = [
-#     os.path.join(BASE_DIR, 'static'),
-# ]
+LANGUAGE_CODE = 'en-us'  
+TIME_ZONE = 'UTC'  
+USE_I18N = True  
+USE_TZ = True  
 
 STATIC_URL = '/static/'  
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Change to 'staticfiles' to match your structure  
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),  # Ensure this directory exists  
-] 
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Ensure this matches your structure  
+STATICFILES_DIRS = [  
+    os.path.join(BASE_DIR, 'static'),  
+]  
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'  
 
-# Authentication settings
-AUTHENTICATION_BACKENDS = [
-  'django.contrib.auth.backends.ModelBackend',
-  'allauth.account.auth_backends.AuthenticationBackend',
-]
+# Authentication settings  
+AUTHENTICATION_BACKENDS = [  
+    'django.contrib.auth.backends.ModelBackend',  
+    'allauth.account.auth_backends.AuthenticationBackend',  
+]  
 
-SITE_ID = 1
-LOGIN_REDIRECT_URL = '/dashboard/'
-LOGOUT_REDIRECT_URL = '/'
+SITE_ID = 1  
+LOGIN_REDIRECT_URL = '/dashboard/'  
+LOGOUT_REDIRECT_URL = '/'  
 
-# SOCIALACCOUNT_PROVIDERS = {
-#   'google': {
-#       'APP': {
-#           'client_id': os.getenv('GOOGLE_CLIENT_ID'),
-#           'secret': os.getenv('GOOGLE_CLIENT_SECRET'),
-#           'key': ''
-#       },
-#       'SCOPE': [
-#           'profile',
-#           'email',
-#       ],
-#       'AUTH_PARAMS': {
-#           'access_type': 'online',
-#       },
-#   }
-# }
+SOCIALACCOUNT_PROVIDERS = {  
+    'google': {  
+        'SCOPE': [  
+            'profile',  
+            'email',  
+        ],  
+        'AUTH_PARAMS': {  
+            'access_type': 'online',  
+        },  
+        'OAUTH_PKCE_ENABLED': True,  
+    }  
+}  
 
+SOCIALACCOUNT_AUTO_SIGNUP = True  
+SOCIALACCOUNT_LOGIN_ON_GET = True  
 
-SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'SCOPE': [
-            'profile',
-            'email',
-        ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-        },
-        'OAUTH_PKCE_ENABLED': True,
-    }
-}
+# Allauth settings  
+ACCOUNT_EMAIL_REQUIRED = True  
+ACCOUNT_USERNAME_REQUIRED = False  
+ACCOUNT_AUTHENTICATION_METHOD = 'email'  
+ACCOUNT_EMAIL_VERIFICATION = 'none'  
 
-# Optional: Skip the sign-in confirmation page
-SOCIALACCOUNT_AUTO_SIGNUP = True  # Set to False if you want users to fill additional info before signing up
-SOCIALACCOUNT_LOGIN_ON_GET = True
-
-# Allauth settings
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'none'
-
-# Security settings for production
-if not DEBUG:
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    CSRF_TRUSTED_ORIGINS = [
-    'https://afrimeals-production.up.railway.app',
-    'https://afrimeals.onrender.com',  # Add any other deployment URLs here
-    ]
+# Security settings for production  
+if not DEBUG:  
+    SECURE_SSL_REDIRECT = True  
+    SESSION_COOKIE_SECURE = True  
+    CSRF_COOKIE_SECURE = True  
+    CSRF_TRUSTED_ORIGINS = [  
+        'https://afrimeals-production.up.railway.app',  
+        'https://afrimeals.onrender.com',  
+    ]  
