@@ -83,11 +83,11 @@ DATABASES = {
 if os.getenv('ENV') == 'production':  
     DATABASES['default'] = {  
         'ENGINE': 'django.db.backends.postgresql',  
-        'NAME': os.getenv('DB_NAME', 'afrimeals'),  
-        'USER': os.getenv('DB_USER', 'afrimeals'),  
-        'PASSWORD': os.getenv('DB_PASSWORD', 'Knr9aAXbFymKINpKLxhZB8fG1NtTfe60'),  
-        'HOST': os.getenv('DB_HOST', 'dpg-ctfdbtpu0jms7391ktug-a'),  
-        'PORT': os.getenv('DB_PORT', '5432'),  
+        'NAME': 'afrimeals',  
+        'USER': 'afrimeals',  
+        'PASSWORD': 'Knr9aAXbFymKINpKLxhZB8fG1NtTfe60',  
+        'HOST': 'dpg-ctfdbtpu0jms7391ktug-a',  # Internal hostname  
+        'PORT': '5432',  
     }  
 
 AUTH_PASSWORD_VALIDATORS = [
