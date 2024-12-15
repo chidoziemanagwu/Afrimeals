@@ -72,12 +72,23 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'afrimeals_project.wsgi.application'
 
-DATABASES = {
-  'default': {
-      'ENGINE': 'django.db.backends.sqlite3',
-      'NAME': BASE_DIR / 'db.sqlite3',
-  }
-}
+DATABASES = {  
+    'default': {  
+        'ENGINE': 'django.db.backends.sqlite3',  
+        'NAME': BASE_DIR / 'db.sqlite3',  # Default to SQLite  
+    }  
+}  
+
+# Check if we are in production  
+if os.getenv('ENV') == 'production':  
+    DATABASES['default'] = {  
+        'ENGINE': 'django.db.backends.postgresql',  
+        'NAME': os.getenv('DB_NAME', 'afrimeals'),  
+        'USER': os.getenv('DB_USER', 'afrimeals'),  
+        'PASSWORD': os.getenv('DB_PASSWORD', 'Knr9aAXbFymKINpKLxhZB8fG1NtTfe60'),  
+        'HOST': os.getenv('DB_HOST', 'dpg-ctfdbtpu0jms7391ktug-a'),  
+        'PORT': os.getenv('DB_PORT', '5432'),  
+    }  
 
 AUTH_PASSWORD_VALIDATORS = [
   {
