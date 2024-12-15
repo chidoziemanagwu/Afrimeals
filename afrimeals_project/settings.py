@@ -117,11 +117,11 @@ USE_TZ = True
 #     os.path.join(BASE_DIR, 'static'),
 # ]
 
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_URL = '/static/'  
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Change to 'staticfiles' to match your structure  
 STATICFILES_DIRS = [
-  os.path.join(BASE_DIR, 'static'),
-]
+    os.path.join(BASE_DIR, 'static'),  # Ensure this directory exists  
+] 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -184,5 +184,4 @@ if not DEBUG:
     CSRF_TRUSTED_ORIGINS = [
     'https://afrimeals-production.up.railway.app',
     'https://afrimeals.onrender.com',  # Add any other deployment URLs here
-    '*'
     ]
