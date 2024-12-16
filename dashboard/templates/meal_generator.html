@@ -113,15 +113,21 @@
                 <div id="step3" class="step hidden">
                     <!-- Loading Animation -->
                     <div id="generating" class="text-center py-12">
-                        <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                        <h3 class="text-xl font-semibold text-gray-700">Generating Your Personalized Meal Plan...</h3>
+                        <video autoplay loop muted class="mx-auto w-64 h-64">  
+                            <source src="{% static 'generating.webm' %}" type="video/webm">  
+                            Your browser does not support the video tag.  
+                        </video>  
+                            <h3 class="text-xl font-semibold text-gray-700">Generating Your Personalized Meal Plan...</h3>
                         <p class="text-gray-500">This may take a few moments</p>
                     </div>
 
                     <!-- Success Message (Initially Hidden) -->
                     <div id="success" class="hidden text-center py-12">
                         <div class="mb-4">
-                            <i class="fas fa-check-circle text-6xl text-green-500 animate-bounce"></i>
+                            <video autoplay loop muted class="mx-auto w-40 h-40">  
+                                <source src="{% static 'success.webm' %}" type="video/webm">  
+                                Your browser does not support the video tag.  
+                            </video>  
                         </div>
                         <h3 class="text-2xl font-bold text-gray-800 mb-2">Success!</h3>
                         <p class="text-gray-600 mb-8">Your personalized meal plan has been generated.</p>
@@ -146,7 +152,7 @@
         <!-- Meal Plan Table -->
 <!-- Replace the existing table structure -->
 <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-    <h3 class="text-2xl font-bold text-gray-800 mb-4">Your 7-Day Meal Plan</h3>
+    <h3 class="text-2xl font-bold text-gray-800 mb-4">Your Meal Plan</h3>
     <table id="mealPlanTable" class="w-full">
         <thead>
             <tr>
@@ -343,32 +349,43 @@ function simulateGeneration() {
                     $('#mealPlanTable').DataTable().destroy();
                 }
                 
-                $('#mealPlanTable').DataTable({
-                    dom: 'Bfrtip',
-                    buttons: [
-                        {
-                            extend: 'csv',
-                            text: 'Download CSV',
-                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg mr-2'
-                        },
-                        {
-                            extend: 'excel',
-                            text: 'Download Excel',
-                            className: 'bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg mr-2'
-                        },
-                        {
-                            extend: 'pdf',
-                            text: 'Download PDF',
-                            className: 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg'
-                        }
-                    ],
-                    responsive: true,
-                    pageLength: 7,
-                    ordering: true,
-                    searching: true,
-                    info: true,
-                    paging: false
-                });
+                $('#mealPlanTable').DataTable({  
+    dom: '<"flex justify-between items-center mb-4"<"flex space-x-2"B><"flex"f>>rtip',  
+    buttons: [  
+        {  
+            extend: 'csv',  
+            text: 'Download CSV',  
+            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg'  
+        },  
+        {  
+            extend: 'excel',  
+            text: 'Download Excel',  
+            className: 'bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg'  
+        },  
+        {  
+            extend: 'pdf',  
+            text: 'Download PDF',  
+            className: 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg'  
+        }  
+    ],  
+    responsive: true,  
+    pageLength: 7,  
+    ordering: true,  
+    searching: true,  
+    info: true,  
+    paging: false,  
+    language: {  
+        search: "_INPUT_",  
+        searchPlaceholder: "Search meals...",  
+    },  
+    initComplete: function() {  
+        // Add custom styling to search input  
+        $('.dataTables_filter input').addClass('p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 w-64');  
+        // Add container classes for proper alignment  
+        $('.dataTables_filter').addClass('ml-auto');  
+        $('.dt-buttons').addClass('flex space-x-2');  
+    }  
+});  
             }, 1500);
         },
         error: function(xhr, status, error) {
