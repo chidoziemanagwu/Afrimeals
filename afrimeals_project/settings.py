@@ -69,7 +69,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'tsaoyhhl',  # Database name
         'USER': 'tsaoyhhl',  # Username
-        'PASSWORD': 'w6ijuNzZWRBQ1TABD9jDmm3vuLOb_hlP',  # Password
+        'PASSWORD': 'w6ijuNzZWBRQ1TABD9jDmm3vuLOb_hlP',  # Password
         'HOST': 'otto.db.elephantsql.com',  # Hostname
         'PORT': '5432',  # Default PostgreSQL port
         'OPTIONS': {
