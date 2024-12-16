@@ -65,17 +65,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'afrimeals_project.wsgi.application'  
 
-url = os.getenv('DATABASE_URL', 'postgresql://postgres:YqGUqeHakslYmGEBbQfitNiJSlnllkUj@postgres.railway.internal:5432/railway')
-url = urlparse(url)
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': url.path[1:],  # Skip the leading '/'
-        'USER': url.username,
-        'PASSWORD': url.password,
-        'HOST': url.hostname,
-        'PORT': url.port or '5432',  # Default to 5432 if not specified
+        'NAME': 'afrimeals',
+        'USER': 'afrimeals_owner',
+        'PASSWORD': 'fYXZqaR3g2LM',
+        'HOST': 'ep-misty-pond-a5dm2536.us-east-2.aws.neon.tech',
+        'PORT': '5432',  # Default PostgreSQL port
+        'OPTIONS': {
+            'sslmode': 'require',  # Ensure SSL is used
+        },
     }
 }
 AUTH_PASSWORD_VALIDATORS = [  
@@ -101,7 +101,7 @@ USE_TZ = True
 STATIC_URL = '/static/'  
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Ensure this matches your structure  
 STATICFILES_DIRS = [  
-    os.path.join(BASE_DIR, 'static'),  
+    os.path.join(BASE_DIR, 'dashboard/static'),  
 ]  
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'  
