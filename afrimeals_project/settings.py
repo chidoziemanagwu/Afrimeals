@@ -1,6 +1,7 @@
 import os  
 from pathlib import Path  
 from dotenv import load_dotenv  
+from urllib.parse import urlparse
 
 load_dotenv()  
 
@@ -64,17 +65,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'afrimeals_project.wsgi.application'  
 
+url = os.getenv('DATABASE_URL', 'postgresql://postgres:YqGUqeHakslYmGEBbQfitNiJSlnllkUj@postgres.railway.internal:5432/railway')
+url = urlparse(url)
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'tsaoyhhl',  # Database name
-        'USER': 'tsaoyhhl',  # Username
-        'PASSWORD': 'w6ijuNzZWBRQ1TABD9jDmm3vuLOb_hlP',  # Password
-        'HOST': 'otto.db.elephantsql.com',  # Hostname
-        'PORT': '5432',  # Default PostgreSQL port
-        'OPTIONS': {
-            'sslmode': 'require',  # Ensure SSL is required
-        },
+        'NAME': url.path[1:],  # Skip the leading '/'
+        'USER': url.username,
+        'PASSWORD': url.password,
+        'HOST': url.hostname,
+        'PORT': url.port or '5432',  # Default to 5432 if not specified
     }
 }
 AUTH_PASSWORD_VALIDATORS = [  
