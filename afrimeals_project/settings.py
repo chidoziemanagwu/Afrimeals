@@ -64,19 +64,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'afrimeals_project.wsgi.application'  
 
-DATABASES = {  
-    'default': {  
-        'ENGINE': 'django.db.backends.postgresql',  
-        'NAME': 'afrimeals',  
-        'USER': 'afrimeals',  
-        'PASSWORD': 'Knr9aAXbFymKINpKLxhZB8fG1NtTfe60',  
-        'HOST': 'dpg-ctfdbtpu0jms7391ktug-a.oregon-postgres.render.com',  # External hostname  
-        'PORT': '5432',  
-        'OPTIONS': {  
-            'sslmode': 'require',  # Ensure SSL is required  
-        },  
-    }  
-}  
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'tsaoyhhl',  # Database name
+        'USER': 'tsaoyhhl',  # Username
+        'PASSWORD': 'w6ijuNzZWRBQ1TABD9jDmm3vuLOb_hlP',  # Password
+        'HOST': 'otto.db.elephantsql.com',  # Hostname
+        'PORT': '5432',  # Default PostgreSQL port
+        'OPTIONS': {
+            'sslmode': 'require',  # Ensure SSL is required
+        },
+    }
+}
 AUTH_PASSWORD_VALIDATORS = [  
     {  
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',  
