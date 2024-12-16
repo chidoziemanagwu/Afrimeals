@@ -11,7 +11,8 @@ pip install -r requirements.txt
 python manage.py collectstatic --no-input  
 
 # Apply database migrations  
+python manage.py makemigrations 
 python manage.py migrate  
 
 # Create Google social application if it doesn't exist  
-python manage.py create_social_app  
+python manage.py create_superuser  
