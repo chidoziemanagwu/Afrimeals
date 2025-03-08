@@ -1,33 +1,36 @@
-import os
-from django.views.generic import TemplateView, RedirectView
+from django.views.generic import TemplateView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render, get_object_or_404
 from django.views import View
-from django.shortcuts import render
-from django.http import HttpResponse
-from django.template.loader import render_to_string
-from openai import OpenAI
 from django.http import JsonResponse
+from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
+from .models import SubscriptionTier, UserSubscription
+import stripe
+import os
+from openai import OpenAI  # Ensure OpenAI is imported
 
-class HomeView(TemplateView):
-  template_name = 'home.html'
-
-  def get(self, request, *args, **kwargs):
-      if request.user.is_authenticated:
-          return redirect('dashboard')
-      return super().get(request, *args, **kwargs)
-
-class DashboardView(LoginRequiredMixin, TemplateView):
-  template_name = 'dashboard.html'
-
-class MealGeneratorView(LoginRequiredMixin, TemplateView):
-  template_name = 'meal_generator.html'
-
+# Initialize OpenAI client
 client = OpenAI(
-    api_key = os.getenv("OPENAI_API_KEY"),
+    api_key=os.getenv("OPENAI_API_KEY"),  # Ensure OPENAI_API_KEY is set in your environment
 )
 
-class MealGeneratorView(View):
+
+class HomeView(TemplateView):
+    template_name = 'home.html'
+
+    def get(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect('dashboard')
+        return super().get(request, *args, **kwargs)
+
+
+class DashboardView(LoginRequiredMixin, TemplateView):
+    template_name = 'dashboard.html'
+
+
+class MealGeneratorView(LoginRequiredMixin, View):
     def get(self, request):
         return render(request, 'meal_generator.html')
 
@@ -42,7 +45,7 @@ class MealGeneratorView(View):
         skill_level = request.POST.get('skill_level')
         family_size = request.POST.get('family_size')
 
-        # Call ChatGPT API
+        # Call OpenAI API
         prompt = (
             f"Generate a meal plan and grocery list for a {dietary_preferences} diet with {preferred_cuisine} cuisine. "
             f"Health goals: {health_goals}. Allergies: {allergies}. "
@@ -56,7 +59,7 @@ class MealGeneratorView(View):
 
         try:
             response = client.completions.create(
-                model="gpt-3.5-turbo-instruct",
+                model="gpt-3.5-turbo-instruct",  # Ensure this is the correct model
                 prompt=prompt,
                 max_tokens=1000,
                 temperature=0,
@@ -115,3 +118,55 @@ class MealGeneratorView(View):
                 'success': False,
                 'error': str(e)
             }, status=500)
+
+
+class PricingView(TemplateView):
+    template_name = 'pricing.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['subscription_tiers'] = SubscriptionTier.objects.all().order_by('price')
+        return context
+
+
+class CheckoutView(LoginRequiredMixin, View):
+    def get(self, request, tier_id):
+        tier = get_object_or_404(SubscriptionTier, id=tier_id)
+        return render(request, 'checkout.html', {'tier': tier})
+
+    def post(self, request, tier_id):
+        tier = get_object_or_404(SubscriptionTier, id=tier_id)
+
+        # Calculate end date based on tier type
+        if tier.tier_type == 'one_time':
+            end_date = timezone.now() + timedelta(days=1)  # 24 hour access
+        elif tier.tier_type == 'weekly':
+            end_date = timezone.now() + timedelta(days=7)
+        elif tier.tier_type == 'monthly':
+            end_date = timezone.now() + timedelta(days=30)
+
+        # Create subscription (in a real app, you'd integrate with Stripe or another payment processor here)
+        subscription = UserSubscription.objects.create(
+            user=request.user,
+            subscription_tier=tier,
+            end_date=end_date,
+            payment_id='demo_payment_' + str(timezone.now().timestamp())
+        )
+
+        return redirect('subscription_success')
+
+
+class SubscriptionSuccessView(LoginRequiredMixin, TemplateView):
+    template_name = 'subscription_success.html'
+
+
+class MySubscriptionView(LoginRequiredMixin, DetailView):
+    template_name = 'my_subscription.html'
+
+    def get_object(self):
+        subscription = UserSubscription.objects.filter(
+            user=self.request.user,
+            is_active=True,
+            end_date__gt=timezone.now()
+        ).first()
+        return subscription

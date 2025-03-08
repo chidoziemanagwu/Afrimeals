@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold text-gray-800">NaijaPlate</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    {% if user.is_authenticated %}
+                        <span class="text-gray-600">{{ user.email }}</span>
+                        <a href="{% url 'account_logout' %}" 
+                           class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
+                            Logout
+                        </a>
+                    {% else %}
+                        <a href="{% url 'google_login' %}" 
+                           class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">
+                            Sign In
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Pricing Header -->
+    <div class="pt-12 px-4 sm:px-6 lg:px-8 text-center">
+        <h1 class="text-4xl font-extrabold text-gray-900">Choose Your Plan</h1>
+        <p class="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
+            Select the plan that works best for your needs
+        </p>
+    </div>
+
+    <!-- Pricing Cards -->
+    <div class="mt-16 pb-12 sm:mt-20 sm:pb-16 lg:pb-24">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 gap-8 md:grid-cols-3">
+                
+                {% for tier in subscription_tiers %}
+                <div class="bg-white rounded-lg shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300">
+                    <div class="px-6 py-8 bg-gray-50 border-b border-gray-200 sm:px-10">
+                        <h3 class="text-xl font-medium text-gray-900">{{ tier.name }}</h3>
+                        <div class="mt-4 flex items-baseline text-5xl font-extrabold text-gray-900">
+                            £{{ tier.price }}
+                            {% if tier.tier_type != 'one_time' %}
+                            <span class="ml-1 text-xl font-medium text-gray-500">/{{ tier.tier_type }}</span>
+                            {% endif %}
+                        </div>
+                        <p class="mt-5 text-lg text-gray-500">{{ tier.description }}</p>
+                    </div>
+                    <div class="px-6 pt-6 pb-8 sm:px-10">
+                        <ul class="space-y-4">
+                            {% for feature, enabled in tier.features.items %}
+                            {% if enabled %}
+                            <li class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </div>
+                                <p class="ml-3 text-base text-gray-700">{{ feature }}</p>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+                        </ul>
+                        <div class="mt-8">
+                            <a href="{% url 'checkout' tier.id %}" 
+                               class="block w-full bg-blue-600 py-3 px-4 rounded-md shadow text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-center">
+                                {% if tier.tier_type == 'one_time' %}
+                                    Buy Now
+                                {% else %}
+                                    Subscribe
+                                {% endif %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

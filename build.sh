@@ -15,4 +15,7 @@ python manage.py makemigrations
 python manage.py migrate  
 
 # Create Google social application if it doesn't exist  
-python manage.py create_superuser  
+python manage.py create_superuser
+
+# Create subscription tiers
+python manage.py create_subscription_tiers

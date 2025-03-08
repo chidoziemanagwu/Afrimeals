@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold text-gray-800">NaijaPlate</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-600">{{ user.email }}</span>
+                    <a href="{% url 'account_logout' %}" 
+                       class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Checkout Form -->
+    <div class="max-w-md mx-auto pt-10 pb-12 px-4 sm:px-6 lg:px-8">
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div class="px-6 py-8 bg-gray-50 sm:px-10">
+                <h2 class="text-2xl font-bold text-gray-900 text-center">
+                    Complete Your Purchase
+                </h2>
+                <p class="mt-2 text-center text-gray-600">
+                    {{ tier.name }} - £{{ tier.price }} {% if tier.tier_type != 'one_time' %}/{{ tier.tier_type }}{% endif %}
+                </p>
+            </div>
+            
+            <div class="px-6 py-6 sm:px-10">
+                <form method="post" class="space-y-6">
+                    {% csrf_token %}
+                    
+                    <!-- This is a simplified checkout without actual payment processing -->
+                    <!-- In a real application, you would integrate with Stripe or another payment processor -->
+                    
+                    <div>
+                        <label for="card_number" class="block text-sm font-medium text-gray-700">Card Number</label>
+                        <input type="text" name="card_number" id="card_number" placeholder="4242 4242 4242 4242" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="expiry" class="block text-sm font-medium text-gray-700">Expiry Date</label>
+                            <input type="text" name="expiry" id="expiry" placeholder="MM/YY" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="cvc" class="block text-sm font-medium text-gray-700">CVC</label>
+                            <input type="text" name="cvc" id="cvc" placeholder="123" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Pay £{{ tier.price }}
+                        </button>
+                    </div>
+                    
+                    <div class="text-sm text-center text-gray-500">
+                        <p>This is a demo checkout page. No actual payment will be processed.</p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
