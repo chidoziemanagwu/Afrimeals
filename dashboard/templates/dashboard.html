@@ -1,32 +1,152 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-100">
-  <nav class="bg-white shadow-lg">
-      <div class="max-w-6xl mx-auto px-4">
-          <div class="flex justify-between items-center py-4">
-              <div class="flex items-center">
-                  <span class="text-xl font-bold text-gray-800">Afrimeals</span>
-              </div>
-              <div class="flex items-center space-x-4">
-                  <span class="text-gray-600">{{ user.email }}</span>
-                  <a href="{% url 'account_logout' %}" 
-                     class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
-                      Logout
-                  </a>
-              </div>
-          </div>
-      </div>
-  </nav>
+<div class="min-h-screen bg-gradient-to-br from-green-50 via-emerald-100 to-teal-100">
 
-  <div class="max-w-6xl mx-auto px-4 py-8">
-      <div class="bg-white rounded-lg shadow-lg p-6">
-          <h2 class="text-2xl font-bold text-gray-800 mb-4">Welcome to Afrimeals</h2>
-          <p class="text-gray-600">
-              Your personal dashboard for managing African cuisine orders.
-          </p>
-          <a href="{% url 'meal_generator' %}" class="text-blue-500 hover:underline">Go to Meal Generator</a>
-      </div>
-  </div>
+
+    <!-- Hero Section -->
+    <div class="max-w-6xl mx-auto px-4 py-10">
+        <div class="bg-white rounded-xl shadow-xl overflow-hidden">
+            <div class="md:flex">
+                <div class="p-8 md:w-3/5">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-4">Welcome to NaijaPlate</h2>
+                    <p class="text-gray-600 mb-6 text-lg">
+                        Your personal dashboard for authentic Nigerian and African-inspired meal planning. Discover traditional recipes, create personalized meal plans, and explore the rich culinary heritage of Nigeria.
+                    </p>
+                    <div class="flex flex-wrap gap-4">
+                        <a href="{% url 'meal_generator' %}" 
+                           class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-lg font-medium transition duration-300 shadow-md">
+                            <i class="fas fa-utensils mr-2"></i>Generate Meal Plan
+                        </a>
+                        <a href="#" 
+                           class="bg-white border-2 border-green-500 text-green-600 hover:bg-green-50 px-6 py-3 rounded-lg font-medium transition duration-300">
+                            <i class="fas fa-book-open mr-2"></i>Browse Recipes
+                        </a>
+                    </div>
+                </div>
+                <div class="md:w-2/5 bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center p-6">
+                    <div class="text-center">
+                        <i class="fas fa-plate-wheat text-white text-6xl mb-4"></i>
+                        <h3 class="text-white text-xl font-bold">Nigerian Cuisine</h3>
+                        <p class="text-green-100">Discover authentic flavors</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Cards -->
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <h3 class="text-2xl font-bold text-gray-800 mb-6">Quick Access</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border-t-4 border-green-500">
+                <div class="flex items-center justify-center h-14 w-14 rounded-full bg-green-100 text-green-600 mb-4">
+                    <i class="fas fa-calendar-days text-2xl"></i>
+                </div>
+                <h4 class="text-xl font-semibold text-gray-800 mb-2">Weekly Meal Plans</h4>
+                <p class="text-gray-600 mb-4">Create customized weekly meal plans based on your dietary preferences and nutritional goals.</p>
+                <a href="{% url 'meal_generator' %}" class="text-green-600 hover:text-green-700 font-medium">
+                    Get started <i class="fas fa-arrow-right ml-1"></i>
+                </a>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border-t-4 border-emerald-500">
+                <div class="flex items-center justify-center h-14 w-14 rounded-full bg-emerald-100 text-emerald-600 mb-4">
+                    <i class="fas fa-clipboard-list text-2xl"></i>
+                </div>
+                <h4 class="text-xl font-semibold text-gray-800 mb-2">Shopping Lists</h4>
+                <p class="text-gray-600 mb-4">Generate smart shopping lists based on your meal plans with local ingredient options.</p>
+                <a href="#" class="text-emerald-600 hover:text-emerald-700 font-medium">
+                    View lists <i class="fas fa-arrow-right ml-1"></i>
+                </a>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border-t-4 border-teal-500">
+                <div class="flex items-center justify-center h-14 w-14 rounded-full bg-teal-100 text-teal-600 mb-4">
+                    <i class="fas fa-mortar-pestle text-2xl"></i>
+                </div>
+                <h4 class="text-xl font-semibold text-gray-800 mb-2">Recipe Collection</h4>
+                <p class="text-gray-600 mb-4">Explore our growing collection of authentic Nigerian recipes with step-by-step instructions.</p>
+                <a href="#" class="text-teal-600 hover:text-teal-700 font-medium">
+                    Discover recipes <i class="fas fa-arrow-right ml-1"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity Section -->
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-gray-800">Your Recent Activity</h3>
+                <a href="#" class="text-green-600 hover:text-green-700 font-medium">View all</a>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors flex items-center">
+                    <div class="flex items-center justify-center h-10 w-10 rounded-full bg-green-100 text-green-600 mr-4">
+                        <i class="fas fa-utensils"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-gray-800">Vegetarian Meal Plan</h4>
+                        <p class="text-sm text-gray-500">Created on March 8, 2025</p>
+                    </div>
+                    <div class="ml-auto">
+                        <a href="#" class="text-blue-500 hover:text-blue-600">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors flex items-center">
+                    <div class="flex items-center justify-center h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 mr-4">
+                        <i class="fas fa-bowl-food"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-gray-800">Jollof Rice Recipe</h4>
+                        <p class="text-sm text-gray-500">Viewed on March 7, 2025</p>
+                    </div>
+                    <div class="ml-auto">
+                        <a href="#" class="text-blue-500 hover:text-blue-600">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8 mt-12">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between">
+                <div class="mb-6 md:mb-0">
+                    <h4 class="text-xl font-bold mb-4">NaijaPlate</h4>
+                    <p class="text-gray-400">Authentic Nigerian meal planning made easy</p>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-8">
+                    <div>
+                        <h5 class="font-medium mb-2">Quick Links</h5>
+                        <ul class="space-y-2">
+                            <li><a href="#" class="text-gray-400 hover:text-white transition">Home</a></li>
+                            <li><a href="#" class="text-gray-400 hover:text-white transition">Meal Plans</a></li>
+                            <li><a href="#" class="text-gray-400 hover:text-white transition">Recipes</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h5 class="font-medium mb-2">Support</h5>
+                        <ul class="space-y-2">
+                            <li><a href="#" class="text-gray-400 hover:text-white transition">Contact Us</a></li>
+                            <li><a href="#" class="text-gray-400 hover:text-white transition">FAQ</a></li>
+                            <li><a href="#" class="text-gray-400 hover:text-white transition">Privacy Policy</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-6 text-center text-gray-400 text-sm">
+                &copy; 2025 NaijaPlate. All rights reserved.
+            </div>
+        </div>
+    </footer>
 </div>
 {% endblock %}

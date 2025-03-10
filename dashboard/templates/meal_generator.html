@@ -1,193 +1,562 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block extra_head %}
-<!-- DataTables CSS -->
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css">
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.2.2/css/buttons.dataTables.min.css">
-{% endblock %}
+{% block title %}NaijaPlate - Meal Generator{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-100">
-    <!-- Navigation Bar -->
-    <nav class="bg-white shadow-lg">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="flex justify-between items-center py-4">
-                <div class="flex items-center">
-                    <span class="text-xl font-bold text-gray-800">Afrimeals</span>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span class="text-gray-600">{{ user.email }}</span>
-                    <a href="{% url 'account_logout' %}" 
-                       class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
-                        Logout
-                    </a>
-                </div>
-            </div>
-        </div>
-    </nav>
+<div class="min-h-screen bg-gradient-to-br from-green-50 via-emerald-100 to-teal-100">
 
-    <!-- Progress Bar -->
-    <div class="max-w-3xl mx-auto pt-8">
-        <div class="p-4">
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
-                <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-500" id="progress-bar" style="width: 0%"></div>
+    <!-- Main Content -->
+    <div class="max-w-5xl mx-auto px-4 py-8">
+        <div class="bg-white rounded-xl shadow-xl p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Generate Your Personalized Meal Plan</h2>
+            
+            {% if not has_subscription %}
+            <div class="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border-l-4 border-blue-500">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-info-circle text-blue-500 text-xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-blue-800">You're using the free version</h3>
+                        <div class="mt-2 text-sm text-blue-700">
+                            <p>Some premium features are disabled. <a href="{% url 'pricing' %}" class="font-medium underline hover:text-blue-800 transition-colors duration-300">Upgrade now</a> to unlock all features.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="flex justify-between mt-2">
-                <span class="text-sm font-medium text-blue-600" id="step1-indicator">Personal Preferences</span>
-                <span class="text-sm font-medium text-gray-500" id="step2-indicator">Meal Details</span>
-                <span class="text-sm font-medium text-gray-500" id="step3-indicator">Generation</span>
-            </div>
-        </div>
-    </div>
+            {% endif %}
 
-    <!-- Form Container -->
-    <div class="max-w-3xl mx-auto px-4 py-8">
-        <div class="bg-white rounded-lg shadow-lg p-6">
-            <form id="mealPlanForm" class="space-y-4" method="POST" action="{% url 'meal_generator' %}">
+            <form id="mealPlanForm" class="space-y-6" method="POST" action="{% url 'meal_generator' %}">
                 {% csrf_token %}
                 
-                <!-- Step 1 -->
-                <div id="step1" class="step">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Personal Preferences</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-gray-700 mb-2">
-                                <i class="fas fa-utensils mr-2"></i>Dietary Preferences
-                            </label>
-                            <input type="text" name="dietary_preferences" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="e.g., Vegetarian, Vegan">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Basic Info Section -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>Basic Information
+                            <span class="ml-2 px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Free</span>
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div class="form-group">
+                                <label class="block text-gray-700 mb-2" for="dietary_preferences">
+                                    <i class="fas fa-utensils mr-2"></i>Dietary Preferences
+                                </label>
+                                <input type="text" 
+                                       id="dietary_preferences" 
+                                       name="dietary_preferences" 
+                                       class="form-input w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
+                                       placeholder="e.g., Vegetarian, Vegan">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="block text-gray-700 mb-2" for="preferred_cuisine">
+                                    <i class="fas fa-globe-africa mr-2"></i>Nigerian Cuisine Type
+                                </label>
+                                <select id="preferred_cuisine" name="preferred_cuisine" class="form-select w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300">
+                                    <option value="">Select Cuisine Type</option>
+                                    <option value="Yoruba">Yoruba</option>
+                                    <option value="Igbo">Igbo</option>
+                                    <option value="Hausa">Hausa</option>
+                                    <option value="Calabar">Calabar/Efik</option>
+                                    <option value="Contemporary">Contemporary Nigerian</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="block text-gray-700 mb-2" for="family_size">
+                                    <i class="fas fa-users mr-2"></i>Number of People
+                                </label>
+                                <input type="number" 
+                                       id="family_size" 
+                                       name="family_size" 
+                                       class="form-input w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
+                                       placeholder="Enter number of people">
+                            </div>
+                            
+                            <!-- New Fields -->
+                            <div class="form-group">
+                                <label class="block text-gray-700 mb-2" for="plan_days">
+                                    <i class="fas fa-calendar-day mr-2"></i>Number of Days
+                                </label>
+                                <input type="number" 
+                                       id="plan_days" 
+                                       name="plan_days" 
+                                       class="form-input w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
+                                       placeholder="Default: 7 days"
+                                       value="7"
+                                       min="1"
+                                       max="14">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="block text-gray-700 mb-2" for="meals_per_day">
+                                    <i class="fas fa-clock mr-2"></i>Meals Per Day
+                                </label>
+                                <select id="meals_per_day" 
+                                        name="meals_per_day" 
+                                        class="form-select w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300">
+                                    <option value="2">2 meals per day</option>
+                                    <option value="3" selected>3 meals per day</option>
+                                    <option value="4">4 meals per day</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="include_snacks" id="include_snacks" class="form-checkbox h-5 w-5 text-green-600" checked>
+                                    <span class="ml-2 text-gray-700">Include Snacks</span>
+                                </label>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="block text-gray-700 mb-2" for="budget">
+                                    <i class="fas fa-wallet mr-2"></i>Total Budget (Optional)
+                                </label>
+                                <div class="relative rounded-md shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500">£</span>
+                                    </div>
+                                    <input type="number" 
+                                           id="budget" 
+                                           name="budget" 
+                                           class="form-input w-full pl-8 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
+                                           placeholder="Enter your budget"
+                                           step="0.01">
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">
-                                <i class="fas fa-globe-americas mr-2"></i>Preferred Cuisine
-                            </label>
-                            <input type="text" name="preferred_cuisine" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">
-                                <i class="fas fa-heart mr-2"></i>Health Goals
-                            </label>
-                            <input type="text" name="health_goals" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="e.g., Weight Loss, Muscle Gain">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">
-                                <i class="fas fa-exclamation-triangle mr-2"></i>Allergies
-                            </label>
-                            <input type="text" name="allergies" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="List any food allergies">
+                    </div>
+                    
+                    <!-- Premium Features Section -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                            <i class="fas fa-star text-yellow-500 mr-2"></i>Advanced Options
+                            <span class="ml-2 px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Premium</span>
+                        </h3>
+                        
+                        <div class="space-y-4 {% if not has_subscription %}opacity-60{% endif %}">
+                            <div class="form-group">
+                                <label class="block text-gray-700 mb-2" for="health_goals">
+                                    <i class="fas fa-heartbeat mr-2"></i>Health Goals
+                                </label>
+                                <input type="text" 
+                                       id="health_goals" 
+                                       name="health_goals" 
+                                       class="form-input w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
+                                       placeholder="e.g., Weight Loss, Muscle Gain"
+                                       {% if not has_subscription %}disabled{% endif %}>
+                                {% if not has_subscription %}
+                                <div class="mt-1 text-xs text-gray-500 flex items-center">
+                                    <i class="fas fa-lock mr-1"></i> Upgrade to unlock
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="block text-gray-700 mb-2" for="allergies">
+                                    <i class="fas fa-exclamation-triangle mr-2"></i>Allergies & Restrictions
+                                </label>
+                                <input type="text" 
+                                       id="allergies" 
+                                       name="allergies" 
+                                       class="form-input w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
+                                       placeholder="e.g., Peanuts, Gluten"
+                                       {% if not has_subscription %}disabled{% endif %}>
+                                {% if not has_subscription %}
+                                <div class="mt-1 text-xs text-gray-500 flex items-center">
+                                    <i class="fas fa-lock mr-1"></i> Upgrade to unlock
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="block text-gray-700 mb-2" for="skill_level">
+                                    <i class="fas fa-chart-line mr-2"></i>Cooking Skill Level
+                                </label>
+                                <select id="skill_level" 
+                                        name="skill_level" 
+                                        class="form-select w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
+                                        {% if not has_subscription %}disabled{% endif %}>
+                                    <option value="Beginner">Beginner</option>
+                                    <option value="Intermediate" selected>Intermediate</option>
+                                    <option value="Advanced">Advanced</option>
+                                </select>
+                                {% if not has_subscription %}
+                                <div class="mt-1 text-xs text-gray-500 flex items-center">
+                                    <i class="fas fa-lock mr-1"></i> Upgrade to unlock
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="block text-gray-700 mb-2">Premium Features</label>
+                                <div class="space-y-2">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="detailed_nutrition" class="form-checkbox h-5 w-5 text-green-600" {% if not has_subscription %}disabled{% endif %}>
+                                        <span class="ml-2 text-gray-700">Detailed Nutritional Analysis</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="detailed_recipes" class="form-checkbox h-5 w-5 text-green-600" {% if not has_subscription %}disabled{% endif %}>
+                                        <span class="ml-2 text-gray-700">Step-by-Step Recipes</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="video_recipes" class="form-checkbox h-5 w-5 text-green-600" {% if not has_subscription %}disabled{% endif %}>
+                                        <span class="ml-2 text-gray-700">Include Video Recipes</span>
+                                    </label>
+                                </div>
+                                {% if not has_subscription %}
+                                <div class="mt-2 text-xs text-gray-500 flex items-center">
+                                    <i class="fas fa-lock mr-1"></i> Premium features - <a href="{% url 'pricing' %}" class="text-green-600 hover:text-green-700 underline">Upgrade now</a>
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Step 2 -->
-                <div id="step2" class="step hidden">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Meal Details</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-gray-700 mb-2">
-                                <i class="fas fa-clock mr-2"></i>Number of meals per day
-                            </label>
-                            <input type="number" name="meals_per_day" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">
-                                <i class="fas fa-wallet mr-2"></i>Weekly/Monthly budget
-                            </label>
-                            <input type="text" name="budget" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">
-                                <i class="fas fa-chart-line mr-2"></i>Cooking Skill Level
-                            </label>
-                            <input type="text" name="skill_level" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="e.g., Beginner, Intermediate, Advanced">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">
-                                <i class="fas fa-users mr-2"></i>Number of people
-                            </label>
-                            <input type="number" name="family_size" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 3 -->
-                <div id="step3" class="step hidden">
-                    <!-- Loading Animation -->
-                    <div id="generating" class="text-center py-12">
-                        <video autoplay loop muted class="mx-auto w-64 h-64">  
-                            <source src="{% static 'generating.webm' %}" type="video/webm">  
-                            Your browser does not support the video tag.  
-                        </video>  
-                            <h3 class="text-xl font-semibold text-gray-700">Generating Your Personalized Meal Plan...</h3>
-                        <p class="text-gray-500">This may take a few moments</p>
-                    </div>
-
-                    <!-- Success Message (Initially Hidden) -->
-                    <div id="success" class="hidden text-center py-12">
-                        <div class="mb-4">
-                            <video autoplay loop muted class="mx-auto w-40 h-40">  
-                                <source src="{% static 'success.webm' %}" type="video/webm">  
-                                Your browser does not support the video tag.  
-                            </video>  
-                        </div>
-                        <h3 class="text-2xl font-bold text-gray-800 mb-2">Success!</h3>
-                        <p class="text-gray-600 mb-8">Your personalized meal plan has been generated.</p>
-                    </div>
-                </div>
-
-                <!-- Navigation Buttons -->
-                <div class="flex justify-between mt-8">
-                    <button type="button" id="prevBtn" class="hidden bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors">
-                        <i class="fas fa-arrow-left mr-2"></i>Previous
+                
+                <div class="border-t border-gray-200 pt-6">
+                    <button type="submit" id="generateBtn" class="w-full md:w-auto bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center">
+                        <i class="fas fa-magic mr-2"></i>
+                        <span id="generateBtnText">Surprise Me!</span>
                     </button>
-                    <button type="button" id="nextBtn" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-                        Next<i class="fas fa-arrow-right ml-2"></i>
-                    </button>
                 </div>
+                
+                <!-- Hidden field to ensure snacks are properly tracked -->
+                <input type="hidden" id="include_snacks_value" name="include_snacks_value" value="true">
             </form>
         </div>
-    </div>
-
-    <!-- Results Section (Initially Hidden) -->
-    <div id="results" class="max-w-6xl mx-auto px-4 py-8 hidden">
-        <!-- Meal Plan Table -->
-<!-- Replace the existing table structure -->
-<div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-    <h3 class="text-2xl font-bold text-gray-800 mb-4">Your Meal Plan</h3>
-    <table id="mealPlanTable" class="w-full">
-        <thead>
-            <tr>
-                <th>Day</th>
-                <th>Breakfast</th>
-                <th>Lunch</th>
-                <th>Snack</th>
-                <th>Dinner</th>
-            </tr>
-        </thead>
-        <tbody id="mealPlanBody">
-            <!-- Dynamically populated -->
-        </tbody>
-    </table>
-</div>
-
-        <!-- Ingredients List -->
-        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-            <h3 class="text-2xl font-bold text-gray-800 mb-4">Shopping List</h3>
-            <div id="ingredientsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- Dynamically populated -->
+        
+        <!-- Loading animation (initially hidden) - Animated SVG -->
+        <div id="loading" class="hidden bg-white rounded-xl shadow-xl p-8 text-center">
+            <div class="mx-auto w-40 h-40">
+                <!-- Animated cooking/food SVG -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="mx-auto">
+                    <style>
+                        @keyframes steam {
+                            0% { transform: translateY(0) scale(1); opacity: 0.8; }
+                            50% { transform: translateY(-10px) scale(1.2); opacity: 0.5; }
+                            100% { transform: translateY(-20px) scale(1.5); opacity: 0; }
+                        }
+                        @keyframes stir {
+                            0% { transform: rotate(0deg); }
+                            25% { transform: rotate(10deg); }
+                            75% { transform: rotate(-10deg); }
+                            100% { transform: rotate(0deg); }
+                        }
+                        .steam {
+                            animation: steam 2s infinite ease-out;
+                            transform-origin: center bottom;
+                        }
+                        .steam-1 { animation-delay: 0s; }
+                        .steam-2 { animation-delay: 0.3s; }
+                        .steam-3 { animation-delay: 0.6s; }
+                        .spoon {
+                            animation: stir 3s infinite ease-in-out;
+                            transform-origin: 50% 80%;
+                        }
+                    </style>
+                    
+                    <!-- Pot -->
+                    <path d="M50,120 C50,160 150,160 150,120 L150,100 L50,100 Z" fill="#4B5563"/>
+                    <ellipse cx="100" cy="100" rx="50" ry="15" fill="#6B7280"/>
+                    
+                    <!-- Pot contents -->
+                    <ellipse cx="100" cy="110" rx="40" ry="10" fill="#10B981"/>
+                    
+                    <!-- Pot handles -->
+                    <path d="M45,110 C35,110 30,120 40,120" stroke="#374151" stroke-width="4" fill="none"/>
+                    <path d="M155,110 C165,110 170,120 160,120" stroke="#374151" stroke-width="4" fill="none"/>
+                    
+                    <!-- Steam -->
+                    <path class="steam steam-1" d="M90,90 Q95,75 100,90" stroke="#E5E7EB" stroke-width="3" fill="none"/>
+                    <path class="steam steam-2" d="M100,90 Q105,70 110,90" stroke="#E5E7EB" stroke-width="3" fill="none"/>
+                    <path class="steam steam-3" d="M110,90 Q115,75 120,90" stroke="#E5E7EB" stroke-width="3" fill="none"/>
+                    
+                    <!-- Spoon -->
+                    <g class="spoon">
+                        <path d="M130,80 L120,110" stroke="#92400E" stroke-width="3" fill="none"/>
+                        <ellipse cx="130" cy="75" rx="8" ry="4" fill="#92400E"/>
+                    </g>
+                </svg>
             </div>
+            <h3 class="text-xl font-semibold text-gray-800 mt-4">Cooking Up Your Meal Plan</h3>
+            <p class="text-gray-600 mt-2">Please wait while we prepare your personalized Nigerian meal plan...</p>
         </div>
-
-        <!-- Download Buttons -->
-        <div class="flex space-x-4">
-            <button id="downloadMealPlan" class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600">
-                <i class="fas fa-download mr-2"></i>Download Meal Plan
-            </button>
-            <button id="downloadIngredients" class="bg-purple-500 text-white px-6 py-2 rounded-lg hover:bg-purple-600">
-                <i class="fas fa-download mr-2"></i>Download Shopping List
-            </button>
-            <button id="downloadRecipes" class="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600">
-                <i class="fas fa-download mr-2"></i>Download Recipes
-            </button>
+        
+        <!-- Results Section (initially hidden) -->
+        <div id="results" class="hidden">
+            <div class="bg-white rounded-xl shadow-xl p-6 mb-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold text-gray-800">Your Meal Plan</h3>
+                    
+                    <!-- Premium Features Banner -->
+                    {% if not has_subscription %}
+                    <div class="flex items-center">
+                        <a href="{% url 'pricing' %}" class="group inline-flex items-center bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-md hover:from-purple-700 hover:to-indigo-700 transition-all duration-300">
+                            <i class="fas fa-crown mr-2"></i>
+                            Upgrade for PDF Export
+                            <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform duration-300"></i>
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table id="mealPlanTable" class="w-full">
+                        <thead>
+                            <tr>
+                                <th class="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100 rounded-tl-lg">Day</th>
+                                <th class="text-left py-3 px-4 font-semibold text-orange-800 bg-orange-100">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-sun text-orange-500 mr-2"></i>
+                                        <span>Breakfast</span>
+                                    </div>
+                                </th>
+                                <th class="text-left py-3 px-4 font-semibold text-green-800 bg-green-100">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-utensils text-green-500 mr-2"></i>
+                                        <span>Lunch</span>
+                                    </div>
+                                </th>
+                                <th class="text-left py-3 px-4 font-semibold text-purple-800 bg-purple-100 include-snacks">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-cookie text-purple-500 mr-2"></i>
+                                        <span>Snack</span>
+                                    </div>
+                                </th>
+                                <th class="text-left py-3 px-4 font-semibold text-blue-800 bg-blue-100">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-moon text-blue-500 mr-2"></i>
+                                        <span>Dinner</span>
+                                    </div>
+                                </th>
+                                <th class="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100 rounded-tr-lg">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mealPlanBody">
+                            <!-- Dynamically populated -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Recipe Details Modal (Initially Hidden) -->
+            <div id="recipeModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-xl max-w-2xl w-full mx-4 my-8 md:my-16" style="max-height: 80vh;">
+                    <!-- Modal header -->
+                    <div class="flex justify-between items-center p-6 border-b border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-800" id="recipeTitle">Recipe Title</h3>
+                        <button id="closeRecipeModal" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Tabs navigation -->
+                    <div class="border-b border-gray-200">
+                        <nav class="flex -mb-px" aria-label="Tabs">
+                            <button id="tab-overview" class="recipe-tab active-tab px-4 py-3 text-sm font-medium border-b-2 border-green-500 text-green-600 flex items-center">
+                                <i class="fas fa-info-circle mr-2"></i>Overview
+                            </button>
+                            <button id="tab-ingredients" class="recipe-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+                                <i class="fas fa-list mr-2"></i>Ingredients
+                            </button>
+                            <button id="tab-instructions" class="recipe-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+                                <i class="fas fa-utensils mr-2"></i>Instructions
+                            </button>
+                            <button id="tab-nutrition" class="recipe-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+                                <i class="fas fa-heartbeat mr-2"></i>Nutrition
+                            </button>
+                        </nav>
+                    </div>
+                    
+                    <!-- Tab content - scrollable container -->
+                    <div class="overflow-y-auto p-6" style="max-height: calc(80vh - 140px);">
+                        <!-- Overview Tab -->
+                        <div id="content-overview" class="recipe-content block">
+                            <div class="space-y-4">
+                                <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
+                                    <i class="fas fa-info-circle text-green-500 mr-2"></i>About This Dish
+                                </h4>
+                                <p id="recipeDescription" class="text-gray-700">Recipe description goes here.</p>
+                                
+                                <div class="p-4 bg-green-50 rounded-lg">
+                                    <h5 class="font-medium text-green-800 mb-2">Quick Info</h5>
+                                    <div class="grid grid-cols-2 gap-2 text-sm">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-clock text-green-600 mr-2"></i>
+                                            <span>Prep: <span id="recipePrepTime">20 mins</span></span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <i class="fas fa-fire text-green-600 mr-2"></i>
+                                            <span>Cook: <span id="recipeCookTime">45 mins</span></span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <i class="fas fa-users text-green-600 mr-2"></i>
+                                            <span>Serves: <span id="recipeServings">4</span></span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <i class="fas fa-chart-simple text-green-600 mr-2"></i>
+                                            <span>Difficulty: <span id="recipeDifficulty">Medium</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Ingredients Tab -->
+                        <div id="content-ingredients" class="recipe-content hidden">
+                            <div class="space-y-4">
+                                <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
+                                    <i class="fas fa-list text-green-500 mr-2"></i>What You'll Need
+                                </h4>
+                                <ul id="recipeIngredients" class="space-y-2">
+                                    <!-- Dynamically populated -->
+                                </ul>
+                                
+                                <div class="mt-6 flex flex-wrap gap-2">
+                                    <button class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                                        <i class="fas fa-print mr-1"></i> Print List
+                                    </button>
+                                    <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                                        <i class="fas fa-share-alt mr-1"></i> Share
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Instructions Tab -->
+                        <div id="content-instructions" class="recipe-content hidden">
+                            <div class="space-y-4">
+                                <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
+                                    <i class="fas fa-utensils text-green-500 mr-2"></i>Cooking Steps
+                                </h4>
+                                <ol id="recipeInstructions" class="space-y-4">
+                                    <!-- Dynamically populated -->
+                                </ol>
+                            </div>
+                        </div>
+                        
+                        <!-- Nutrition Tab -->
+                        <div id="content-nutrition" class="recipe-content hidden">
+                            <div class="space-y-4">
+                                <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
+                                    <i class="fas fa-heartbeat text-green-500 mr-2"></i>Nutritional Information
+                                </h4>
+                                <div class="p-4 bg-green-50 rounded-lg">
+                                    <p class="text-sm text-gray-600 mb-3">Nutritional values per serving</p>
+                                    <div id="recipeNutrition" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <!-- Dynamically populated -->
+                                    </div>
+                                </div>
+                                
+                                {% if not has_subscription %}
+                                <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                    <div class="flex items-start">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-star text-yellow-500 text-xl"></i>
+                                        </div>
+                                        <div class="ml-3">
+                                            <h3 class="text-sm font-medium text-yellow-800">Premium Features Available</h3>
+                                            <div class="mt-2 text-sm text-yellow-700">
+                                                <p>Upgrade to Premium for detailed nutritional analysis, video tutorials, and more cooking tips.</p>
+                                                <a href="{% url 'pricing' %}" class="mt-2 inline-block text-yellow-700 font-medium hover:text-yellow-800 underline">Learn More</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <!-- Ingredients List -->
+                <div class="bg-white rounded-xl shadow-xl p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                            <i class="fas fa-shopping-basket text-green-500 mr-2"></i>Shopping List
+                        </h3>
+                        <div class="flex space-x-2">
+                            <button id="prevPage" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span id="pageIndicator" class="flex items-center px-2">Page <span class="mx-1" id="currentPage">1 </span> of <span class="mx-1" id="totalPages"> 1</span></span>
+                            <button id="nextPage" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="ingredientsList" class="space-y-2">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+                
+                <!-- Premium Feature Card -->
+                <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-xl p-6 border border-yellow-200">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                        <i class="fas fa-star text-yellow-500 mr-2"></i>Premium Features
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                                <i class="fas fa-file-pdf text-yellow-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-md font-semibold text-gray-800">PDF Export</h4>
+                                <p class="text-sm text-gray-600">Download your meal plan and shopping list as a PDF document.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                                <i class="fas fa-utensils text-yellow-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-md font-semibold text-gray-800">Detailed Recipes</h4>
+                                <p class="text-sm text-gray-600">Access complete recipes with step-by-step instructions.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                                <i class="fas fa-heartbeat text-yellow-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-md font-semibold text-gray-800">Nutritional Information</h4>
+                                <p class="text-sm text-gray-600">Get detailed nutritional breakdown for each meal.</p>
+                            </div>
+                        </div>
+                        
+                        <a href="{% url 'pricing' %}" class="block w-full mt-6 text-center bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-medium py-2 px-4 rounded-lg hover:from-yellow-600 hover:to-amber-600 transition-colors duration-300">
+                            Upgrade Your Account
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Download Buttons -->
+            <div class="flex flex-wrap gap-4">
+                <button id="downloadMealPlan" class="flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg transition-colors duration-300 {% if not has_subscription %}opacity-50 cursor-not-allowed{% endif %}" {% if not has_subscription %}disabled{% endif %}>
+                    <i class="fas fa-download mr-2"></i>Download Meal Plan
+                </button>
+                
+                <button id="downloadIngredients" class="flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg transition-colors duration-300 {% if not has_subscription %}opacity-50 cursor-not-allowed{% endif %}" {% if not has_subscription %}disabled{% endif %}>
+                    <i class="fas fa-download mr-2"></i>Download Shopping List
+                </button>
+                
+                {% if not has_subscription %}
+                <div class="ml-auto">
+                    <a href="{% url 'pricing' %}" class="inline-block bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white font-medium px-6 py-3 rounded-lg transition-colors duration-300">
+                        <i class="fas fa-crown mr-2"></i>Unlock Premium Features
+                    </a>
+                </div>
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>
@@ -202,222 +571,428 @@
 <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.html5.min.js"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    let currentStep = 1;
-    const totalSteps = 3;
-    
-    const nextBtn = document.getElementById('nextBtn');
-    const prevBtn = document.getElementById('prevBtn');
-    const progressBar = document.getElementById('progress-bar');
-
-    // Validate current step
-    function validateStep(step) {
-        const inputs = document.querySelectorAll(`#step${step} input`);
-        let isValid = true;
+$(document).ready(function() {
+    // Function to check if any field has input
+    function checkFormInputs() {
+        let hasInput = false;
         
-        inputs.forEach(input => {
-            if (!input.value.trim()) {
-                isValid = false;
-                input.classList.add('border-red-500');
-            } else {
-                input.classList.remove('border-red-500');
+        // Check text and number inputs
+        $('#mealPlanForm input[type="text"], #mealPlanForm input[type="number"]').each(function() {
+            if ($(this).val().trim() !== '') {
+                hasInput = true;
+                return false; // Break the loop
             }
         });
         
-        return isValid;
-    }
-
-    // Update progress bar
-    function updateProgress() {
-        const progress = ((currentStep - 1) / (totalSteps - 1)) * 100;
-        progressBar.style.width = `${progress}%`;
-        
-        // Update step indicators
-        for (let i = 1; i <= totalSteps; i++) {
-            const indicator = document.getElementById(`step${i}-indicator`);
-            if (i <= currentStep) {
-                indicator.classList.remove('text-gray-500');
-                indicator.classList.add('text-blue-600');
-            } else {
-                indicator.classList.remove('text-blue-600');
-                indicator.classList.add('text-gray-500');
-            }
-        }
-    }
-
-    // Handle next button click
-    nextBtn.addEventListener('click', function(e) {
-        console.log('ok');
-        e.preventDefault();
- 
-        
-        if (validateStep(currentStep)) {
-            if (currentStep < totalSteps) {
-                document.getElementById(`step${currentStep}`).classList.add('hidden');
-                currentStep++;
-                document.getElementById(`step${currentStep}`).classList.remove('hidden');
-                
-                if (currentStep === totalSteps) {
-                    nextBtn.classList.add('hidden');
-                    simulateGeneration();
+        // Check select elements
+        $('#mealPlanForm select').each(function() {
+            if ($(this).val() !== '' && $(this).val() !== null) {
+                // If select has a default value but it was changed by user
+                if ($(this).prop('selectedIndex') > 0 || 
+                    ($(this).attr('id') === 'meals_per_day' && $(this).val() !== '3') ||
+                    ($(this).attr('id') === 'skill_level' && $(this).val() !== 'Intermediate')) {
+                    hasInput = true;
+                    return false; // Break the loop
                 }
-                
-                if (currentStep > 1) {
-                    prevBtn.classList.remove('hidden');
-                }
-                
-                updateProgress();
             }
+        });
+        
+        // Update button text
+        if (hasInput) {
+            $('#generateBtnText').text('Generate Meal Plan');
         } else {
-            // Show error message
-            alert('Please fill in all fields before proceeding.');
+            $('#generateBtnText').text('Surprise Me!');
+        }
+    }
+    
+    // Monitor form fields for changes
+    $('#mealPlanForm input, #mealPlanForm select').on('input change', function() {
+        checkFormInputs();
+    });
+    
+    // Show/hide snacks column based on checkbox
+    const includeSnacksCheckbox = $('#include_snacks');
+    
+    includeSnacksCheckbox.on('change', function() {
+        if (this.checked) {
+            $('.include-snacks').show();
+            $('#include_snacks_value').val('true');
+        } else {
+            $('.include-snacks').hide();
+            $('#include_snacks_value').val('false');
         }
     });
-
-    // Handle previous button click
-    prevBtn.addEventListener('click', function(e) {
+    
+    // Shopping list pagination
+    const itemsPerPage = 10;
+    let currentPage = 1;
+    let groceryList = [];
+    
+    function updateShoppingList() {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const itemsToShow = groceryList.slice(startIndex, endIndex);
+        
+        let ingredientsHtml = '';
+        itemsToShow.forEach(ingredient => {
+            ingredientsHtml += `
+                <div class="flex items-center p-3 rounded-lg hover:bg-green-50 transition-colors duration-200">
+                    <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                    <span class="text-gray-800">${ingredient}</span>
+                </div>
+            `;
+        });
+        
+        $('#ingredientsList').html(ingredientsHtml);
+        $('#currentPage').text(currentPage);
+        $('#totalPages').text(Math.ceil(groceryList.length / itemsPerPage));
+        
+        // Update pagination button states
+        $('#prevPage').prop('disabled', currentPage === 1);
+        $('#nextPage').prop('disabled', currentPage === Math.ceil(groceryList.length / itemsPerPage));
+    }
+    
+    $('#nextPage').on('click', function() {
+        if (currentPage < Math.ceil(groceryList.length / itemsPerPage)) {
+            currentPage++;
+            updateShoppingList();
+        }
+    });
+    
+    $('#prevPage').on('click', function() {
+        if (currentPage > 1) {
+            currentPage--;
+            updateShoppingList();
+        }
+    });
+    
+    // Recipe modal tabs functionality
+    $('.recipe-tab').on('click', function() {
+        // Remove active class from all tabs
+        $('.recipe-tab').removeClass('active-tab').addClass('text-gray-500 border-transparent').removeClass('text-green-600 border-green-500');
+        
+        // Add active class to clicked tab
+        $(this).addClass('active-tab').removeClass('text-gray-500 border-transparent').addClass('text-green-600 border-green-500');
+        
+        // Hide all content sections
+        $('.recipe-content').addClass('hidden');
+        
+        // Show corresponding content section
+        const tabId = $(this).attr('id').replace('tab-', 'content-');
+        $('#' + tabId).removeClass('hidden');
+    });
+    
+    // Recipe modal close button
+    $('#closeRecipeModal').on('click', function() {
+        $('#recipeModal').addClass('hidden');
+    });
+    
+    // Also close modal when clicking outside the content
+    $(document).on('click', function(e) {
+        if ($(e.target).closest('.bg-white').length === 0 && $('#recipeModal').is(':visible')) {
+            $('#recipeModal').addClass('hidden');
+        }
+    });
+    
+    function showRecipeModal(recipeData) {
+        // Reset to first tab
+        $('.recipe-tab').removeClass('active-tab').addClass('text-gray-500 border-transparent').removeClass('text-green-600 border-green-500');
+        $('#tab-overview').addClass('active-tab').removeClass('text-gray-500 border-transparent').addClass('text-green-600 border-green-500');
+        $('.recipe-content').addClass('hidden');
+        $('#content-overview').removeClass('hidden');
+        
+        // Populate modal data
+        $('#recipeTitle').text(recipeData.title);
+        $('#recipeDescription').text(recipeData.description);
+        $('#recipePrepTime').text(recipeData.prepTime || '20 mins');
+        $('#recipeCookTime').text(recipeData.cookTime || '30 mins');
+        $('#recipeServings').text(recipeData.servings || '4');
+        $('#recipeDifficulty').text(recipeData.difficulty || 'Medium');
+        
+        // Ingredients
+        let ingredientsHtml = '';
+        recipeData.ingredients.forEach(ingredient => {
+            ingredientsHtml += `
+                <li class="flex items-center p-2 hover:bg-green-50 rounded-lg">
+                    <i class="fas fa-check text-green-500 mr-2"></i>
+                    <span>${ingredient}</span>
+                </li>
+            `;
+        });
+        $('#recipeIngredients').html(ingredientsHtml);
+        
+        // Instructions
+        let instructionsHtml = '';
+        recipeData.instructions.forEach((step, index) => {
+            instructionsHtml += `
+                <li class="pb-3 border-b border-gray-100">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 bg-green-100 text-green-800 rounded-full h-6 w-6 flex items-center justify-center mr-3 mt-1">
+                            ${index + 1}
+                        </div>
+                        <div class="flex-1">
+                            <p>${step}</p>
+                        </div>
+                    </div>
+                </li>
+            `;
+        });
+        $('#recipeInstructions').html(instructionsHtml);
+        
+        // Nutrition info
+        let nutritionHtml = '';
+        for (const [key, value] of Object.entries(recipeData.nutrition)) {
+            nutritionHtml += `
+                <div class="bg-white rounded-lg p-2 shadow-sm">
+                    <span class="block font-semibold text-green-700">${key}</span>
+                    <span class="block text-gray-800">${value}</span>
+                </div>
+            `;
+        }
+        $('#recipeNutrition').html(nutritionHtml);
+        
+        // Show modal
+        $('#recipeModal').removeClass('hidden');
+    }
+    
+    // Form submission
+    $('#mealPlanForm').on('submit', function(e) {
         e.preventDefault();
         
-        if (currentStep > 1) {
-            document.getElementById(`step${currentStep}`).classList.add('hidden');
-            currentStep--;
-            document.getElementById(`step${currentStep}`).classList.remove('hidden');
-            
-            if (currentStep === 1) {
-                prevBtn.classList.add('hidden');
-            }
-            
-            nextBtn.classList.remove('hidden');
-            updateProgress();
+        // Reset pagination
+        currentPage = 1;
+        
+        // Check if snacks are included
+        const includeSnacks = includeSnacksCheckbox.is(':checked');
+        if (!includeSnacks) {
+            $('.include-snacks').hide();
+        } else {
+            $('.include-snacks').show();
         }
-    });
-
-// In your script section, modify the simulateGeneration function:
-
-function simulateGeneration() {
-    $('#generating').removeClass('hidden');
-    
-    const formData = new FormData(document.getElementById('mealPlanForm'));
-    
-    $.ajax({
-        url: '{% url "meal_generator" %}',
-        type: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        headers: {
-            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
-        },
-        success: function(response) {
-            $('#generating').addClass('hidden');
-            $('#success').removeClass('hidden');
-            
-            setTimeout(function() {
+        
+        // Show loading animation
+        $('#mealPlanForm').addClass('hidden');
+        $('#loading').removeClass('hidden');
+        
+        // Create form data with explicit handling for checkboxes
+        const formData = new FormData(this);
+        
+        // Ensure the include_snacks value is correctly passed
+        formData.set('include_snacks', includeSnacks ? 'on' : 'off');
+        
+        $.ajax({
+            url: '{% url "meal_generator" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                // Hide loading animation
+                $('#loading').addClass('hidden');
+                
+                if (response.requires_upgrade) {
+                    // Handle premium feature request without subscription
+                    alert(response.message);
+                    window.location.href = "{% url 'pricing' %}";
+                    return;
+                }
+                
+                // Show results
                 $('#results').removeClass('hidden');
                 
                 // Populate meal plan table with structured data
                 let mealPlanHtml = '';
-                response.meal_plan.forEach(day => {
+                response.meal_plan.forEach((day, index) => {
+                    // Ensure each meal object has all required properties, even if they're empty
+                    if (!day.meals.hasOwnProperty('snack')) {
+                        day.meals.snack = includeSnacks ? 'Fruit or nuts' : '';
+                    }
+                    
+                    // Update this part in your form submission success handler
                     mealPlanHtml += `
-                        <tr class="hover:bg-gray-50">
-                            <td class="border px-4 py-2 font-medium">${day.day}</td>
-                            <td class="border px-4 py-2">${day.meals.breakfast}</td>
-                            <td class="border px-4 py-2">${day.meals.lunch}</td>
-                            <td class="border px-4 py-2">${day.meals.snack}</td>
-                            <td class="border px-4 py-2">${day.meals.dinner}</td>
+                        <tr class="border-b border-gray-200 hover:bg-opacity-80 transition-colors duration-150">
+                            <td class="py-3 px-4 font-medium bg-gray-100">${day.day}</td>
+                            <td class="py-3 px-4 bg-orange-100">
+                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-orange-200">${day.meals.breakfast}</div>
+                                <button class="view-recipe text-xs bg-white hover:bg-orange-200 text-orange-800 px-2 py-1 rounded transition-colors duration-200 border border-orange-300" 
+                                        data-meal="breakfast" 
+                                        data-day="${index}">
+                                        <i class="fas fa-book-open mr-1"></i> View Recipe
+                                </button>
+                            </td>
+                            <td class="py-3 px-4 bg-green-100">
+                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-green-200">${day.meals.lunch}</div>
+                                <button class="view-recipe text-xs bg-white hover:bg-green-200 text-green-800 px-2 py-1 rounded transition-colors duration-200 border border-green-300" 
+                                        data-meal="lunch" 
+                                        data-day="${index}">
+                                        <i class="fas fa-book-open mr-1"></i> View Recipe
+                                </button>
+                            </td>
+                            <td class="py-3 px-4 bg-purple-100 include-snacks">
+                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-purple-200">${day.meals.snack || 'No snack'}</div>
+                                ${day.meals.snack ? `<button class="view-recipe text-xs bg-white hover:bg-purple-200 text-purple-800 px-2 py-1 rounded transition-colors duration-200 border border-purple-300" 
+                                        data-meal="snack" 
+                                        data-day="${index}">
+                                        <i class="fas fa-book-open mr-1"></i> View Recipe
+                                </button>` : ''}
+                            </td>
+                            <td class="py-3 px-4 bg-blue-100">
+                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-blue-200">${day.meals.dinner}</div>
+                                <button class="view-recipe text-xs bg-white hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors duration-200 border border-blue-300" 
+                                        data-meal="dinner" 
+                                        data-day="${index}">
+                                        <i class="fas fa-book-open mr-1"></i> View Recipe
+                                </button>
+                            </td>
+                            <td class="py-3 px-4 bg-gray-100">
+                                <button class="bg-white hover:bg-gray-200 text-gray-800 px-3 py-1 rounded flex items-center transition-colors duration-200 border border-gray-300">
+                                    <i class="fas fa-print text-xs"></i>
+                                    <span class="text-xs ml-1">Print</span>
+                                </button>
+                            </td>
                         </tr>
                     `;
+               
                 });
                 $('#mealPlanBody').html(mealPlanHtml);
                 
-                // Populate ingredients list with structured data
-                let ingredientsHtml = '';
-                response.grocery_list.forEach(ingredient => {
-                    ingredientsHtml += `
-                        <div class="p-3 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
-                            <div class="flex items-center">
-                                <i class="fas fa-check-circle text-green-500 mr-2"></i>
-                                <span class="text-gray-700">${ingredient}</span>
-                            </div>
-                        </div>
-                    `;
-                });
-                $('#ingredientsList').html(ingredientsHtml);
+                // Store and display grocery list with pagination
+                groceryList = response.grocery_list;
+                updateShoppingList();
                 
-                // Initialize DataTable with custom configuration
+                // Attach recipe view handlers
+                $('.view-recipe').on('click', function() {
+                    const dayIndex = $(this).data('day');
+                    const mealType = $(this).data('meal');
+                    const day = response.meal_plan[dayIndex];
+                    const mealName = day.meals[mealType];
+                    
+                    // Example recipe data (in a real app, this would come from the backend)
+                    const recipeData = {
+                        title: mealName,
+                        description: `A delicious ${mealType} recipe from ${day.day} of your meal plan. This traditional Nigerian dish is perfect for family meals and showcases authentic flavors of ${$('#preferred_cuisine').val() || 'Nigerian'} cuisine.`,
+                        prepTime: '20 mins',
+                        cookTime: '35 mins',
+                        servings: $('#family_size').val() || '4',
+                        difficulty: 'Medium',
+                        ingredients: [
+                            "2 cups of flour",
+                            "3 tablespoons of palm oil",
+                            "1 onion, chopped",
+                            "2 tomatoes, diced",
+                            "1 teaspoon of ground crayfish",
+                            "1/2 teaspoon of ground pepper",
+                            "2 cloves of garlic, minced",
+                            "1 scotch bonnet pepper (optional for heat)",
+                            "Fresh herbs for garnish"
+                        ],
+                        instructions: [
+                            "Heat palm oil in a large pot over medium heat.",
+                            "Add onions and garlic, cook until translucent, about 3-4 minutes.",
+                            "Add tomatoes and peppers, then cook for 5 minutes until softened.",
+                            "Stir in the ground crayfish and other seasonings.",
+                            "Add the remaining ingredients and stir well to combine.",
+                            "Cover and simmer for 20 minutes, stirring occasionally.",
+                            "Taste and adjust seasonings as needed.",
+                            "Serve hot with your choice of side dishes like rice or yam."
+                        ],
+                        nutrition: {
+                            "Calories": "320 kcal",
+                            "Protein": "15g",
+                            "Carbs": "42g",
+                            "Fat": "12g",
+                            "Fiber": "5g",
+                            "Sugar": "8g"
+                        }
+                    };
+                    
+                    showRecipeModal(recipeData);
+                });
+                
+                // Smooth scroll to results
+                $('html, body').animate({
+                    scrollTop: $("#results").offset().top - 100
+                }, 500);
+                
+                // Initialize DataTable for premium users only
+                {% if has_subscription %}
                 if ($.fn.DataTable.isDataTable('#mealPlanTable')) {
                     $('#mealPlanTable').DataTable().destroy();
                 }
                 
-                $('#mealPlanTable').DataTable({  
-    dom: '<"flex justify-between items-center mb-4"<"flex space-x-2"B><"flex"f>>rtip',  
-    buttons: [  
-        {  
-            extend: 'csv',  
-            text: 'Download CSV',  
-            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg'  
-        },  
-        {  
-            extend: 'excel',  
-            text: 'Download Excel',  
-            className: 'bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg'  
-        },  
-        {  
-            extend: 'pdf',  
-            text: 'Download PDF',  
-            className: 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg'  
-        }  
-    ],  
-    responsive: true,  
-    pageLength: 7,  
-    ordering: true,  
-    searching: true,  
-    info: true,  
-    paging: false,  
-    language: {  
-        search: "_INPUT_",  
-        searchPlaceholder: "Search meals...",  
-    },  
-    initComplete: function() {  
-        // Add custom styling to search input  
-        $('.dataTables_filter input').addClass('p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 w-64');  
-        // Add container classes for proper alignment  
-        $('.dataTables_filter').addClass('ml-auto');  
-        $('.dt-buttons').addClass('flex space-x-2');  
-    }  
-});  
-            }, 1500);
-        },
-        error: function(xhr, status, error) {
-            $('#generating').addClass('hidden');
-            alert('Error generating meal plan. Please try again.');
+                $('#mealPlanTable').DataTable({
+                    dom: '<"flex justify-between items-center mb-4"<"flex space-x-2"B><"flex"f>>rtip',
+                    buttons: [
+                        {
+                            extend: 'csv',
+                            text: '<i class="fas fa-file-csv mr-1"></i> CSV',
+                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-300'
+                        },
+                        {
+                            extend: 'excel',
+                            text: '<i class="fas fa-file-excel mr-1"></i> Excel',
+                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-300'
+                        },
+                        {
+                            extend: 'pdf',
+                            text: '<i class="fas fa-file-pdf mr-1"></i> PDF',
+                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-300'
+                        }
+                    ],
+                    responsive: true,
+                    ordering: true,
+                    searching: true,
+                    info: true,
+                    paging: false,
+                    language: {
+                        search: "_INPUT_",
+                        searchPlaceholder: "Search meals...",
+                    },
+                    initComplete: function() {
+                        // Add custom styling to search input
+                        $('.dataTables_filter input').addClass('p-2 border rounded-lg focus:ring-2 focus:ring-green-500 w-64');
+                        // Add container classes for proper alignment
+                        $('.dataTables_filter').addClass('ml-auto');
+                        $('.dt-buttons').addClass('flex space-x-2');
+                    }
+                });
+                {% endif %}
+            },
+            error: function(xhr, status, error) {
+                // Hide loading animation
+                $('#loading').addClass('hidden');
+                $('#mealPlanForm').removeClass('hidden');
+                alert('Error generating meal plan: ' + error);
+            }
+        });
+    });
+    
+    // Premium feature click handler for non-premium users
+    {% if not has_subscription %}
+    $('#downloadMealPlan, #downloadIngredients').on('click', function(e) {
+        e.preventDefault();
+        
+        const upgradeModal = confirm('This feature requires a premium subscription. Would you like to upgrade now?');
+        if (upgradeModal) {
+            window.location.href = "{% url 'pricing' %}";
         }
     });
-}
-
-
-
-// Initialize DataTables
-    function initializeTables() {
-        $('#mealPlanTable').DataTable({
-            dom: 'Bfrtip',
-            buttons: ['csv', 'excel', 'pdf'],
-            responsive: true
-        });
-    }
-
-    // Download handlers
-    document.getElementById('downloadMealPlan').addEventListener('click', function() {
-        // Implement download logic
+    {% else %}
+    // Download handlers for premium users
+    $('#downloadMealPlan').on('click', function() {
+        // Premium download logic
     });
-
-    document.getElementById('downloadIngredients').addEventListener('click', function() {
-        // Implement download logic
+    
+    $('#downloadIngredients').on('click', function() {
+        // Premium download logic
     });
-
-    document.getElementById('downloadRecipes').addEventListener('click', function() {
-        // Implement download logic
-    });
+    {% endif %}
+    
+    // Initialize button text on page load
+    checkFormInputs();
 });
 </script>
 {% endblock %}
