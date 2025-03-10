@@ -1,5 +1,16 @@
 {% extends 'base.html' %}
 
+
+{% block extra_head %}
+<style>
+  /* Hide the navbar from base.html */
+  nav.bg-gradient-to-r.from-green-600.to-emerald-700 {
+    display: none !important;
+  }
+</style>
+{% endblock %}
+
+
 {% block content %}
 <div class="bg-gradient-to-b from-green-50 to-white min-h-screen">
     <!-- Navigation -->
