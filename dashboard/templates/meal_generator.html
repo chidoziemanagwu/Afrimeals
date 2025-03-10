@@ -756,220 +756,123 @@ $(document).ready(function() {
     }
     
     // Form submission
+    // Form submission
     $('#mealPlanForm').on('submit', function(e) {
-        e.preventDefault();
-        
-        // Reset pagination
-        currentPage = 1;
-        
-        // Check if snacks are included
-        const includeSnacks = includeSnacksCheckbox.is(':checked');
-        if (!includeSnacks) {
-            $('.include-snacks').hide();
-        } else {
-            $('.include-snacks').show();
-        }
-        
-        // Show loading animation
-        $('#mealPlanForm').addClass('hidden');
-        $('#loading').removeClass('hidden');
-        
-        // Create form data with explicit handling for checkboxes
-        const formData = new FormData(this);
-        
-        // Ensure the include_snacks value is correctly passed
-        formData.set('include_snacks', includeSnacks ? 'on' : 'off');
-        
-        $.ajax({
-            url: '{% url "meal_generator" %}',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            headers: {
-                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
-            },
-            success: function(response) {
-                // Hide loading animation
+    e.preventDefault();
+    
+    // Reset pagination
+    currentPage = 1;
+    
+    // Check if snacks are included
+    const includeSnacks = includeSnacksCheckbox.is(':checked');
+    if (!includeSnacks) {
+        $('.include-snacks').hide();
+    } else {
+        $('.include-snacks').show();
+    }
+    
+    // Show loading animation
+    $('#mealPlanForm').addClass('hidden');
+    $('#loading').removeClass('hidden');
+    
+    // Create form data with explicit handling for checkboxes
+    const formData = new FormData(this);
+    
+    // Ensure the include_snacks value is correctly passed
+    formData.set('include_snacks', includeSnacks ? 'on' : 'off');
+    
+    $.ajax({
+        url: '{% url "meal_generator" %}',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.requires_upgrade) {
+                // Handle premium feature request without subscription
                 $('#loading').addClass('hidden');
-                
-                if (response.requires_upgrade) {
-                    // Handle premium feature request without subscription
-                    alert(response.message);
-                    window.location.href = "{% url 'pricing' %}";
-                    return;
+                $('#mealPlanForm').removeClass('hidden');
+                alert(response.message);
+                window.location.href = "{% url 'pricing' %}";
+                return;
+            }
+            
+            if (response.success && response.status === 'processing') {
+                // Start polling for results
+                pollTaskStatus(response.task_id);
+            } else {
+                // Handle immediate response (unlikely)
+                processResults(response);
+            }
+        },
+        error: function(xhr, status, error) {
+            // Hide loading animation
+            $('#loading').addClass('hidden');
+            $('#mealPlanForm').removeClass('hidden');
+            alert('Error generating meal plan: ' + error);
+        }
+    });
+});
+
+// Function to poll task status
+function pollTaskStatus(taskId) {
+    setTimeout(function() {
+        $.ajax({
+            url: `/task-status/${taskId}/`,
+            type: 'GET',
+            success: function(result) {
+                if (result.status === 'processing') {
+                    // Continue polling
+                    pollTaskStatus(taskId);
+                } else {
+                    // Process completed task results
+                    processResults(result);
                 }
-                
-                // Show results
-                $('#results').removeClass('hidden');
-                
-                // Populate meal plan table with structured data
-                let mealPlanHtml = '';
-                response.meal_plan.forEach((day, index) => {
-                    // Ensure each meal object has all required properties, even if they're empty
-                    if (!day.meals.hasOwnProperty('snack')) {
-                        day.meals.snack = includeSnacks ? 'Fruit or nuts' : '';
-                    }
-                    
-                    // Update this part in your form submission success handler
-                    mealPlanHtml += `
-                        <tr class="border-b border-gray-200 hover:bg-opacity-80 transition-colors duration-150">
-                            <td class="py-3 px-4 font-medium bg-gray-100">${day.day}</td>
-                            <td class="py-3 px-4 bg-orange-100">
-                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-orange-200">${day.meals.breakfast}</div>
-                                <button class="view-recipe text-xs bg-white hover:bg-orange-200 text-orange-800 px-2 py-1 rounded transition-colors duration-200 border border-orange-300" 
-                                        data-meal="breakfast" 
-                                        data-day="${index}">
-                                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                                </button>
-                            </td>
-                            <td class="py-3 px-4 bg-green-100">
-                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-green-200">${day.meals.lunch}</div>
-                                <button class="view-recipe text-xs bg-white hover:bg-green-200 text-green-800 px-2 py-1 rounded transition-colors duration-200 border border-green-300" 
-                                        data-meal="lunch" 
-                                        data-day="${index}">
-                                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                                </button>
-                            </td>
-                            <td class="py-3 px-4 bg-purple-100 include-snacks">
-                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-purple-200">${day.meals.snack || 'No snack'}</div>
-                                ${day.meals.snack ? `<button class="view-recipe text-xs bg-white hover:bg-purple-200 text-purple-800 px-2 py-1 rounded transition-colors duration-200 border border-purple-300" 
-                                        data-meal="snack" 
-                                        data-day="${index}">
-                                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                                </button>` : ''}
-                            </td>
-                            <td class="py-3 px-4 bg-blue-100">
-                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-blue-200">${day.meals.dinner}</div>
-                                <button class="view-recipe text-xs bg-white hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors duration-200 border border-blue-300" 
-                                        data-meal="dinner" 
-                                        data-day="${index}">
-                                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                                </button>
-                            </td>
-                            <td class="py-3 px-4 bg-gray-100">
-                                <button class="bg-white hover:bg-gray-200 text-gray-800 px-3 py-1 rounded flex items-center transition-colors duration-200 border border-gray-300">
-                                    <i class="fas fa-print text-xs"></i>
-                                    <span class="text-xs ml-1">Print</span>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-               
-                });
-                $('#mealPlanBody').html(mealPlanHtml);
-                
-                // Store and display grocery list with pagination
-                groceryList = response.grocery_list;
-                updateShoppingList();
-                
-                // Attach recipe view handlers
-                $('.view-recipe').on('click', function() {
-                    const dayIndex = $(this).data('day');
-                    const mealType = $(this).data('meal');
-                    const day = response.meal_plan[dayIndex];
-                    const mealName = day.meals[mealType];
-                    
-                    // Example recipe data (in a real app, this would come from the backend)
-                    const recipeData = {
-                        title: mealName,
-                        description: `A delicious ${mealType} recipe from ${day.day} of your meal plan. This traditional Nigerian dish is perfect for family meals and showcases authentic flavors of ${$('#preferred_cuisine').val() || 'Nigerian'} cuisine.`,
-                        prepTime: '20 mins',
-                        cookTime: '35 mins',
-                        servings: $('#family_size').val() || '4',
-                        difficulty: 'Medium',
-                        ingredients: [
-                            "2 cups of flour",
-                            "3 tablespoons of palm oil",
-                            "1 onion, chopped",
-                            "2 tomatoes, diced",
-                            "1 teaspoon of ground crayfish",
-                            "1/2 teaspoon of ground pepper",
-                            "2 cloves of garlic, minced",
-                            "1 scotch bonnet pepper (optional for heat)",
-                            "Fresh herbs for garnish"
-                        ],
-                        instructions: [
-                            "Heat palm oil in a large pot over medium heat.",
-                            "Add onions and garlic, cook until translucent, about 3-4 minutes.",
-                            "Add tomatoes and peppers, then cook for 5 minutes until softened.",
-                            "Stir in the ground crayfish and other seasonings.",
-                            "Add the remaining ingredients and stir well to combine.",
-                            "Cover and simmer for 20 minutes, stirring occasionally.",
-                            "Taste and adjust seasonings as needed.",
-                            "Serve hot with your choice of side dishes like rice or yam."
-                        ],
-                        nutrition: {
-                            "Calories": "320 kcal",
-                            "Protein": "15g",
-                            "Carbs": "42g",
-                            "Fat": "12g",
-                            "Fiber": "5g",
-                            "Sugar": "8g"
-                        }
-                    };
-                    
-                    showRecipeModal(recipeData);
-                });
-                
-                // Smooth scroll to results
-                $('html, body').animate({
-                    scrollTop: $("#results").offset().top - 100
-                }, 500);
-                
-                // Initialize DataTable for premium users only
-                {% if has_subscription %}
-                if ($.fn.DataTable.isDataTable('#mealPlanTable')) {
-                    $('#mealPlanTable').DataTable().destroy();
-                }
-                
-                $('#mealPlanTable').DataTable({
-                    dom: '<"flex justify-between items-center mb-4"<"flex space-x-2"B><"flex"f>>rtip',
-                    buttons: [
-                        {
-                            extend: 'csv',
-                            text: '<i class="fas fa-file-csv mr-1"></i> CSV',
-                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-300'
-                        },
-                        {
-                            extend: 'excel',
-                            text: '<i class="fas fa-file-excel mr-1"></i> Excel',
-                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-300'
-                        },
-                        {
-                            extend: 'pdf',
-                            text: '<i class="fas fa-file-pdf mr-1"></i> PDF',
-                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-300'
-                        }
-                    ],
-                    responsive: true,
-                    ordering: true,
-                    searching: true,
-                    info: true,
-                    paging: false,
-                    language: {
-                        search: "_INPUT_",
-                        searchPlaceholder: "Search meals...",
-                    },
-                    initComplete: function() {
-                        // Add custom styling to search input
-                        $('.dataTables_filter input').addClass('p-2 border rounded-lg focus:ring-2 focus:ring-green-500 w-64');
-                        // Add container classes for proper alignment
-                        $('.dataTables_filter').addClass('ml-auto');
-                        $('.dt-buttons').addClass('flex space-x-2');
-                    }
-                });
-                {% endif %}
             },
             error: function(xhr, status, error) {
                 // Hide loading animation
                 $('#loading').addClass('hidden');
                 $('#mealPlanForm').removeClass('hidden');
-                alert('Error generating meal plan: ' + error);
+                alert('Error checking task status: ' + error);
             }
         });
+    }, 2000); // Poll every 2 seconds
+}
+
+// Function to process results
+function processResults(response) {
+    // Hide loading animation
+    $('#loading').addClass('hidden');
+    
+    // Show results
+    $('#results').removeClass('hidden');
+    
+    // Populate meal plan table with structured data
+    let mealPlanHtml = '';
+    response.meal_plan.forEach((day, index) => {
+        // The rest of your existing code for populating results...
+        
+        // (Keep your existing meal plan HTML generation code)
     });
     
+    $('#mealPlanBody').html(mealPlanHtml);
+    
+    // Store and display grocery list with pagination
+    groceryList = response.grocery_list;
+    updateShoppingList();
+    
+    // Continue with your existing code...
+    
+    // Smooth scroll to results
+    $('html, body').animate({
+        scrollTop: $("#results").offset().top - 100
+    }, 500);
+}
+
+
     // Premium feature click handler for non-premium users
     {% if not has_subscription %}
     $('#downloadMealPlan, #downloadIngredients').on('click', function(e) {

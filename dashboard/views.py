@@ -18,6 +18,12 @@ from .models import MealPlan, Recipe, GroceryList, SubscriptionTier, UserSubscri
 from django.contrib.auth.models import User
 from openai import OpenAI
 
+from celery.result import AsyncResult
+import logging
+from django.core.cache import cache
+from functools import wraps  # Correct
+
+logger = logging.getLogger('dashboard')
 # Initialize OpenAI client
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
@@ -25,6 +31,23 @@ client = OpenAI(
 
 # Initialize Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+
+def simple_rate_limit(key_prefix, requests=5, window=3600):
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            cache_key = f"{key_prefix}:{request.user.id}"
+            count = cache.get(cache_key, 0)
+
+            if count >= requests:
+                return HttpResponse("Rate limit exceeded", status=429)
+
+            cache.set(cache_key, count + 1, window)
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
+
 
 # Define Celery task for meal generation
 @shared_task
@@ -184,7 +207,8 @@ class HomeView(TemplateView):
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
 
-
+# Apply the custom rate limiter to your views
+@method_decorator(simple_rate_limit(key_prefix='meal_generation', requests=5, window=3600), name='post')
 class MealGeneratorView(LoginRequiredMixin, View):
     def get(self, request):
         # Check if user has an active subscription
@@ -215,8 +239,11 @@ class MealGeneratorView(LoginRequiredMixin, View):
         except UserSubscription.DoesNotExist:
             return False
 
+    
     def post(self, request):
         try:
+            logger.info(f"Meal plan generation requested by user: {request.user.id}")
+
             # Extract form data
             form_data = {}
             for key, value in request.POST.items():
@@ -230,6 +257,7 @@ class MealGeneratorView(LoginRequiredMixin, View):
                     break
 
             if premium_features_requested and not self.has_active_subscription(request.user):
+                logger.warning(f"User {request.user.id} attempted to access premium features without subscription")
                 return JsonResponse({
                     'success': False,
                     'requires_upgrade': True,
@@ -238,29 +266,21 @@ class MealGeneratorView(LoginRequiredMixin, View):
 
             # Launch Celery task for asynchronous processing
             task = generate_meal_plan_task.delay(request.user.id, form_data)
-            
-            # In a production app, we would return a task ID and implement progress polling
-            # For simplicity in this example, we'll wait for the result directly
-            result = task.get(timeout=30)  # 30-second timeout
 
-            if result['success']:
-                return JsonResponse({
-                    'success': True,
-                    'meal_plan': result['meal_plan'],
-                    'grocery_list': result['grocery_list']
-                })
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': result.get('error', 'Failed to generate meal plan')
-                }, status=500)
+            # Return task ID for frontend to poll
+            logger.info(f"Meal plan generation task {task.id} started for user: {request.user.id}")
+            return JsonResponse({
+                'success': True,
+                'status': 'processing',
+                'task_id': task.id
+            })
 
         except Exception as e:
+            logger.error(f"Error in meal plan generation: {str(e)}", exc_info=True)
             return JsonResponse({
                 'success': False,
-                'error': str(e)
-            }, status=500)
-        
+                'error': f"An error occurred: {str(e)}"
+            }, status=500)    
         
 class PricingView(TemplateView):
     template_name = 'pricing.html'
@@ -365,7 +385,29 @@ class MySubscriptionView(LoginRequiredMixin, DetailView):
         ).first()
         return subscription
 
+# Define endpoint to check task status
+def check_task_status(request, task_id):
+    """Check the status of an async task"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=403)
 
+    task = AsyncResult(task_id)
+
+    if not task.ready():
+        return JsonResponse({
+            'status': 'processing'
+        })
+
+    result = task.result
+    return JsonResponse(result)
+
+def custom_404(request, exception=None):
+    return render(request, '404.html', status=404)
+
+def custom_500(request, exception=None):
+    return render(request, '500.html', status=500)
+
+    
 @method_decorator(csrf_exempt, name='dispatch')
 def stripe_webhook(request):
     """Handle Stripe webhook events"""
