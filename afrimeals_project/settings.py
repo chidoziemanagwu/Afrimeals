@@ -11,8 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # SECURITY WARNING: keep the secret key used in production secret!  
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'  # Ensure boolean conversion
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-for-dev')  # Provide a default for development
-
+SECRET_KEY = os.getenv('SECRET_KEY')
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com', 'afrimeals-production.up.railway.app']  
 
 # Application definition  
@@ -29,7 +28,8 @@ INSTALLED_APPS = [
     'allauth.socialaccount',  
     'allauth.socialaccount.providers.google',  
     'dashboard',
-    'sslserver'
+    'sslserver',
+    'django_celery_results',  # Add this line
 ]  
 
 MIDDLEWARE = [  
@@ -68,13 +68,13 @@ WSGI_APPLICATION = 'afrimeals_project.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'afrimeals',
-        'USER': 'afrimeals_owner',
-        'PASSWORD': 'fYXZqaR3g2LM',
-        'HOST': 'ep-misty-pond-a5dm2536.us-east-2.aws.neon.tech',
-        'PORT': '5432',  # Default PostgreSQL port
+        'NAME': os.getenv('DB_NAME', 'afrimeals'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT', '5432'),
         'OPTIONS': {
-            'sslmode': 'require',  # Ensure SSL is used
+            'sslmode': 'require',
         },
     }
 }
@@ -149,3 +149,9 @@ if not DEBUG:
         'https://afrimeals-production.up.railway.app',
         'https://afrimeals.onrender.com',
     ]
+
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
