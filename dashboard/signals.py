@@ -13,7 +13,8 @@ def user_logged_in_callback(sender, request, user, **kwargs):
 
 @receiver(user_logged_out)
 def user_logged_out_callback(sender, request, user, **kwargs):
-    if user:
+    # Check if user is not None before creating UserActivity
+    if user is not None:
         UserActivity.objects.create(
             user=user,
             action='logout',

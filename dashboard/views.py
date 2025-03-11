@@ -6,6 +6,8 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
+
+from dashboard.decorators import rate_limit
 from .models import MealPlan, Recipe, GroceryList, SubscriptionTier, UserSubscription
 from django.contrib.auth.models import User
 import os
@@ -361,6 +363,8 @@ class RecipeCreateView(LoginRequiredMixin, View):
         form = RecipeForm()
         return render(request, 'recipe_form.html', {'form': form, 'title': 'Add Recipe'})
 
+
+    @rate_limit('recipe_create', max_requests=10, timeout=3600)  # 10 requests per hour
     def post(self, request):
         form = RecipeForm(request.POST)
         if form.is_valid():
@@ -376,6 +380,7 @@ class RecipeUpdateView(LoginRequiredMixin, View):
         form = RecipeForm(instance=recipe)
         return render(request, 'recipe_form.html', {'form': form, 'title': 'Edit Recipe'})
 
+    @rate_limit('recipe_create', max_requests=10, timeout=3600)  # 10 requests per hour
     def post(self, request, pk):
         recipe = get_object_or_404(Recipe, pk=pk, user=request.user)
         form = RecipeForm(request.POST, instance=recipe)
@@ -398,6 +403,7 @@ class ShoppingListView(LoginRequiredMixin, View):
 
 
 class ExportMealPlanPDFView(LoginRequiredMixin, View):
+    @rate_limit('recipe_create', max_requests=5, timeout=3600)  # 10 requests per hour
     def get(self, request, pk):
         meal_plan = get_object_or_404(MealPlan, pk=pk, user=request.user)
 
@@ -446,6 +452,7 @@ class FeedbackView(LoginRequiredMixin, View):
         form = FeedbackForm()
         return render(request, 'feedback.html', {'form': form})
 
+    @rate_limit('feedback', max_requests=3, timeout=3600)  # 3 requests per hour
     def post(self, request):
         form = FeedbackForm(request.POST)
         if form.is_valid():
@@ -469,6 +476,7 @@ class CheckoutView(LoginRequiredMixin, View):
             'stripe_public_key': settings.STRIPE_PUBLIC_KEY
         })
 
+    @rate_limit('checkout', max_requests=5, timeout=3600)
     def post(self, request, tier_id):
         tier = get_object_or_404(SubscriptionTier, id=tier_id)
 
