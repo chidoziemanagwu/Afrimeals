@@ -24,7 +24,7 @@ urlpatterns = [
 
     # Fix for allauth logout
     # path('accounts/logout/', CustomLogoutView.as_view(next_page='/'), name='logout_success'),
-    path('accounts/logout/', CustomLogoutView.as_view(next_page='/'), name='logout_success'),
+    path('accounts/logout/', CustomLogoutView.as_view(), name='logout_success'),
     path('accounts/', include('allauth.urls')),
 
     path('meal-generator/', MealGeneratorView.as_view(), name='meal_generator'),

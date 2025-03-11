@@ -22,6 +22,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from io import BytesIO
 from django.contrib.auth import logout
+from django.contrib.auth.views import LogoutView
 
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -31,13 +32,9 @@ client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
 )
 
-class CustomLogoutView(View):
-    def get(self, request):
-        return render(request, 'account/logout.html')
-
-    def post(self, request):
-        logout(request)
-        return redirect('home')
+class CustomLogoutView(LogoutView):
+    next_page = 'home'  # Set default redirect URL
+    template_name = 'account/logout.html'  # Your logout confirmation template
     
 class HomeView(TemplateView):
     template_name = 'home.html'
