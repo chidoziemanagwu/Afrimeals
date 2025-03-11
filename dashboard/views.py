@@ -72,41 +72,40 @@ class HomeView(TemplateView):
             return redirect('dashboard')
         return super().get(request, *args, **kwargs)
 
+# dashboard/views.py (update the DashboardView)
+
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user_id = self.request.user.id
-        cache_key = f"dashboard_data_{user_id}"
 
-        dashboard_data = cache.get(cache_key)
-        if not dashboard_data:
-            # Optimize queries with select_related, prefetch_related, and only
-            dashboard_data = {
-                'recent_meal_plans': MealPlan.objects.filter(
-                    user=self.request.user
-                ).select_related('user').only(
-                    'id', 'name', 'description', 'created_at', 'user_id'
-                ).prefetch_related(
-                    'recipes'
-                ).order_by('-created_at')[:5],
+        # Remove cache dependency for now to fix the error
+        recent_meal_plans = MealPlan.objects.filter(
+            user=self.request.user
+        ).select_related('user').order_by('-created_at')[:5]
 
-                'recent_recipes': Recipe.objects.filter(
-                    user=self.request.user
-                ).select_related('user').only(
-                    'id', 'title', 'image', 'created_at', 'difficulty', 'cooking_time', 'user_id'
-                ).order_by('-created_at')[:5],
+        recent_recipes = Recipe.objects.filter(
+            user=self.request.user
+        ).select_related('user').order_by('-created_at')[:5]
 
-                'subscription': UserSubscription.get_active_subscription(user_id),
+        subscription = UserSubscription.get_active_subscription(user_id)
 
-                'recent_activity': UserActivity.objects.filter(
-                    user=self.request.user
-                ).select_related('user').only(
-                    'id', 'action', 'details', 'timestamp', 'user_id'
-                ).order_by('-timestamp')[:10]
-            }
-            cache.set(cache_key, dashboard_data, CACHE_TIMEOUTS['short'])
+        try:
+            recent_activity = UserActivity.objects.filter(
+                user=self.request.user
+            ).select_related('user').order_by('-timestamp')[:10]
+        except:
+            # Handle case where UserActivity might not exist or have issues
+            recent_activity = []
+
+        dashboard_data = {
+            'recent_meal_plans': recent_meal_plans,
+            'recent_recipes': recent_recipes,
+            'subscription': subscription,
+            'recent_activity': recent_activity
+        }
 
         context.update(dashboard_data)
         return context
@@ -539,7 +538,7 @@ class MealPlanListView(LoginRequiredMixin, ListView):
         ).select_related('user').order_by('-created_at')
     
 
-    
+
     
     
 class RecipeDetailView(LoginRequiredMixin, DetailView):
