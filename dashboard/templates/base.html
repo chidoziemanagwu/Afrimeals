@@ -41,7 +41,7 @@
 </head>
 <body class="bg-gray-50">
   <!-- Navigation Bar -->
-  <nav class="bg-gradient-to-r from-green-600 to-emerald-700 shadow-lg">
+  <nav class="bg-gradient-to-r from-green-600 to-orange-500 shadow-lg">
     <div class="max-w-6xl mx-auto px-4">
       <div class="flex justify-between items-center py-4">
         <div class="flex items-center">
@@ -51,7 +51,7 @@
         </div>
         
         <!-- Desktop Navigation -->
-        <div class="hidden md:flex space-x-6">
+        <div class="hidden md:flex space-x-6" id="desktop-nav">
           <a href="{% url 'dashboard' %}" class="text-white font-medium hover:text-green-200 transition-colors duration-300">
             <i class="fas fa-home mr-2"></i>Home
           </a>
@@ -74,25 +74,23 @@
         </div>
         
         <!-- User Info & Actions -->
-        <div class="hidden md:flex items-center space-x-4">
+        <div class="hidden md:flex items-center space-x-4" id="user-actions">
           {% if has_subscription %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-200 text-green-800">
               <i class="fas fa-crown mr-1"></i>Premium
             </span>
           {% endif %}
-         <!-- In your base.html template -->
-<div class="hidden md:flex items-center space-x-4">
-  {% if user.is_authenticated %}
-    <span class="text-white">{{ user.email }}</span>
-    <a href="{% url 'account_logout' %}" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-300">
-      <i class="fas fa-sign-out-alt mr-1"></i>Logout
-    </a>
-  {% else %}
-    <a href="{% url 'account_login' %}" class="text-white hover:text-green-200 transition-colors duration-300">
-      <i class="fas fa-sign-in-alt mr-1"></i>Login
-    </a>
-  {% endif %}
-</div>
+          
+          {% if user.is_authenticated %}
+            <span class="text-white">{{ user.email }}</span>
+            <a href="{% url 'account_logout' %}" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-300">
+              <i class="fas fa-sign-out-alt mr-1"></i>Logout
+            </a>
+          {% else %}
+            <a href="{% url 'account_login' %}" class="text-white hover:text-green-200 transition-colors duration-300">
+              <i class="fas fa-sign-in-alt mr-1"></i>Login
+            </a>
+          {% endif %}
         </div>
       </div>
       
@@ -131,8 +129,6 @@
   </nav>
 
   {% block content %}{% endblock %}
-  
-
   
   <!-- Toast Notification Container -->
 <div id="toast-container" class="fixed bottom-0 right-0 p-4 z-50">
@@ -179,10 +175,40 @@
           mobileMenu.classList.toggle('hidden');
         });
       }
+      
+      // Fix for navigation visibility on medium and large screens
+      const desktopNav = document.getElementById('desktop-nav');
+      const userActions = document.getElementById('user-actions');
+      
+      function updateNavVisibility() {
+        if (window.innerWidth >= 768) { // 768px is the md breakpoint in Tailwind
+          if (desktopNav) {
+            desktopNav.classList.remove('hidden');
+            desktopNav.classList.add('flex');
+          }
+          if (userActions) {
+            userActions.classList.remove('hidden');
+            userActions.classList.add('flex');
+          }
+        } else {
+          if (desktopNav) {
+            desktopNav.classList.add('hidden');
+            desktopNav.classList.remove('flex');
+          }
+          if (userActions) {
+            userActions.classList.add('hidden');
+            userActions.classList.remove('flex');
+          }
+        }
+      }
+      
+      // Run on page load
+      updateNavVisibility();
+      
+      // Run on window resize
+      window.addEventListener('resize', updateNavVisibility);
     });
   </script>
-
-
 
 <!-- Toast JavaScript -->
 <script>
@@ -271,9 +297,9 @@
   });
 </script>
 
-
   {% block extra_scripts %}
   <script src="{% static 'js/main.js' %}"></script>
+  <script src="{% static 'js/responsive-test.js' %}"></script>
   {% endblock %}
 </body>
 </html>

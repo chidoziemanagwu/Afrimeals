@@ -31,6 +31,7 @@ from django.http import JsonResponse
 import logging
 from django.contrib.auth import logout
 from openai import OpenAIError, RateLimitError, APIError
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 
 # Set up logger
@@ -81,11 +82,29 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         dashboard_data = cache.get(cache_key)
         if not dashboard_data:
+            # Optimize queries with select_related, prefetch_related, and only
             dashboard_data = {
-                'recent_meal_plans': MealPlan.get_user_plans(user_id, limit=5),
-                'recent_recipes': Recipe.get_user_recipes(user_id)[:5],
+                'recent_meal_plans': MealPlan.objects.filter(
+                    user=self.request.user
+                ).select_related('user').only(
+                    'id', 'name', 'description', 'created_at', 'user_id'
+                ).prefetch_related(
+                    'recipes'
+                ).order_by('-created_at')[:5],
+
+                'recent_recipes': Recipe.objects.filter(
+                    user=self.request.user
+                ).select_related('user').only(
+                    'id', 'title', 'image', 'created_at', 'difficulty', 'cooking_time', 'user_id'
+                ).order_by('-created_at')[:5],
+
                 'subscription': UserSubscription.get_active_subscription(user_id),
-                'recent_activity': UserActivity.get_user_recent_activity(user_id, limit=10)
+
+                'recent_activity': UserActivity.objects.filter(
+                    user=self.request.user
+                ).select_related('user').only(
+                    'id', 'action', 'details', 'timestamp', 'user_id'
+                ).order_by('-timestamp')[:10]
             }
             cache.set(cache_key, dashboard_data, CACHE_TIMEOUTS['short'])
 
@@ -464,27 +483,65 @@ class MySubscriptionView(LoginRequiredMixin, DetailView):
 class RecipeListView(LoginRequiredMixin, ListView):
     template_name = 'recipes.html'
     context_object_name = 'recipes'
-    paginate_by = 12
+    paginate_by = 12  # You already have this, which is good
 
     def get_queryset(self):
-        cache_key = f"user_recipes_{self.request.user.id}"
-        recipes = cache.get(cache_key)
+        # Get query parameters for filtering
+        query = self.request.GET.get('q', '')
+        sort = self.request.GET.get('sort', '-created_at')
 
-        if not recipes:
-            recipes = Recipe.objects.filter(
-                user=self.request.user
-            ).select_related('user').order_by('-created_at')
-            cache.set(cache_key, recipes, CACHE_TIMEOUTS['short'])
+        # Start with base queryset
+        recipes = Recipe.objects.filter(user=self.request.user)
+
+        # Apply search if provided
+        if query:
+            recipes = recipes.filter(
+                Q(title__icontains=query) |
+                Q(ingredients__icontains=query) |
+                Q(instructions__icontains=query)
+            )
+
+        # Apply sorting
+        if sort in ['title', '-title', 'created_at', '-created_at']:
+            recipes = recipes.order_by(sort)
+        else:
+            recipes = recipes.order_by('-created_at')
+
+        # Optimize with select_related
+        recipes = recipes.select_related('user')
 
         return recipes
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Add search query to context for form
+        context['query'] = self.request.GET.get('q', '')
+        context['sort'] = self.request.GET.get('sort', '-created_at')
         context['has_subscription'] = UserSubscription.get_active_subscription(
             self.request.user.id
         ) is not None
         return context
+    
+    
 
+
+
+
+# Update MealPlanListView (add this if you don't have it)
+class MealPlanListView(LoginRequiredMixin, ListView):
+    template_name = 'meal_plans.html'
+    context_object_name = 'meal_plans'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return MealPlan.objects.filter(
+            user=self.request.user
+        ).select_related('user').order_by('-created_at')
+    
+
+    
+    
+    
 class RecipeDetailView(LoginRequiredMixin, DetailView):
     model = Recipe
     template_name = 'recipe_detail.html'
@@ -513,25 +570,48 @@ class RecipeDetailView(LoginRequiredMixin, DetailView):
 
 class UserProfileView(LoginRequiredMixin, View):
     def get(self, request):
-        cache_key = f"user_profile_{request.user.id}"
-        profile_data = cache.get(cache_key)
+        # Get meal plans with pagination
+        meal_plans = MealPlan.objects.filter(
+            user=request.user
+        ).select_related('user').order_by('-created_at')
 
-        if not profile_data:
-            profile_data = {
-                'meal_plans': MealPlan.objects.filter(
-                    user=request.user
-                ).order_by('-created_at')[:5],
-                'subscription': UserSubscription.get_active_subscription(request.user.id),
-                'recent_activity': UserActivity.objects.filter(
-                    user=request.user
-                ).select_related('user').order_by('-timestamp')[:10]
-            }
-            cache.set(cache_key, profile_data, CACHE_TIMEOUTS['short'])
+        # Paginate meal plans
+        page = request.GET.get('meal_page', 1)
+        meal_paginator = Paginator(meal_plans, 6)  # 6 per page
+        try:
+            meal_plans_page = meal_paginator.page(page)
+        except PageNotAnInteger:
+            meal_plans_page = meal_paginator.page(1)
+        except EmptyPage:
+            meal_plans_page = meal_paginator.page(meal_paginator.num_pages)
+
+        # Get recent activity with pagination
+        activities = UserActivity.objects.filter(
+            user=request.user
+        ).select_related('user').order_by('-timestamp')
+
+        # Paginate activities
+        activity_page = request.GET.get('activity_page', 1)
+        activity_paginator = Paginator(activities, 10)  # 10 per page
+        try:
+            activities_page = activity_paginator.page(activity_page)
+        except PageNotAnInteger:
+            activities_page = activity_paginator.page(1)
+        except EmptyPage:
+            activities_page = activity_paginator.page(activity_paginator.num_pages)
+
+        subscription = UserSubscription.get_active_subscription(request.user.id)
 
         return render(request, 'user_profile.html', {
             'user': request.user,
-            **profile_data
+            'meal_plans': meal_plans_page,
+            'is_meal_paginated': True,
+            'subscription': subscription,
+            'recent_activity': activities_page,
+            'is_activity_paginated': True
         })
+    
+
 
 class RecipeCreateView(LoginRequiredMixin, View):
     def get(self, request):

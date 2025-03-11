@@ -8,6 +8,24 @@
   <div class="bg-white rounded-lg shadow-md overflow-hidden">
     <div class="p-6">
       <div class="flex justify-between items-center mb-4">
+        <!-- dashboard/templates/recipe_detail.html (partial update) -->
+
+{% if recipe.image %}
+<div class="rounded-lg overflow-hidden shadow-lg mb-6">
+    <img 
+        src="{{ recipe.image.url }}" 
+        srcset="{{ recipe.image.url }} 480w,
+                {{ recipe.image.url }} 768w,
+                {{ recipe.image.url }} 1024w"
+        sizes="(max-width: 480px) 100vw,
+               (max-width: 768px) 75vw,
+               50vw"
+        alt="{{ recipe.title }}" 
+        class="w-full h-auto object-cover"
+        loading="lazy"
+    >
+</div>
+{% endif %}
         <h1 class="text-2xl font-bold text-gray-800">{{ recipe.title }}</h1>
         <div class="flex space-x-3">
             <button 

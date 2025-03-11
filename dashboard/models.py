@@ -27,7 +27,7 @@ class CacheModelMixin:
 
 class MealPlan(models.Model, CacheModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, db_index=True)
     description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
@@ -59,9 +59,10 @@ class Recipe(models.Model, CacheModelMixin):
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
-        indexes = [
-            models.Index(fields=['user', 'created_at'], name='recipe_user_created_idx'),
-        ]
+            indexes = [
+                models.Index(fields=['user', 'created_at']),  # Compound index for user's recipes by date
+                models.Index(fields=['title'], name='recipe_title_idx'),
+            ]
 
     def __str__(self):
         return self.title

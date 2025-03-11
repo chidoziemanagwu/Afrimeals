@@ -83,5 +83,46 @@
       </div>
     {% endif %}
   </div>
+
+
+  <!-- dashboard/templates/user_profile.html (add pagination sections) -->
+
+<!-- For meal plans pagination -->
+{% if is_meal_paginated %}
+<div class="pagination flex justify-center mt-4 mb-8 space-x-2">
+    {% if meal_plans.has_previous %}
+        <a href="?meal_page=1{% if recent_activity.number > 1 %}&activity_page={{ recent_activity.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">&laquo; first</a>
+        <a href="?meal_page={{ meal_plans.previous_page_number }}{% if recent_activity.number > 1 %}&activity_page={{ recent_activity.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">previous</a>
+    {% endif %}
+
+    <span class="current px-3 py-1 bg-green-500 text-white rounded-md">
+        Meal Plans: Page {{ meal_plans.number }} of {{ meal_plans.paginator.num_pages }}
+    </span>
+
+    {% if meal_plans.has_next %}
+        <a href="?meal_page={{ meal_plans.next_page_number }}{% if recent_activity.number > 1 %}&activity_page={{ recent_activity.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">next</a>
+        <a href="?meal_page={{ meal_plans.paginator.num_pages }}{% if recent_activity.number > 1 %}&activity_page={{ recent_activity.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">last &raquo;</a>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- For activity pagination -->
+{% if is_activity_paginated %}
+<div class="pagination flex justify-center mt-4 mb-8 space-x-2">
+    {% if recent_activity.has_previous %}
+        <a href="?activity_page=1{% if meal_plans.number > 1 %}&meal_page={{ meal_plans.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">&laquo; first</a>
+        <a href="?activity_page={{ recent_activity.previous_page_number }}{% if meal_plans.number > 1 %}&meal_page={{ meal_plans.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">previous</a>
+    {% endif %}
+
+    <span class="current px-3 py-1 bg-green-500 text-white rounded-md">
+        Activity: Page {{ recent_activity.number }} of {{ recent_activity.paginator.num_pages }}
+    </span>
+
+    {% if recent_activity.has_next %}
+        <a href="?activity_page={{ recent_activity.next_page_number }}{% if meal_plans.number > 1 %}&meal_page={{ meal_plans.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">next</a>
+        <a href="?activity_page={{ recent_activity.paginator.num_pages }}{% if meal_plans.number > 1 %}&meal_page={{ meal_plans.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">last &raquo;</a>
+    {% endif %}
+</div>
+{% endif %}
 </div>
 {% endblock %}
