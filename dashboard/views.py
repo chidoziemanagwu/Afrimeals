@@ -28,6 +28,13 @@ from reportlab.lib import colors
 from io import BytesIO
 from celery.result import AsyncResult
 from django.http import JsonResponse
+import logging
+from django.contrib.auth import logout
+from openai import OpenAIError, RateLimitError, APIError
+
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 
 # Initialize Stripe
@@ -126,11 +133,46 @@ class MealGeneratorView(LoginRequiredMixin, View):
 
             return JsonResponse(response_data)
 
-        except Exception as e:
+        except OpenAIError as e:
+            error_message = "We couldn't generate your meal plan. Please try again with different preferences."
+
+            if isinstance(e, RateLimitError):
+                error_message = "We're experiencing high demand. Please try again in a few minutes."
+            elif isinstance(e, APIError):
+                error_message = "Our meal generation service is temporarily unavailable. Please try again later."
+
+            logger.error(f"OpenAI Error: {str(e)}", exc_info=True, extra={
+                'user_id': request.user.id,
+                'form_data': form_data if 'form_data' in locals() else {}
+            })
+
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': error_message,
+                'details': str(e) if settings.DEBUG else ""
             }, status=500)
+
+        except ValueError as e:
+            logger.warning(f"Value Error in meal generator: {str(e)}", extra={
+                'user_id': request.user.id
+            })
+
+            return JsonResponse({
+                'success': False,
+                'error': "Please check your meal preferences and try again.",
+                'details': str(e) if settings.DEBUG else ""
+            }, status=400)
+
+        except Exception as e:
+            logger.critical(f"Unexpected error in meal generator: {str(e)}", exc_info=True, extra={
+                'user_id': request.user.id
+            })
+
+        return JsonResponse({
+            'success': False,
+            'error': "Something went wrong. Our team has been notified and will fix this soon.",
+            'details': str(e) if settings.DEBUG else ""
+        }, status=500)
 
     def _extract_form_data(self, post_data):
         """Extract and validate form data with defaults"""

@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -131,6 +132,37 @@
 
   {% block content %}{% endblock %}
   
+
+  
+  <!-- Toast Notification Container -->
+<div id="toast-container" class="fixed bottom-0 right-0 p-4 z-50">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="toast mb-3 bg-white rounded-lg shadow-lg overflow-hidden max-w-md transform transition-all duration-500 ease-in-out opacity-100 scale-100" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header flex justify-between items-center p-3 border-b {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+          <strong class="me-auto">
+            {% if message.tags == 'success' %}
+              <i class="fas fa-check-circle mr-2"></i> Success
+            {% elif message.tags == 'error' %}
+              <i class="fas fa-exclamation-circle mr-2"></i> Error
+            {% elif message.tags == 'warning' %}
+              <i class="fas fa-exclamation-triangle mr-2"></i> Warning
+            {% else %}
+              <i class="fas fa-info-circle mr-2"></i> Information
+            {% endif %}
+          </strong>
+          <button type="button" class="toast-close ml-2 text-gray-400 hover:text-gray-600 focus:outline-none" aria-label="Close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="toast-body p-4">
+          {{ message }}
+        </div>
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
   <!-- JavaScript Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.js"></script>
   <!-- Optional: jQuery for additional functionality -->
@@ -149,9 +181,99 @@
       }
     });
   </script>
-  
+
+
+
+<!-- Toast JavaScript -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Handle existing toasts from Django messages
+    const toasts = document.querySelectorAll('.toast');
+    toasts.forEach(toast => {
+      setTimeout(() => {
+        fadeOutToast(toast);
+      }, 5000);
+      
+      const closeBtn = toast.querySelector('.toast-close');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          fadeOutToast(toast);
+        });
+      }
+    });
+    
+    // Function to show a new toast programmatically
+    window.showToast = function(message, type = 'info') {
+      const toastContainer = document.getElementById('toast-container');
+      
+      // Create toast element
+      const toast = document.createElement('div');
+      toast.className = 'toast mb-3 bg-white rounded-lg shadow-lg overflow-hidden max-w-md transform transition-all duration-500 ease-in-out opacity-0 scale-95';
+      toast.setAttribute('role', 'alert');
+      toast.setAttribute('aria-live', 'assertive');
+      toast.setAttribute('aria-atomic', 'true');
+      
+      // Toast header
+      const headerClass = type === 'success' ? 'bg-green-100 text-green-800' : 
+                         type === 'error' ? 'bg-red-100 text-red-800' : 
+                         type === 'warning' ? 'bg-yellow-100 text-yellow-800' : 
+                         'bg-blue-100 text-blue-800';
+      
+      const headerIcon = type === 'success' ? '<i class="fas fa-check-circle mr-2"></i> Success' : 
+                         type === 'error' ? '<i class="fas fa-exclamation-circle mr-2"></i> Error' : 
+                         type === 'warning' ? '<i class="fas fa-exclamation-triangle mr-2"></i> Warning' : 
+                         '<i class="fas fa-info-circle mr-2"></i> Information';
+      
+      toast.innerHTML = `
+        <div class="toast-header flex justify-between items-center p-3 border-b ${headerClass}">
+          <strong class="me-auto">${headerIcon}</strong>
+          <button type="button" class="toast-close ml-2 text-gray-400 hover:text-gray-600 focus:outline-none" aria-label="Close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="toast-body p-4">
+          ${message}
+        </div>
+      `;
+      
+      // Add to container
+      toastContainer.appendChild(toast);
+      
+      // Animate in
+      setTimeout(() => {
+        toast.classList.remove('opacity-0', 'scale-95');
+        toast.classList.add('opacity-100', 'scale-100');
+      }, 10);
+      
+      // Add close button listener
+      const closeBtn = toast.querySelector('.toast-close');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          fadeOutToast(toast);
+        });
+      }
+      
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        fadeOutToast(toast);
+      }, 5000);
+    };
+    
+    // Helper function to fade out and remove a toast
+    function fadeOutToast(toast) {
+      toast.classList.remove('opacity-100', 'scale-100');
+      toast.classList.add('opacity-0', 'scale-95');
+      
+      setTimeout(() => {
+        toast.remove();
+      }, 500);
+    }
+  });
+</script>
+
+
   {% block extra_scripts %}
-  <script src="{% static 'main.js' %}"></script>
+  <script src="{% static 'js/main.js' %}"></script>
   {% endblock %}
 </body>
 </html>
