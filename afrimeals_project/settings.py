@@ -13,6 +13,10 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'  # Ensure boolean conversion
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-for-dev')  # Provide a default for development
 
+# In settings.py
+STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
+
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com', 'afrimeals-production.up.railway.app']  
 
 # Application definition  
@@ -29,7 +33,8 @@ INSTALLED_APPS = [
     'allauth.socialaccount',  
     'allauth.socialaccount.providers.google',  
     'dashboard',
-    'sslserver'
+    'sslserver',
+    'rest_framework',
 ]  
 
 MIDDLEWARE = [  
@@ -65,16 +70,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'afrimeals_project.wsgi.application'  
 
+# In settings.py
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'afrimeals',
-        'USER': 'afrimeals_owner',
-        'PASSWORD': 'fYXZqaR3g2LM',
-        'HOST': 'ep-misty-pond-a5dm2536.us-east-2.aws.neon.tech',
-        'PORT': '5432',  # Default PostgreSQL port
+        'NAME': os.getenv('DB_NAME', 'afrimeals'),
+        'USER': os.getenv('DB_USER', ''),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', ''),
+        'PORT': os.getenv('DB_PORT', '5432'),
         'OPTIONS': {
-            'sslmode': 'require',  # Ensure SSL is used
+            'sslmode': 'require',
         },
     }
 }
@@ -133,6 +139,13 @@ SOCIALACCOUNT_PROVIDERS = {
 SOCIALACCOUNT_AUTO_SIGNUP = True  
 SOCIALACCOUNT_LOGIN_ON_GET = True  
 
+# In settings.py
+ACCOUNT_LOGOUT_ON_GET = True  # Set to True if you want to logout immediately without confirmation
+ACCOUNT_LOGOUT_REDIRECT_URL = '/'  # Redirect to home page after logout
+# In settings.py
+ACCOUNT_ADAPTER = 'dashboard.adapters.CustomAccountAdapter'
+
+
 # Allauth settings  
 ACCOUNT_EMAIL_REQUIRED = True  
 ACCOUNT_USERNAME_REQUIRED = False  
@@ -149,3 +162,12 @@ if not DEBUG:
         'https://afrimeals-production.up.railway.app',
         'https://afrimeals.onrender.com',
     ]
+    # New security headers
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+
+

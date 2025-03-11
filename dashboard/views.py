@@ -1,4 +1,4 @@
-from django.views.generic import TemplateView, DetailView
+from django.views.generic import TemplateView, DetailView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render, get_object_or_404
 from django.views import View
@@ -10,12 +10,35 @@ from .models import MealPlan, Recipe, GroceryList, SubscriptionTier, UserSubscri
 from django.contrib.auth.models import User
 import os
 from openai import OpenAI
+from django.core.cache import cache
+import hashlib
+from .forms import FeedbackForm, RecipeForm
+import stripe
+from django.conf import settings
+from django.http import HttpResponse
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from io import BytesIO
+from django.contrib.auth import logout
+
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # Initialize OpenAI client
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
 )
 
+class CustomLogoutView(View):
+    def get(self, request):
+        return render(request, 'account/logout.html')
+
+    def post(self, request):
+        logout(request)
+        return redirect('home')
+    
 class HomeView(TemplateView):
     template_name = 'home.html'
 
@@ -60,6 +83,21 @@ class MealGeneratorView(LoginRequiredMixin, View):
             return False
 
     def post(self, request):
+        # Rate limiting implementation (keep your existing code)
+        user_id = request.user.id
+        cache_key = f"meal_generator_rate_{user_id}"
+        request_count = cache.get(cache_key, 0)
+
+        # Limit to 5 requests per hour
+        if request_count >= 5:
+            return JsonResponse({
+                'success': False,
+                'error': 'Rate limit exceeded. Please try again later.'
+            }, status=429)
+
+        # Increment the counter
+        cache.set(cache_key, request_count + 1, 60*60)  # 1 hour expiry
+
         try:
             # Extract form data with default values for empty fields
             dietary_preferences = request.POST.get('dietary_preferences') or "balanced"
@@ -119,12 +157,22 @@ class MealGeneratorView(LoginRequiredMixin, View):
 
             prompt += "GROCERY LIST:\n[List each ingredient on a new line with a - in front]"
 
-            # Call OpenAI API - correct format for gpt-3.5-turbo-instruct
+            # Create a cache key based on the prompt
+            import hashlib
+            cache_key = f"meal_plan_{hashlib.md5(prompt.encode()).hexdigest()}"
+
+            # Try to get cached response
+            cached_response = cache.get(cache_key)
+            if cached_response:
+                # If we have a cached response, return it directly
+                return JsonResponse(cached_response)
+
+            # If no cached response, call OpenAI API
             response = client.completions.create(
                 model="gpt-3.5-turbo-instruct",
                 prompt=prompt,
-                max_tokens=2000,  # Increased for longer plans
-                temperature=0.7,  # Slightly increased for more variety
+                max_tokens=2000,
+                temperature=0.7,
             )
 
             if response:
@@ -197,11 +245,17 @@ class MealGeneratorView(LoginRequiredMixin, View):
                     items=grocery_items
                 )
 
-                return JsonResponse({
+                # Prepare response data
+                response_data = {
                     'success': True,
                     'meal_plan': structured_meal_plan,
                     'grocery_list': structured_grocery_list
-                })
+                }
+
+                # Cache the response for 24 hours (86400 seconds)
+                cache.set(cache_key, response_data, 86400)
+
+                return JsonResponse(response_data)
 
             return JsonResponse({
                 'success': False,
@@ -213,9 +267,9 @@ class MealGeneratorView(LoginRequiredMixin, View):
                 'success': False,
                 'error': str(e)
             }, status=500)
-        
 
-        
+
+
 class PricingView(TemplateView):
     template_name = 'pricing.html'
 
@@ -268,3 +322,212 @@ class MySubscriptionView(LoginRequiredMixin, DetailView):
             end_date__gt=timezone.now()
         ).first()
         return subscription
+    
+# In views.py
+class RecipeListView(LoginRequiredMixin, ListView):
+    model = Recipe
+    template_name = 'recipes.html'
+    context_object_name = 'recipes'
+    paginate_by = 12
+    
+    def get_queryset(self):
+        return Recipe.objects.filter(user=self.request.user).order_by('-id')
+
+class RecipeDetailView(LoginRequiredMixin, DetailView):
+    model = Recipe
+    template_name = 'recipe_detail.html'
+    context_object_name = 'recipe'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add any additional context data here
+        return context
+    
+# In views.py
+class UserProfileView(LoginRequiredMixin, View):
+    def get(self, request):
+        # Get user's meal plans
+        meal_plans = MealPlan.objects.filter(user=request.user).order_by('-created_at')[:5]
+
+        # Get user's subscription
+        subscription = UserSubscription.objects.filter(
+            user=request.user,
+            is_active=True,
+            end_date__gt=timezone.now()
+        ).first()
+
+        return render(request, 'user_profile.html', {
+            'user': request.user,
+            'meal_plans': meal_plans,
+            'subscription': subscription,
+        })
+    
+class RecipeCreateView(LoginRequiredMixin, View):
+    def get(self, request):
+        form = RecipeForm()
+        return render(request, 'recipe_form.html', {'form': form, 'title': 'Add Recipe'})
+
+    def post(self, request):
+        form = RecipeForm(request.POST)
+        if form.is_valid():
+            recipe = form.save(commit=False)
+            recipe.user = request.user
+            recipe.save()
+            return redirect('recipe_detail', pk=recipe.pk)
+        return render(request, 'recipe_form.html', {'form': form, 'title': 'Add Recipe'})
+
+class RecipeUpdateView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        recipe = get_object_or_404(Recipe, pk=pk, user=request.user)
+        form = RecipeForm(instance=recipe)
+        return render(request, 'recipe_form.html', {'form': form, 'title': 'Edit Recipe'})
+
+    def post(self, request, pk):
+        recipe = get_object_or_404(Recipe, pk=pk, user=request.user)
+        form = RecipeForm(request.POST, instance=recipe)
+        if form.is_valid():
+            form.save()
+            return redirect('recipe_detail', pk=recipe.pk)
+        return render(request, 'recipe_form.html', {'form': form, 'title': 'Edit Recipe'})
+    
+
+# In views.py
+class ShoppingListView(LoginRequiredMixin, View):
+    def get(self, request):
+        # Get user's latest grocery list
+        grocery_list = GroceryList.objects.filter(user=request.user).order_by('-created_at').first()
+
+        return render(request, 'shopping_list.html', {
+            'grocery_list': grocery_list
+        })
+
+
+
+class ExportMealPlanPDFView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        meal_plan = get_object_or_404(MealPlan, pk=pk, user=request.user)
+
+        # Create a file-like buffer to receive PDF data
+        buffer = BytesIO()
+
+        # Create the PDF object, using the buffer as its "file"
+        doc = SimpleDocTemplate(buffer, pagesize=letter, title=f"Meal Plan - {meal_plan.name}")
+
+        # Container for the 'Flowable' objects
+        elements = []
+
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = styles['Heading1']
+        heading_style = styles['Heading2']
+        normal_style = styles['Normal']
+
+        # Add title
+        elements.append(Paragraph(f"Meal Plan: {meal_plan.name}", title_style))
+        elements.append(Spacer(1, 12))
+
+        # Add description
+        elements.append(Paragraph("Description:", heading_style))
+        elements.append(Paragraph(meal_plan.description, normal_style))
+        elements.append(Spacer(1, 12))
+
+        # Build the PDF
+        doc.build(elements)
+
+        # Get the value of the BytesIO buffer
+        pdf = buffer.getvalue()
+        buffer.close()
+
+        # Create the HTTP response with PDF
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="meal_plan_{meal_plan.id}.pdf"'
+        response.write(pdf)
+
+        return response
+    
+
+# dashboard/views.py
+class FeedbackView(LoginRequiredMixin, View):
+    def get(self, request):
+        form = FeedbackForm()
+        return render(request, 'feedback.html', {'form': form})
+
+    def post(self, request):
+        form = FeedbackForm(request.POST)
+        if form.is_valid():
+            feedback = form.save(commit=False)
+            feedback.user = request.user
+            feedback.save()
+            messages.success(request, "Thank you for your feedback!")
+            return redirect('dashboard')
+        return render(request, 'feedback.html', {'form': form})
+
+
+        
+
+
+
+class CheckoutView(LoginRequiredMixin, View):
+    def get(self, request, tier_id):
+        tier = get_object_or_404(SubscriptionTier, id=tier_id)
+        return render(request, 'checkout.html', {
+            'tier': tier,
+            'stripe_public_key': settings.STRIPE_PUBLIC_KEY
+        })
+
+    def post(self, request, tier_id):
+        tier = get_object_or_404(SubscriptionTier, id=tier_id)
+
+        # Get Stripe token
+        token = request.POST.get('stripeToken')
+
+        try:
+            # Create Stripe customer
+            customer = stripe.Customer.create(
+                email=request.user.email,
+                source=token
+            )
+
+            # Create Stripe subscription
+            if tier.tier_type == 'monthly':
+                # Create a monthly subscription
+                subscription = stripe.Subscription.create(
+                    customer=customer.id,
+                    items=[{'price': tier.stripe_price_id}],
+                )
+                end_date = timezone.now() + timedelta(days=30)
+            elif tier.tier_type == 'weekly':
+                # Create a weekly subscription
+                subscription = stripe.Subscription.create(
+                    customer=customer.id,
+                    items=[{'price': tier.stripe_price_id}],
+                )
+                end_date = timezone.now() + timedelta(days=7)
+            else:
+                # One-time payment
+                charge = stripe.Charge.create(
+                    customer=customer.id,
+                    amount=int(tier.price * 100),  # Convert to cents
+                    currency='gbp',
+                    description=f'{tier.name} - One-time payment'
+                )
+                subscription = {'id': charge.id}
+                end_date = timezone.now() + timedelta(days=1)
+
+            # Create subscription in database
+            UserSubscription.objects.create(
+                user=request.user,
+                subscription_tier=tier,
+                end_date=end_date,
+                payment_id=subscription.id
+            )
+
+            return redirect('subscription_success')
+
+        except stripe.error.CardError as e:
+            # Card was declined
+            return render(request, 'checkout.html', {
+                'tier': tier,
+                'stripe_public_key': settings.STRIPE_PUBLIC_KEY,
+                'error': e.error.message
+            })

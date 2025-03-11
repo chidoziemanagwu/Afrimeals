@@ -1,0 +1,43 @@
+<!-- templates/shopping_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Shopping List - NaijaPlate{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold text-gray-800 mb-6">My Shopping List</h1>
+  
+  {% if grocery_list %}
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="mb-4 flex justify-between items-center">
+        <p class="text-sm text-gray-600">Created: {{ grocery_list.created_at|date:"F j, Y" }}</p>
+        <button id="print-list" class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">
+          <i class="fas fa-print mr-1"></i> Print
+        </button>
+      </div>
+      
+      <div id="shopping-list" class="space-y-2">
+        {% for item in grocery_list.items.splitlines %}
+          <div class="flex items-center">
+            <input type="checkbox" class="form-checkbox h-5 w-5 text-green-600 mr-2">
+            <span class="text-gray-800">{{ item }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <div class="bg-white rounded-lg shadow-md p-8 text-center">
+      <p class="text-gray-600 mb-4">You don't have any shopping lists yet.</p>
+      <a href="{% url 'meal_generator' %}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+        <i class="fas fa-utensils mr-1"></i> Create Meal Plan
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  document.getElementById('print-list').addEventListener('click', function() {
+    window.print();
+  });
+</script>
+{% endblock %}
