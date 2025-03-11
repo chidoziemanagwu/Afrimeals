@@ -82,37 +82,29 @@
                 <a href="#" class="text-green-600 hover:text-green-700 font-medium">View all</a>
             </div>
             
-            <div class="space-y-4">
-                <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors flex items-center">
-                    <div class="flex items-center justify-center h-10 w-10 rounded-full bg-green-100 text-green-600 mr-4">
-                        <i class="fas fa-utensils"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-medium text-gray-800">Vegetarian Meal Plan</h4>
-                        <p class="text-sm text-gray-500">Created on March 8, 2025</p>
-                    </div>
-                    <div class="ml-auto">
-                        <a href="#" class="text-blue-500 hover:text-blue-600">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                    </div>
-                </div>
-                
-                <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors flex items-center">
-                    <div class="flex items-center justify-center h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 mr-4">
-                        <i class="fas fa-bowl-food"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-medium text-gray-800">Jollof Rice Recipe</h4>
-                        <p class="text-sm text-gray-500">Viewed on March 7, 2025</p>
-                    </div>
-                    <div class="ml-auto">
-                        <a href="#" class="text-blue-500 hover:text-blue-600">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
+<!-- In the Recent Activity section -->
+<div class="space-y-4">
+    <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors flex items-center">
+        <div class="flex items-center justify-center h-10 w-10 rounded-full bg-green-100 text-green-600 mr-4">
+            <i class="fas fa-utensils"></i>
+        </div>
+        <div>
+            <h4 class="font-medium text-gray-800">Vegetarian Meal Plan</h4>
+            <p class="text-sm text-gray-500">Created on March 8, 2025</p>
+        </div>
+        <div class="ml-auto flex space-x-2">
+            <button 
+                class="export-pdf-btn px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                data-mealplan-id="{{ meal_plan.id }}"
+                data-loading-text="Generating PDF...">
+                <i class="fas fa-file-pdf mr-1"></i> Export PDF
+            </button>
+            <a href="#" class="text-blue-500 hover:text-blue-600">
+                <i class="fas fa-eye"></i>
+            </a>
+        </div>
+    </div>
+</div>
         </div>
     </div>
     

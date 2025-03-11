@@ -55,17 +55,25 @@
     <h2 class="text-xl font-bold text-gray-800 mb-4">Recent Meal Plans</h2>
     
     {% if meal_plans %}
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {% for plan in meal_plans %}
-          <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
-            <h3 class="font-medium text-green-700">{{ plan.name }}</h3>
-            <p class="text-sm text-gray-600">Created: {{ plan.created_at|date:"M d, Y" }}</p>
-            <a href="#" class="text-sm text-green-600 hover:text-green-800 mt-2 inline-block">
-              <i class="fas fa-eye mr-1"></i> View Details
-            </a>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for plan in meal_plans %}
+      <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+          <h3 class="font-medium text-green-700">{{ plan.name }}</h3>
+          <p class="text-sm text-gray-600">Created: {{ plan.created_at|date:"M d, Y" }}</p>
+          <div class="mt-2 flex space-x-2">
+              <button 
+                  class="export-pdf-btn px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                  data-mealplan-id="{{ plan.id }}"
+                  data-loading-text="Generating PDF...">
+                  <i class="fas fa-file-pdf mr-1"></i> Export PDF
+              </button>
+              <a href="#" class="text-sm text-green-600 hover:text-green-800">
+                  <i class="fas fa-eye mr-1"></i> View Details
+              </a>
           </div>
-        {% endfor %}
       </div>
+      {% endfor %}
+  </div>
     {% else %}
       <div class="bg-gray-50 p-4 rounded-lg text-center">
         <p class="text-gray-600">You haven't created any meal plans yet.</p>

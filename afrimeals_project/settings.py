@@ -172,3 +172,36 @@ if not DEBUG:
     SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 
+# settings.py
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,  # 5 minutes default timeout
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,  # Maximum number of entries in cache
+            'CULL_FREQUENCY': 3,  # Fraction of entries to cull when max is reached
+        }
+    }
+}
+
+# Cache timeouts (in seconds)
+CACHE_TIMEOUTS = {
+    'short': 300,        # 5 minutes
+    'medium': 1800,      # 30 minutes
+    'long': 3600,        # 1 hour
+    'very_long': 86400,  # 24 hours
+}
+
+# Add to settings.py
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+# Celery task settings
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes

@@ -5,7 +5,7 @@ from dashboard.views import (
     HomeView, DashboardView, MealGeneratorView,
     PricingView, CheckoutView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView,
     UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView,
-    ExportMealPlanPDFView, FeedbackView
+    ExportMealPlanPDFView, FeedbackView, check_task_status
 )
 from rest_framework.routers import DefaultRouter
 from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
@@ -51,4 +51,5 @@ urlpatterns = [
 
     # API authentication
     path('api-auth/', include('rest_framework.urls')),
+    path('task-status/<str:task_id>/', check_task_status, name='check_task_status'),
 ]
