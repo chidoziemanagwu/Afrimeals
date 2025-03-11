@@ -5,11 +5,10 @@ from dashboard.views import (
     HomeView, DashboardView, MealGeneratorView,
     PricingView, CheckoutView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView,
     UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView,
-    ExportMealPlanPDFView, FeedbackView, CustomLogoutView
+    ExportMealPlanPDFView, FeedbackView
 )
 from rest_framework.routers import DefaultRouter
 from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
-from django.contrib.auth.views import LogoutView
 
 # Create a router and register our API viewsets
 router = DefaultRouter()
@@ -22,9 +21,7 @@ urlpatterns = [
     path('', HomeView.as_view(), name='home'),
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
 
-    # Fix for allauth logout
-    # path('accounts/logout/', CustomLogoutView.as_view(next_page='/'), name='logout_success'),
-    path('accounts/logout/', CustomLogoutView.as_view(), name='logout_success'),
+
     path('accounts/', include('allauth.urls')),
 
     path('meal-generator/', MealGeneratorView.as_view(), name='meal_generator'),

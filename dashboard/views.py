@@ -32,9 +32,6 @@ client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
 )
 
-class CustomLogoutView(LogoutView):
-    next_page = 'home'  # Set default redirect URL
-    template_name = 'account/logout.html'  # Your logout confirmation template
     
 class HomeView(TemplateView):
     template_name = 'home.html'
