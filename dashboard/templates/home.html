@@ -7,6 +7,27 @@
   body > nav {
     display: none !important;
   }
+  
+  /* Mobile menu styles */
+  #child-mobile-menu {
+    display: none;
+    position: absolute; /* Ensure it stays in place */
+    top: 100%; /* Position below the button */
+    left: 0;
+    right: 0;
+    z-index: 10; /* Ensure it's above other content */
+  }
+  
+  #child-mobile-menu.show {
+    display: block;
+  }
+  
+  /* Force desktop menu to show on larger screens */
+  @media (min-width: 768px) {
+    nav.bg-white .md\:flex {
+      display: flex !important;
+    }
+  }
 </style>
 {% endblock %}
 
@@ -14,24 +35,53 @@
 {% block content %}
 <div class="bg-gradient-to-b from-green-50 to-white min-h-screen">
     <!-- Navigation -->
-    <nav class="bg-white shadow-sm sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 flex items-center">
-                        <span class="text-2xl font-bold text-green-600">NaijaPlate</span>
-                    </div>
-                </div>
-                <div class="flex items-center">
-                    <a href="#how-it-works" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">How It Works</a>
-                    <a href="#testimonials" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Testimonials</a>
-                    <a href="#pricing" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Pricing</a>
-                    <a href="{% url 'google_login' %}" class="ml-4 px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 transition duration-300">Sign in</a>
-                </div>
+    <nav class="bg-white shadow-md fixed w-full z-20 top-0 start-0 border-b border-gray-200">
+        <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
+            <!-- Logo -->
+            <a href="#" class="flex items-center space-x-3 rtl:space-x-reverse">
+                <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" class="h-10 w-10 object-cover rounded-full" alt="NaijaPlate Logo">
+                <span class="self-center text-2xl font-bold text-green-600">NaijaPlate</span>
+            </a>
+            
+            <!-- Right side elements -->
+            <div class="flex items-center md:order-2 space-x-3">
+                <a href="{% url 'google_login' %}" class="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition duration-300 ease-in-out">
+                    Sign In
+                </a>
+                <!-- Mobile menu button -->
+                <button data-collapse-toggle="navbar-sticky" type="button" class="inline-flex items-center p-2 w-10 h-10 justify-center text-gray-700 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200" aria-controls="navbar-sticky" aria-expanded="false">
+                    <span class="sr-only">Open main menu</span>
+                    <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 17 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Navigation menu -->
+            <div class="items-center justify-between hidden w-full md:flex md:w-auto md:order-1" id="navbar-sticky">
+                <ul class="flex flex-col p-4 mt-4 font-medium border border-gray-100 rounded-lg bg-gray-50 md:flex-row md:space-x-8 md:mt-0 md:border-0 md:bg-transparent">
+                    <li>
+                        <a href="#how-it-works" class="block py-2 px-3 text-green-500 rounded-md md:bg-transparent md:text-green-600 md:p-0 md:hover:text-green-800 transition duration-300" aria-current="page">
+                            How It Works
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#testimonials" class="block py-2 px-3 text-gray-900 rounded-md hover:bg-gray-100 md:hover:bg-transparent md:hover:text-green-600 md:p-0 transition duration-300">
+                            Testimonials
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#pricing" class="block py-2 px-3 text-gray-900 rounded-md hover:bg-gray-100 md:hover:bg-transparent md:hover:text-green-600 md:p-0 transition duration-300">
+                            Pricing
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
+    
 
+  
     <!-- Hero Section -->
     <div class="pt-16 pb-20 sm:pt-24 sm:pb-28 lg:pt-32 lg:pb-36">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -484,4 +534,55 @@
         });
     });
 </script>
+
+<!-- Direct toggle function -->
+<script>
+function toggleMobileMenu(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const menu = document.getElementById('child-mobile-menu');
+  if (menu) {
+    console.log('Toggling menu visibility');
+    // Direct DOM manipulation 
+    if (window.getComputedStyle(menu).display === 'none') {
+      menu.style.display = 'block';
+      menu.classList.remove('hidden');
+    } else {
+      menu.style.display = 'none';
+      menu.classList.add('hidden');
+    }
+  }
+  return false;
+} 
+  
+</script>
+{% endblock %}
+
+{% block extra_scripts %}
+    <!-- Add this script for toggle functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get mobile menu button and menu
+            const mobileMenuButton = document.querySelector('[data-collapse-toggle="navbar-sticky"]');
+            const menu = document.getElementById('navbar-sticky');
+            
+            // Add click event to toggle menu
+            if (mobileMenuButton) {
+                mobileMenuButton.addEventListener('click', function() {
+                    menu.classList.toggle('hidden');
+                });
+            }
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!menu.contains(event.target) && !mobileMenuButton.contains(event.target)) {
+                    if (!menu.classList.contains('hidden')) {
+                        menu.classList.add('hidden');
+                    }
+                }
+            });
+        });
+    </script>
+{{ block.super }} <!-- Keep the original scripts from base.html -->
 {% endblock %}
