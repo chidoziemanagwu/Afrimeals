@@ -2,13 +2,17 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import RedirectView
 from dashboard.views import (
-    HomeView, DashboardView, MealGeneratorView,
-    PricingView, CheckoutView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView,
-    UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView,
-    ExportMealPlanPDFView, FeedbackView, check_task_status
+    ExportMealPlanPDF, HomeView, DashboardView, MealGeneratorView,
+    PricingView, CheckoutView, RecipeDetailsView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView,
+    UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView, RecipeDeleteView,
+    ExportMealPlanView, FeedbackView, check_task_status, export_activity_pdf, activity_detail_api
 )
 from rest_framework.routers import DefaultRouter
 from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
+# urls.py
+from django.conf import settings
+from django.conf.urls.static import static
+
 
 # Create a router and register our API viewsets
 router = DefaultRouter()
@@ -37,19 +41,36 @@ urlpatterns = [
     path('recipes/', RecipeListView.as_view(), name='recipe_list'),
     path('recipes/add/', RecipeCreateView.as_view(), name='recipe_add'),
     path('recipes/<int:pk>/edit/', RecipeUpdateView.as_view(), name='recipe_edit'),
-
+    path('recipes/<int:pk>/delete/', RecipeDeleteView.as_view(), name='recipe_delete'),
     # User routes
     path('account/', UserProfileView.as_view(), name='user_profile'),
     path('shopping-list/', ShoppingListView.as_view(), name='shopping_list'),
 
+    # urls.py
+    path('activity/<int:activity_id>/export/', export_activity_pdf, name='export_activity_pdf'),
+    path('activity/<int:activity_id>/detail/', activity_detail_api, name='activity_detail_api'),
+
     # New feature routes
-    path('meal-plans/<int:pk>/export/', ExportMealPlanPDFView.as_view(), name='export_meal_plan'),
+    path('meal-plans/<int:pk>/export/', ExportMealPlanView.as_view(), name='export_meal_plan'),
     path('feedback/', FeedbackView.as_view(), name='feedback'),
 
     # Include the API router URLs - moved to a specific prefix to avoid conflicts
     path('api/', include(router.urls)),
 
+    path('api/recipe-details/<int:meal_plan_id>/<int:day_index>/<str:meal_type>/',
+            RecipeDetailsView.as_view(),
+            name='recipe_details'),
+
+path('meal-plan/<int:meal_plan_id>/export/',
+     ExportMealPlanPDF.as_view(),
+     name='export_meal_plan'),
+
+
     # API authentication
     path('api-auth/', include('rest_framework.urls')),
     path('task-status/<str:task_id>/', check_task_status, name='check_task_status'),
 ]
+
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

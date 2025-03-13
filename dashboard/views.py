@@ -1,3 +1,4 @@
+import json
 from django.views.generic import TemplateView, DetailView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render, get_object_or_404
@@ -32,7 +33,8 @@ import logging
 from django.contrib.auth import logout
 from openai import OpenAIError, RateLimitError, APIError
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-
+from django.contrib.auth.decorators import login_required
+import pandas as pd
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -79,35 +81,57 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        user_id = self.request.user.id
-
-        # Remove cache dependency for now to fix the error
-        recent_meal_plans = MealPlan.objects.filter(
-            user=self.request.user
-        ).select_related('user').order_by('-created_at')[:5]
-
-        recent_recipes = Recipe.objects.filter(
-            user=self.request.user
-        ).select_related('user').order_by('-created_at')[:5]
-
-        subscription = UserSubscription.get_active_subscription(user_id)
+        user = self.request.user
 
         try:
-            recent_activity = UserActivity.objects.filter(
-                user=self.request.user
-            ).select_related('user').order_by('-timestamp')[:10]
-        except:
-            # Handle case where UserActivity might not exist or have issues
-            recent_activity = []
+            # Get recent activities
+            recent_activities = UserActivity.objects.filter(
+                user=user
+            ).select_related('user').order_by('-timestamp')[:5]
 
-        dashboard_data = {
-            'recent_meal_plans': recent_meal_plans,
-            'recent_recipes': recent_recipes,
-            'subscription': subscription,
-            'recent_activity': recent_activity
-        }
+            # Get meal plans and recipes
+            recent_meal_plans = MealPlan.objects.filter(
+                user=user
+            ).select_related('user').order_by('-created_at')[:5]
 
-        context.update(dashboard_data)
+            recent_recipes = Recipe.objects.filter(
+                user=user
+            ).select_related('user').order_by('-created_at')[:5]
+
+            # Get subscription
+            subscription = UserSubscription.get_active_subscription(user.id)
+
+            # Process activities to include related objects
+            processed_activities = []
+            for activity in recent_activities:
+                activity_data = {
+                    'id': activity.id,
+                    'action': activity.action,
+                    'timestamp': activity.timestamp,
+                    'get_action_display': activity.get_action_display(),
+                    'details': activity.details or {},
+                }
+                processed_activities.append(activity_data)
+
+            context.update({
+                'recent_meal_plans': recent_meal_plans,
+                'recent_recipes': recent_recipes,
+                'subscription': subscription,
+                'recent_activities': processed_activities,
+            })
+
+        except Exception as e:
+            # Log the error
+            logger.error(f"Dashboard error for user {user.id}: {str(e)}", exc_info=True)
+            # Provide empty defaults
+            context.update({
+                'recent_meal_plans': [],
+                'recent_recipes': [],
+                'subscription': None,
+                'recent_activities': [],
+            })
+            messages.error(self.request, "There was an error loading your dashboard. Please try again later.")
+
         return context
 
 class MealGeneratorView(LoginRequiredMixin, View):
@@ -287,7 +311,7 @@ class MealGeneratorView(LoginRequiredMixin, View):
             raise ValueError('Invalid response format from OpenAI')
 
         meal_plan_text = parts[0].replace('MEAL PLAN:', '').strip()
-        grocery_list = parts[1].strip()
+        grocery_list_text = parts[1].strip()
 
         # Process meal plan into structured data
         structured_meal_plan = []
@@ -315,19 +339,10 @@ class MealGeneratorView(LoginRequiredMixin, View):
                 if meal_type_lower in current_day['meals']:
                     current_day['meals'][meal_type_lower] = meal
 
-        # Ensure all days have the expected meal structure
-        for day in structured_meal_plan:
-            for meal_type in ['breakfast', 'lunch', 'dinner']:
-                if not day['meals'].get(meal_type):
-                    day['meals'][meal_type] = f"Nigerian {meal_type.capitalize()}"
-
-            if form_data['include_snacks'] and not day['meals'].get('snack'):
-                day['meals']['snack'] = "Nigerian Snack (e.g., Chin Chin, Plantain Chips)"
-
         # Process grocery list into structured data
         structured_grocery_list = [
             item.strip('- ').strip()
-            for item in grocery_list.split('\n')
+            for item in grocery_list_text.split('\n')
             if item.strip()
         ]
 
@@ -335,7 +350,7 @@ class MealGeneratorView(LoginRequiredMixin, View):
         meal_plan = MealPlan.objects.create(
             user=user,
             name=f"Meal Plan for {form_data['dietary_preferences']}",
-            description=meal_plan_text
+            description=json.dumps(structured_meal_plan)  # Store as JSON string
         )
 
         # Create grocery list
@@ -347,9 +362,11 @@ class MealGeneratorView(LoginRequiredMixin, View):
 
         return {
             'success': True,
+            'meal_plan_id': meal_plan.id,  # Include the meal plan ID in response
             'meal_plan': structured_meal_plan,
             'grocery_list': structured_grocery_list
         }
+
 
 
 class PricingView(TemplateView):
@@ -481,18 +498,22 @@ class MySubscriptionView(LoginRequiredMixin, DetailView):
 
 class RecipeListView(LoginRequiredMixin, ListView):
     template_name = 'recipes.html'
-    context_object_name = 'recipes'
-    paginate_by = 12  # You already have this, which is good
+    context_object_name = 'user_recipes'  # Changed from 'recipes'
+    paginate_by = 12
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['admin_recipes'] = Recipe.objects.filter(is_admin_recipe=True).order_by('-created_at')
+        context['query'] = self.request.GET.get('q', '')
+        context['sort'] = self.request.GET.get('sort', '-created_at')
+        return context
 
     def get_queryset(self):
-        # Get query parameters for filtering
         query = self.request.GET.get('q', '')
         sort = self.request.GET.get('sort', '-created_at')
 
-        # Start with base queryset
-        recipes = Recipe.objects.filter(user=self.request.user)
+        recipes = Recipe.objects.filter(user=self.request.user, is_admin_recipe=False)
 
-        # Apply search if provided
         if query:
             recipes = recipes.filter(
                 Q(title__icontains=query) |
@@ -500,27 +521,12 @@ class RecipeListView(LoginRequiredMixin, ListView):
                 Q(instructions__icontains=query)
             )
 
-        # Apply sorting
         if sort in ['title', '-title', 'created_at', '-created_at']:
             recipes = recipes.order_by(sort)
         else:
             recipes = recipes.order_by('-created_at')
 
-        # Optimize with select_related
-        recipes = recipes.select_related('user')
-
-        return recipes
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        # Add search query to context for form
-        context['query'] = self.request.GET.get('q', '')
-        context['sort'] = self.request.GET.get('sort', '-created_at')
-        context['has_subscription'] = UserSubscription.get_active_subscription(
-            self.request.user.id
-        ) is not None
-        return context
-    
+        return recipes.select_related('user')   
     
 
 
@@ -567,51 +573,172 @@ class RecipeDetailView(LoginRequiredMixin, DetailView):
         ) is not None
         return context
 
+
+class RecipeDetailsView(LoginRequiredMixin, View):
+    def get(self, request, meal_plan_id, day_index, meal_type):
+        try:
+            meal_plan = get_object_or_404(MealPlan, id=meal_plan_id, user=request.user)
+            meal_data = json.loads(meal_plan.description)
+            meal_name = meal_data[day_index]['meals'][meal_type]
+
+            # Generate recipe using GPT-4
+            prompt = f"""
+            Generate a detailed Nigerian recipe for {meal_name}. Format the response as JSON with the following structure:
+            {{
+                "description": "Brief description and cultural significance of the dish",
+                "prep_time": "Preparation time in minutes",
+                "cook_time": "Cooking time in minutes",
+                "servings": "Number of servings (integer)",
+                "difficulty": "Cooking difficulty level",
+                "ingredients": ["List of ingredients with quantities"],
+                "instructions": ["Step by step cooking instructions"],
+                "nutrition_info": {{
+                    "calories": "per serving",
+                    "protein": "in grams",
+                    "carbs": "in grams",
+                    "fat": "in grams",
+                    "fiber": "in grams"
+                }},
+                "tips": ["Traditional cooking tips and variations"]
+            }}
+            """
+
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are an expert Nigerian chef."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7
+            )
+
+            recipe_data = json.loads(response.choices[0].message.content)
+
+            # Save the recipe to the database
+            recipe = Recipe.objects.create(
+                user=request.user,
+                meal_plan=meal_plan,
+                meal_type=meal_type,
+                day_index=day_index,
+                title=meal_name,
+                description=recipe_data['description'],
+                prep_time=recipe_data['prep_time'],
+                cook_time=recipe_data['cook_time'],
+                servings=recipe_data['servings'],
+                difficulty=recipe_data['difficulty'],
+                ingredients=recipe_data['ingredients'],
+                instructions=recipe_data['instructions'],
+                nutrition_info=recipe_data['nutrition_info'],
+                tips=recipe_data['tips']
+            )
+
+            # Track recipe generation
+            UserActivity.objects.create(
+                user=request.user,
+                action='create_recipe',
+                details={
+                    'meal_plan_id': meal_plan_id,
+                    'meal_type': meal_type,
+                    'day_index': day_index,
+                    'recipe_id': recipe.id
+                }
+            )
+
+            # Return recipe details
+            return JsonResponse({
+                'title': recipe.title,
+                'description': recipe.description,
+                'prepTime': recipe.prep_time,
+                'cookTime': recipe.cook_time,
+                'servings': recipe.servings,
+                'difficulty': recipe.difficulty,
+                'ingredients': recipe.ingredients,
+                'instructions': recipe.instructions,
+                'nutrition': recipe.nutrition_info,
+                'tips': recipe.tips
+            })
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'error': 'Invalid recipe data format'
+            }, status=400)
+        except OpenAIError as e:
+            logger.error(f"OpenAI API error: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'error': 'Failed to generate recipe. Please try again.'
+            }, status=500)
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'error': 'An unexpected error occurred'
+            }, status=500)
+
+
+
+
 class UserProfileView(LoginRequiredMixin, View):
     def get(self, request):
-        # Get meal plans with pagination
-        meal_plans = MealPlan.objects.filter(
-            user=request.user
-        ).select_related('user').order_by('-created_at')
+        # Get base queryset
+        activities = UserActivity.objects.filter(user=request.user)
 
-        # Paginate meal plans
-        page = request.GET.get('meal_page', 1)
-        meal_paginator = Paginator(meal_plans, 6)  # 6 per page
-        try:
-            meal_plans_page = meal_paginator.page(page)
-        except PageNotAnInteger:
-            meal_plans_page = meal_paginator.page(1)
-        except EmptyPage:
-            meal_plans_page = meal_paginator.page(meal_paginator.num_pages)
+        # Handle search
+        search_query = request.GET.get('search', '')
+        if search_query:
+            activities = activities.filter(
+                Q(action__icontains=search_query) |
+                Q(details__icontains=search_query)
+            )
 
-        # Get recent activity with pagination
-        activities = UserActivity.objects.filter(
-            user=request.user
-        ).select_related('user').order_by('-timestamp')
+        # Handle action type filter
+        action_type = request.GET.get('action_type', '')
+        if action_type and action_type != 'all':
+            activities = activities.filter(action=action_type)
+
+        # Handle date filter
+        date_filter = request.GET.get('date_filter', '')
+        if date_filter:
+            today = timezone.now()
+            if date_filter == 'today':
+                activities = activities.filter(timestamp__date=today.date())
+            elif date_filter == 'week':
+                activities = activities.filter(timestamp__gte=today - timedelta(days=7))
+            elif date_filter == 'month':
+                activities = activities.filter(timestamp__gte=today - timedelta(days=30))
+
+        # Sort activities
+        activities = activities.order_by('-timestamp')
 
         # Paginate activities
-        activity_page = request.GET.get('activity_page', 1)
-        activity_paginator = Paginator(activities, 10)  # 10 per page
+        paginator = Paginator(activities, 10)  # 10 items per page
+        page = request.GET.get('page', 1)
         try:
-            activities_page = activity_paginator.page(activity_page)
+            activities_page = paginator.page(page)
         except PageNotAnInteger:
-            activities_page = activity_paginator.page(1)
+            activities_page = paginator.page(1)
         except EmptyPage:
-            activities_page = activity_paginator.page(activity_paginator.num_pages)
+            activities_page = paginator.page(paginator.num_pages)
 
+        # Get other context data
         subscription = UserSubscription.get_active_subscription(request.user.id)
 
-        return render(request, 'user_profile.html', {
+        context = {
             'user': request.user,
-            'meal_plans': meal_plans_page,
-            'is_meal_paginated': True,
             'subscription': subscription,
             'recent_activity': activities_page,
-            'is_activity_paginated': True
-        })
-    
+            'is_paginated': True,
+            'action_types': UserActivity.ACTION_CHOICES,
+            'current_filters': {
+                'search': search_query,
+                'action_type': action_type,
+                'date_filter': date_filter,
+            }
+        }
+
+        return render(request, 'user_profile.html', context)   
 
 
+# dashboard/views.py
 class RecipeCreateView(LoginRequiredMixin, View):
     def get(self, request):
         form = RecipeForm()
@@ -622,10 +749,11 @@ class RecipeCreateView(LoginRequiredMixin, View):
 
     @rate_limit('recipe_create', max_requests=10, timeout=3600)
     def post(self, request):
-        form = RecipeForm(request.POST)
+        form = RecipeForm(request.POST, request.FILES)
         if form.is_valid():
             recipe = form.save(commit=False)
             recipe.user = request.user
+            recipe.is_admin_recipe = request.user.is_staff  # Only staff can create admin recipes
             recipe.save()
 
             # Track activity
@@ -648,36 +776,86 @@ class RecipeCreateView(LoginRequiredMixin, View):
             'form': form,
             'title': 'Add Recipe'
         })
-
+    
+    
+    
+    
+class RecipeDeleteView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        recipe = get_object_or_404(Recipe, pk=pk, user=request.user)
+        recipe.delete()
+        messages.success(request, "Recipe deleted successfully")
+        return JsonResponse({'success': True})
+        
+    
+# dashboard/views.py
 class RecipeUpdateView(LoginRequiredMixin, View):
     def get(self, request, pk):
-        recipe = get_object_or_404(Recipe, pk=pk, user=request.user)
-        form = RecipeForm(instance=recipe)
-        return render(request, 'recipe_form.html', {
-            'form': form,
-            'title': 'Edit Recipe'
-        })
+        try:
+            recipe = get_object_or_404(Recipe, pk=pk, user=request.user)
+            form = RecipeForm(instance=recipe)
+            return render(request, 'recipe_form.html', {
+                'form': form,
+                'title': 'Edit Recipe',
+                'recipe': recipe,
+                'editing': True
+            })
+        except Exception as e:
+            logger.error(f"Error in recipe edit view: {str(e)}", exc_info=True)
+            messages.error(request, "Unable to load recipe for editing.")
+            return redirect('recipe_list')
 
     @rate_limit('recipe_update', max_requests=10, timeout=3600)
     def post(self, request, pk):
-        recipe = get_object_or_404(Recipe, pk=pk, user=request.user)
-        form = RecipeForm(request.POST, instance=recipe)
-        if form.is_valid():
-            form.save()
+        try:
+            recipe = get_object_or_404(Recipe, pk=pk, user=request.user)
+            form = RecipeForm(request.POST, instance=recipe)
 
-            # Invalidate relevant caches
-            cache.delete_many([
-                f"recipe_detail_{pk}_{request.user.id}",
-                f"user_recipes_{request.user.id}"
-            ])
+            if form.is_valid():
+                recipe = form.save(commit=False)
+                recipe.user = request.user
+                recipe.save()
 
-            messages.success(request, "Recipe updated successfully!")
-            return redirect('recipe_detail', pk=recipe.pk)
+                # Track activity
+                UserActivity.objects.create(
+                    user=request.user,
+                    action='update_recipe',
+                    details={
+                        'recipe_id': recipe.id,
+                        'title': recipe.title,
+                        'updated_at': timezone.now().isoformat()
+                    }
+                )
 
-        return render(request, 'recipe_form.html', {
-            'form': form,
-            'title': 'Edit Recipe'
-        })
+                # Invalidate relevant caches
+                cache_keys = [
+                    f"recipe_detail_{pk}_{request.user.id}",
+                    f"user_recipes_{request.user.id}",
+                    f"dashboard_data_{request.user.id}"
+                ]
+                cache.delete_many(cache_keys)
+
+                messages.success(request, "Recipe updated successfully!")
+                return redirect('recipe_detail', pk=recipe.pk)
+
+            return render(request, 'recipe_form.html', {
+                'form': form,
+                'title': 'Edit Recipe',
+                'recipe': recipe,
+                'editing': True
+            })
+
+        except Exception as e:
+            logger.error(f"Error updating recipe {pk}: {str(e)}", exc_info=True)
+            messages.error(request, "An error occurred while updating the recipe.")
+            return render(request, 'recipe_form.html', {
+                'form': form,
+                'title': 'Edit Recipe',
+                'recipe': recipe,
+                'editing': True
+            })
+
+
 
 class ShoppingListView(LoginRequiredMixin, View):
     def get(self, request):
@@ -697,62 +875,29 @@ class ShoppingListView(LoginRequiredMixin, View):
 
 
 
-class ExportMealPlanPDFView(LoginRequiredMixin, View):
+class ExportMealPlanView(LoginRequiredMixin, View):
     @rate_limit('export_pdf', max_requests=5, timeout=3600)
     def get(self, request, pk):
         try:
             meal_plan = get_object_or_404(MealPlan, pk=pk, user=request.user)
+
+            # Create DataFrame from meal plan data
+            meal_data = self._parse_meal_plan(meal_plan.description)
+            df = pd.DataFrame(meal_data)
 
             # Create PDF buffer
             buffer = BytesIO()
             doc = SimpleDocTemplate(
                 buffer,
                 pagesize=letter,
-                title=f"Meal Plan - {meal_plan.name}"
+                rightMargin=72,
+                leftMargin=72,
+                topMargin=72,
+                bottomMargin=72
             )
 
-            # Define styles
-            styles = getSampleStyleSheet()
-            title_style = ParagraphStyle(
-                'CustomTitle',
-                parent=styles['Heading1'],
-                fontSize=24,
-                spaceAfter=30
-            )
-            heading_style = ParagraphStyle(
-                'CustomHeading',
-                parent=styles['Heading2'],
-                fontSize=18,
-                spaceAfter=12
-            )
-            normal_style = styles['Normal']
-
-            # Build document elements
-            elements = []
-
-            # Add title
-            elements.append(Paragraph(f"Meal Plan: {meal_plan.name}", title_style))
-            elements.append(Spacer(1, 20))
-
-            # Add description
-            elements.append(Paragraph("Description:", heading_style))
-            elements.append(Paragraph(meal_plan.description, normal_style))
-            elements.append(Spacer(1, 20))
-
-            # Add grocery list if available
-            grocery_list = GroceryList.objects.filter(
-                user=request.user
-            ).order_by('-created_at').first()
-
-            if grocery_list:
-                elements.append(Paragraph("Grocery List:", heading_style))
-                items = grocery_list.items.split('\n')
-                for item in items:
-                    elements.append(
-                        Paragraph(f"• {item.strip()}", normal_style)
-                    )
-
-            # Build PDF
+            # Build PDF content
+            elements = self._build_pdf_elements(meal_plan, df)
             doc.build(elements)
 
             # Prepare response
@@ -761,20 +906,115 @@ class ExportMealPlanPDFView(LoginRequiredMixin, View):
 
             # Create response
             response = HttpResponse(content_type='application/pdf')
-            response['Content-Disposition'] = (
-                f'attachment; filename="meal_plan_{meal_plan.id}.pdf"'
-            )
+            response['Content-Disposition'] = f'attachment; filename="meal_plan_{pk}.pdf"'
             response.write(pdf)
+
+            # Log activity
+            UserActivity.log_activity(
+                user=request.user,
+                action='export_meal',
+                details={
+                    'meal_plan_id': meal_plan.id,
+                    'meal_plan_name': meal_plan.name
+                },
+                request=request
+            )
 
             return response
 
         except Exception as e:
-            messages.error(
-                request,
-                "An error occurred while generating the PDF. Please try again."
-            )
+            logger.error(f"Error exporting meal plan: {str(e)}", exc_info=True)
+            messages.error(request, "Failed to export meal plan. Please try again.")
             return redirect('dashboard')
 
+    def _parse_meal_plan(self, description):
+        """Parse meal plan description into structured data"""
+        meal_data = []
+        current_day = None
+
+        for line in description.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            if line.startswith('Day'):
+                current_day = line.split(':')[0]
+            elif ':' in line and current_day:
+                meal_type, meal = line.split(':', 1)
+                meal_data.append({
+                    'Day': current_day,
+                    'Meal Type': meal_type.strip(),
+                    'Meal': meal.strip()
+                })
+
+        return meal_data
+
+    def _build_pdf_elements(self, meal_plan, df):
+        """Build PDF elements using the meal plan DataFrame"""
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # Title style
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=1
+        )
+
+        # Add title
+        elements.append(Paragraph(f"Meal Plan: {meal_plan.name}", title_style))
+        elements.append(Spacer(1, 20))
+
+        # Add creation date
+        elements.append(Paragraph(
+            f"Created on: {meal_plan.created_at.strftime('%B %d, %Y')}",
+            styles['Normal']
+        ))
+        elements.append(Spacer(1, 20))
+
+        # Create meal plan table
+        table_data = [['Day', 'Meal Type', 'Meal']]
+        table_data.extend(df.values.tolist())
+
+        table_style = TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.green),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 14),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ])
+
+        meal_table = Table(table_data)
+        meal_table.setStyle(table_style)
+        elements.append(meal_table)
+        elements.append(Spacer(1, 20))
+
+        # Add grocery list if available
+        grocery_list = GroceryList.objects.filter(
+            user=meal_plan.user
+        ).order_by('-created_at').first()
+
+        if grocery_list:
+            elements.append(Paragraph("Grocery List", styles['Heading2']))
+            elements.append(Spacer(1, 10))
+
+            items = grocery_list.items.split('\n')
+            for item in items:
+                if item.strip():
+                    elements.append(Paragraph(f"• {item.strip()}", styles['Normal']))
+                    elements.append(Spacer(1, 5))
+
+        return elements
 
 class FeedbackView(LoginRequiredMixin, View):
     def get(self, request):
@@ -837,3 +1077,155 @@ class LogoutView(LoginRequiredMixin, View):
                 "An error occurred during logout. Please try again."
             )
             return redirect('dashboard')
+
+
+
+class ExportMealPlanPDF(LoginRequiredMixin, View):
+    def get(self, request, meal_plan_id):
+        meal_plan = get_object_or_404(MealPlan, id=meal_plan_id, user=request.user)
+
+        # Create PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        elements = []
+        styles = getSampleStyleSheet()
+
+        # Add content
+        elements.append(Paragraph("Your Meal Plan", styles['Title']))
+
+        # Add meal plan table
+        data = [['Day', 'Breakfast', 'Lunch', 'Snack', 'Dinner']]
+        for day in json.loads(meal_plan.content):
+            data.append([
+                day['day'],
+                day['meals']['breakfast'],
+                day['meals']['lunch'],
+                day['meals'].get('snack', ''),
+                day['meals']['dinner']
+            ])
+
+        t = Table(data)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 14),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        elements.append(t)
+
+        doc.build(elements)
+        buffer.seek(0)
+
+        return FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=f'meal_plan_{meal_plan_id}.pdf'
+        )
+
+
+@login_required
+def export_activity_pdf(request, activity_id):
+    activity = get_object_or_404(UserActivity, id=activity_id, user=request.user)
+
+    # Create PDF buffer
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Add content to PDF
+    elements.append(Paragraph(f"Activity Details", styles['Title']))
+    elements.append(Spacer(1, 12))
+
+    # Add activity details
+    elements.append(Paragraph(f"Type: {activity.get_action_display()}", styles['Normal']))
+    elements.append(Paragraph(f"Date: {activity.timestamp.strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+
+    if activity.details:
+        elements.append(Paragraph("Details:", styles['Heading2']))
+        for key, value in activity.details.items():
+            elements.append(Paragraph(f"{key}: {value}", styles['Normal']))
+
+    # Build PDF
+    doc.build(elements)
+    pdf = buffer.getvalue()
+    buffer.close()
+
+    # Create response
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="activity_{activity_id}.pdf"'
+    response.write(pdf)
+
+    return response
+
+@login_required
+def activity_detail_api(request, activity_id):
+    activity = get_object_or_404(UserActivity, id=activity_id, user=request.user)
+
+    data = {
+        'id': activity.id,
+        'action': activity.get_action_display(),
+        'timestamp': activity.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+        'details': activity.details
+    }
+
+    return JsonResponse(data)
+class ActivityListView(LoginRequiredMixin, ListView):
+    model = UserActivity
+    template_name = 'dashboard/activity_list.html'
+    context_object_name = 'activities'
+    paginate_by = 10
+
+    def get_queryset(self):
+        queryset = UserActivity.objects.filter(user=self.request.user)
+
+        # Search functionality
+        search_query = self.request.GET.get('search', '')
+        if search_query:
+            queryset = queryset.filter(
+                Q(action__icontains=search_query) |
+                Q(details__icontains=search_query)
+            )
+
+        # Filter by action type
+        action_type = self.request.GET.get('action_type', '')
+        if action_type and action_type != 'all':
+            queryset = queryset.filter(action=action_type)
+
+        # Filter by date range
+        date_filter = self.request.GET.get('date_filter', '')
+        if date_filter:
+            today = timezone.now()
+            if date_filter == 'today':
+                queryset = queryset.filter(timestamp__date=today.date())
+            elif date_filter == 'week':
+                queryset = queryset.filter(timestamp__gte=today - timedelta(days=7))
+            elif date_filter == 'month':
+                queryset = queryset.filter(timestamp__gte=today - timedelta(days=30))
+
+        # Sorting
+        sort_by = self.request.GET.get('sort', '-timestamp')
+        if sort_by not in ['-timestamp', 'timestamp', '-action', 'action']:
+            sort_by = '-timestamp'
+
+        return queryset.order_by(sort_by)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'action_types': UserActivity.ACTION_CHOICES,
+            'current_filters': {
+                'search': self.request.GET.get('search', ''),
+                'action_type': self.request.GET.get('action_type', 'all'),
+                'date_filter': self.request.GET.get('date_filter', 'all'),
+                'sort': self.request.GET.get('sort', '-timestamp'),
+            }
+        })
+        return context

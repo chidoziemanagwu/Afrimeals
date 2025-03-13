@@ -1,9 +1,12 @@
+import json
+import os
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.cache import cache
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
+import openai
 
 # Cache configuration
 CACHE_TIMEOUTS = {
@@ -12,6 +15,14 @@ CACHE_TIMEOUTS = {
     'long': 3600,        # 1 hour
     'very_long': 86400,  # 24 hours
 }
+
+
+def recipe_image_path(instance, filename):
+    base, ext = os.path.splitext(filename)
+    clean_base = "".join(c for c in base if c.isalnum() or c in ('-', '_'))
+    clean_filename = f"{clean_base}{ext}".lower()
+    return os.path.join('recipes', str(instance.user.id), clean_filename)
+
 
 class CacheModelMixin:
     """Mixin to add caching capabilities to models"""
@@ -51,18 +62,33 @@ class MealPlan(models.Model, CacheModelMixin):
 
         return plans[:limit] if limit else plans
 
+# dashboard/models.py
 class Recipe(models.Model, CacheModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     title = models.CharField(max_length=100, db_index=True)
+    description = models.TextField(blank=True)
     ingredients = models.TextField()
     instructions = models.TextField()
+    prep_time = models.CharField(max_length=20, default='30 mins')
+    cook_time = models.CharField(max_length=20, default='45 mins')
+    servings = models.IntegerField(default=4)
+    difficulty = models.CharField(max_length=20, default='Intermediate')
+    nutrition_info = models.JSONField(default=dict, blank=True)
+    tips = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    is_admin_recipe = models.BooleanField(default=False)
+    meal_plan = models.ForeignKey('MealPlan', on_delete=models.CASCADE, null=True, blank=True)
+    meal_type = models.CharField(max_length=20, null=True, blank=True)
+    day_index = models.IntegerField(null=True, blank=True)
 
     class Meta:
-            indexes = [
-                models.Index(fields=['user', 'created_at']),  # Compound index for user's recipes by date
-                models.Index(fields=['title'], name='recipe_title_idx'),
-            ]
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['title'], name='recipe_title_idx'),
+            models.Index(fields=['is_admin_recipe'], name='recipe_admin_idx'),
+            models.Index(fields=['meal_plan', 'meal_type', 'day_index'], name='recipe_meal_idx'),
+        ]
+        unique_together = [['meal_plan', 'meal_type', 'day_index']]
 
     def __str__(self):
         return self.title
@@ -74,10 +100,81 @@ class Recipe(models.Model, CacheModelMixin):
         recipes = cache.get(cache_key)
 
         if recipes is None:
-            recipes = list(cls.objects.filter(user_id=user_id).order_by('-created_at'))
+            recipes = list(cls.objects.filter(user_id=user_id)
+                         .select_related('user', 'meal_plan')
+                         .order_by('-created_at'))
             cache.set(cache_key, recipes, CACHE_TIMEOUTS['medium'])
 
         return recipes
+
+    @classmethod
+    def generate_recipe(cls, meal_name, user, meal_plan=None, meal_type=None, day_index=None):
+        """Generate a recipe using AI"""
+        try:
+            # First check if recipe already exists
+            if meal_plan and meal_type and day_index is not None:
+                existing_recipe = cls.objects.filter(
+                    meal_plan=meal_plan,
+                    meal_type=meal_type,
+                    day_index=day_index
+                ).first()
+
+                if existing_recipe:
+                    return existing_recipe
+
+            # Generate new recipe using ChatGPT
+            prompt = f"""
+            Generate a detailed Nigerian recipe for {meal_name} including:
+            - Brief description of the dish and its origin
+            - Preparation time
+            - Cooking time
+            - Number of servings
+            - Difficulty level
+            - Detailed list of ingredients with quantities
+            - Step-by-step cooking instructions
+            - Nutritional information per serving
+            - Traditional cooking tips and variations
+            Return the response as a JSON object.
+            """
+
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are an expert Nigerian chef."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+
+            recipe_data = json.loads(response.choices[0].message.content)
+
+            # Create new recipe
+            recipe = cls.objects.create(
+                user=user,
+                title=meal_name,
+                description=recipe_data.get('description', ''),
+                ingredients=recipe_data.get('ingredients', []),
+                instructions=recipe_data.get('instructions', []),
+                prep_time=recipe_data.get('prep_time', '30 mins'),
+                cook_time=recipe_data.get('cook_time', '45 mins'),
+                servings=recipe_data.get('servings', 4),
+                difficulty=recipe_data.get('difficulty', 'Intermediate'),
+                nutrition_info=recipe_data.get('nutrition', {}),
+                tips=recipe_data.get('tips', []),
+                meal_plan=meal_plan,
+                meal_type=meal_type,
+                day_index=day_index
+            )
+
+            # Invalidate cache
+            cache.delete(f"user_recipes_{user.id}")
+            if meal_plan:
+                cache.delete(f"meal_plan_{meal_plan.id}")
+
+            return recipe
+
+        except Exception as e:
+            print(f"Error generating recipe: {str(e)}")
+            return None
 
 class GroceryList(models.Model, CacheModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
@@ -178,38 +275,53 @@ class UserSubscription(models.Model, CacheModelMixin):
 
 class UserActivity(models.Model, CacheModelMixin):
     ACTION_CHOICES = (
+        ('create_meal', 'Created Meal Plan'),
+        ('update_meal', 'Updated Meal Plan'),
+        ('delete_meal', 'Deleted Meal Plan'),
+        ('create_recipe', 'Created Recipe'),
+        ('update_recipe', 'Updated Recipe'),
+        ('delete_recipe', 'Deleted Recipe'),
+        ('subscription', 'Subscription Change'),
         ('login', 'Login'),
         ('logout', 'Logout'),
-        ('create_meal', 'Created Meal Plan'),
-        ('create_recipe', 'Created Recipe'),
-        ('subscription', 'Changed Subscription'),
+        ('feedback', 'Submitted Feedback'),
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     action = models.CharField(max_length=20, choices=ACTION_CHOICES)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     details = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
 
     class Meta:
         ordering = ['-timestamp']
         indexes = [
-            models.Index(fields=['user', 'action'], name='user_action_idx'),
+            models.Index(fields=['user', 'action', 'timestamp']),
         ]
 
     def __str__(self):
         return f"{self.user.username} - {self.get_action_display()} - {self.timestamp}"
 
     @classmethod
-    def get_user_recent_activity(cls, user_id, limit=10):
-        """Get cached recent activity for a user"""
-        cache_key = f"user_activity_{user_id}"
-        activities = cache.get(cache_key)
+    def log_activity(cls, user, action, details=None, request=None):
+        activity_data = {
+            'user': user,
+            'action': action,
+            'details': details or {},
+        }
+        
+        if request:
+            activity_data['ip_address'] = request.META.get('REMOTE_ADDR')
+            activity_data['user_agent'] = request.META.get('HTTP_USER_AGENT')
 
-        if activities is None:
-            activities = list(cls.objects.filter(user_id=user_id).order_by('-timestamp')[:limit])
-            cache.set(cache_key, activities, CACHE_TIMEOUTS['short'])
-
-        return activities
+        activity = cls.objects.create(**activity_data)
+        
+        # Invalidate cache
+        cache_key = f"user_activity_{user.id}"
+        cache.delete(cache_key)
+        
+        return activity
 
 class UserFeedback(models.Model, CacheModelMixin):
     FEEDBACK_TYPES = (

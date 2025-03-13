@@ -15,12 +15,7 @@
         <p><span class="font-medium">Username:</span> {{ user.username }}</p>
         <p><span class="font-medium">Email:</span> {{ user.email }}</p>
         <p><span class="font-medium">Joined:</span> {{ user.date_joined|date:"F j, Y" }}</p>
-        
-        <div class="mt-4">
-          <a href="#" class="text-sm text-green-600 hover:text-green-800">
-            <i class="fas fa-key mr-1"></i> Change Password
-          </a>
-        </div>
+
       </div>
       
       <!-- Subscription Information -->
@@ -50,79 +45,173 @@
     </div>
   </div>
   
-  <!-- Recent Meal Plans -->
-  <div class="bg-white rounded-lg shadow-md p-6">
-    <h2 class="text-xl font-bold text-gray-800 mb-4">Recent Meal Plans</h2>
-    
-    {% if meal_plans %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {% for plan in meal_plans %}
-      <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
-          <h3 class="font-medium text-green-700">{{ plan.name }}</h3>
-          <p class="text-sm text-gray-600">Created: {{ plan.created_at|date:"M d, Y" }}</p>
-          <div class="mt-2 flex space-x-2">
-              <button 
-                  class="export-pdf-btn px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                  data-mealplan-id="{{ plan.id }}"
-                  data-loading-text="Generating PDF...">
-                  <i class="fas fa-file-pdf mr-1"></i> Export PDF
+
+
+<!-- Add this section to your user_profile.html -->
+<div class="bg-white rounded-lg shadow-md p-6 mt-6">
+  <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+      <h2 class="text-xl font-bold text-gray-800">Activity History</h2>
+
+      <!-- Search and Filter Controls -->
+      <form method="get" class="flex flex-col md:flex-row gap-4 mt-4 md:mt-0 w-full md:w-auto">
+          <div class="relative">
+              <input type="text"
+                     name="search"
+                     value="{{ current_filters.search }}"
+                     placeholder="Search activities..."
+                     class="pl-10 pr-4 py-2 border rounded-lg w-full md:w-64">
+              <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+          </div>
+
+          <select name="action_type" class="border rounded-lg px-4 py-2 bg-white">
+              <option value="all">All Activities</option>
+              {% for action_value, action_label in action_types %}
+              <option value="{{ action_value }}" 
+                      {% if current_filters.action_type == action_value %}selected{% endif %}>
+                  {{ action_label }}
+              </option>
+              {% endfor %}
+          </select>
+
+          <select name="date_filter" class="border rounded-lg px-4 py-2 bg-white">
+              <option value="all">All Time</option>
+              <option value="today" {% if current_filters.date_filter == 'today' %}selected{% endif %}>Today</option>
+              <option value="week" {% if current_filters.date_filter == 'week' %}selected{% endif %}>Past Week</option>
+              <option value="month" {% if current_filters.date_filter == 'month' %}selected{% endif %}>Past Month</option>
+          </select>
+
+          <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+              Apply Filters
+          </button>
+      </form>
+  </div>
+
+  <!-- Activity List -->
+  {% if recent_activity %}
+      <div class="space-y-4">
+          {% for activity in recent_activity %}
+          <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+              <div class="flex items-center">
+                  <!-- Activity Icon -->
+                  <div class="flex items-center justify-center h-10 w-10 rounded-full mr-4
+                              {% if 'meal' in activity.action %}bg-green-100 text-green-600
+                              {% elif 'recipe' in activity.action %}bg-blue-100 text-blue-600
+                              {% elif activity.action == 'subscription' %}bg-purple-100 text-purple-600
+                              {% else %}bg-gray-100 text-gray-600{% endif %}">
+                      <i class="fas {% if 'meal' in activity.action %}fa-utensils
+                                  {% elif 'recipe' in activity.action %}fa-book-open
+                                  {% elif activity.action == 'subscription' %}fa-crown
+                                  {% else %}fa-clock{% endif %}"></i>
+                  </div>
+
+                  <!-- Activity Details -->
+                  <div class="flex-grow">
+                      <h4 class="font-medium text-gray-800">{{ activity.get_action_display }}</h4>
+                      <p class="text-sm text-gray-500">{{ activity.timestamp|date:"F j, Y, g:i a" }}</p>
+                      {% if activity.details %}
+                          <p class="text-sm text-gray-600 mt-1">
+                              {% if activity.details.title %}
+                                  {{ activity.details.title }}
+                              {% endif %}
+                          </p>
+                      {% endif %}
+                  </div>
+
+                  <!-- Action Buttons -->
+                  {% if 'meal' in activity.action or 'recipe' in activity.action %}
+                  <div class="flex space-x-2">
+                      <button class="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                              onclick="exportActivity('{{ activity.id }}')">
+                          <i class="fas fa-file-pdf mr-1"></i> Export
+                      </button>
+                      <button class="text-blue-500 hover:text-blue-600"
+                              onclick="viewActivityDetails('{{ activity.id }}')">
+                          <i class="fas fa-eye"></i>
+                      </button>
+                  </div>
+                  {% endif %}
+              </div>
+          </div>
+          {% endfor %}
+      </div>
+
+      <!-- Pagination -->
+      {% if is_paginated %}
+      <div class="flex justify-center mt-6 space-x-2">
+          {% if page_obj.has_previous %}
+              <a href="?page=1" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">&laquo; first</a>
+              <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">previous</a>
+          {% endif %}
+
+          <span class="px-3 py-1 bg-green-500 text-white rounded-md">
+              Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+          </span>
+
+          {% if page_obj.has_next %}
+              <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">next</a>
+              <a href="?page={{ page_obj.paginator.num_pages }}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">last &raquo;</a>
+          {% endif %}
+      </div>
+      {% endif %}
+  {% else %}
+      <div class="text-center py-8 text-gray-500">
+          No activities found.
+      </div>
+  {% endif %}
+</div>
+</div>
+
+<!-- Add this at the end of your user_profile.html template, before the closing body tag -->
+<div id="activityModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+  <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+      <div class="mt-3">
+          <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Activity Details</h3>
+          <div class="mt-2 text-gray-600" id="modalContent">
+              <!-- Content will be populated by JavaScript -->
+          </div>
+          <div class="mt-4">
+              <button onclick="closeModal()"
+                      class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
+                  Close
               </button>
-              <a href="#" class="text-sm text-green-600 hover:text-green-800">
-                  <i class="fas fa-eye mr-1"></i> View Details
-              </a>
           </div>
       </div>
-      {% endfor %}
   </div>
-    {% else %}
-      <div class="bg-gray-50 p-4 rounded-lg text-center">
-        <p class="text-gray-600">You haven't created any meal plans yet.</p>
-        <a href="{% url 'meal_generator' %}" class="inline-block mt-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-          <i class="fas fa-utensils mr-1"></i> Create Meal Plan
-        </a>
-      </div>
-    {% endif %}
-  </div>
-
-
-  <!-- dashboard/templates/user_profile.html (add pagination sections) -->
-
-<!-- For meal plans pagination -->
-{% if is_meal_paginated %}
-<div class="pagination flex justify-center mt-4 mb-8 space-x-2">
-    {% if meal_plans.has_previous %}
-        <a href="?meal_page=1{% if recent_activity.number > 1 %}&activity_page={{ recent_activity.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">&laquo; first</a>
-        <a href="?meal_page={{ meal_plans.previous_page_number }}{% if recent_activity.number > 1 %}&activity_page={{ recent_activity.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">previous</a>
-    {% endif %}
-
-    <span class="current px-3 py-1 bg-green-500 text-white rounded-md">
-        Meal Plans: Page {{ meal_plans.number }} of {{ meal_plans.paginator.num_pages }}
-    </span>
-
-    {% if meal_plans.has_next %}
-        <a href="?meal_page={{ meal_plans.next_page_number }}{% if recent_activity.number > 1 %}&activity_page={{ recent_activity.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">next</a>
-        <a href="?meal_page={{ meal_plans.paginator.num_pages }}{% if recent_activity.number > 1 %}&activity_page={{ recent_activity.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">last &raquo;</a>
-    {% endif %}
 </div>
-{% endif %}
 
-<!-- For activity pagination -->
-{% if is_activity_paginated %}
-<div class="pagination flex justify-center mt-4 mb-8 space-x-2">
-    {% if recent_activity.has_previous %}
-        <a href="?activity_page=1{% if meal_plans.number > 1 %}&meal_page={{ meal_plans.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">&laquo; first</a>
-        <a href="?activity_page={{ recent_activity.previous_page_number }}{% if meal_plans.number > 1 %}&meal_page={{ meal_plans.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">previous</a>
-    {% endif %}
+<script>
+ // Replace your existing JavaScript with this
+function exportActivity(activityId) {
+    window.location.href = `/activity/${activityId}/export/`;
+}
 
-    <span class="current px-3 py-1 bg-green-500 text-white rounded-md">
-        Activity: Page {{ recent_activity.number }} of {{ recent_activity.paginator.num_pages }}
-    </span>
+function viewActivityDetails(activityId) {
+    fetch(`/activity/${activityId}/detail/`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('modalContent').innerHTML = `
+                <p><strong>Action:</strong> ${data.action}</p>
+                <p><strong>Time:</strong> ${data.timestamp}</p>
+                <p><strong>Details:</strong></p>
+                <pre class="bg-gray-100 p-2 rounded mt-2">${JSON.stringify(data.details, null, 2)}</pre>
+            `;
+            document.getElementById('activityModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading activity details');
+        });
+}
 
-    {% if recent_activity.has_next %}
-        <a href="?activity_page={{ recent_activity.next_page_number }}{% if meal_plans.number > 1 %}&meal_page={{ meal_plans.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">next</a>
-        <a href="?activity_page={{ recent_activity.paginator.num_pages }}{% if meal_plans.number > 1 %}&meal_page={{ meal_plans.number }}{% endif %}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">last &raquo;</a>
-    {% endif %}
-</div>
-{% endif %}
-</div>
+function closeModal() {
+    document.getElementById('activityModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+document.getElementById('activityModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+</script>
 {% endblock %}

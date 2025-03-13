@@ -92,37 +92,83 @@
         </div>
     </div>
 
-    <!-- Recent Activity -->
-    <div class="max-w-6xl mx-auto px-4 py-8">
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold text-gray-800">Your Recent Activity</h3>
-                <a href="#" class="text-green-600 hover:text-green-700 font-medium">View all →</a>
-            </div>
+<!-- Recent Activity -->
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-xl shadow-md p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-bold text-gray-800">Your Recent Activity</h3>
+            <a href="{% url 'user_profile' %}" class="text-green-600 hover:text-green-700 font-medium">View all →</a>
+        </div>
+        
+        {% if recent_activities %}
             <div class="space-y-4">
-                <!-- Example Activity -->
-                <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors flex items-center">
-                    <div class="flex items-center justify-center h-10 w-10 rounded-full bg-green-100 text-green-600 mr-4">
-                        <i class="fas fa-utensils"></i>
+                {% for activity in recent_activities|slice:":5" %}
+                    <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center flex-grow">
+                                <!-- Activity Icon -->
+                                <div class="flex items-center justify-center h-10 w-10 rounded-full mr-4
+                                            {% if 'meal' in activity.action %}bg-green-100 text-green-600
+                                            {% elif 'recipe' in activity.action %}bg-blue-100 text-blue-600
+                                            {% elif activity.action == 'subscription' %}bg-purple-100 text-purple-600
+                                            {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                    <i class="fas {% if 'meal' in activity.action %}fa-utensils
+                                                {% elif 'recipe' in activity.action %}fa-book-open
+                                                {% elif activity.action == 'subscription' %}fa-crown
+                                                {% else %}fa-clock{% endif %}"></i>
+                                </div>
+
+                                <!-- Activity Details -->
+                                <div>
+                                    <h4 class="font-medium text-gray-800">{{ activity.get_action_display }}</h4>
+                                    <p class="text-sm text-gray-500">{{ activity.timestamp|date:"F j, Y, g:i a" }}</p>
+                                    {% if activity.details.title %}
+                                        <p class="text-sm text-gray-600 mt-1">{{ activity.details.title }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            {% if 'meal' in activity.action or 'recipe' in activity.action %}
+                                <div class="flex space-x-2">
+                                    <button class="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                            onclick="exportActivity('{{ activity.id }}')">
+                                        <i class="fas fa-file-pdf mr-1"></i> PDF
+                                    </button>
+                                    <button class="text-blue-500 hover:text-blue-600"
+                                            onclick="viewActivityDetails('{{ activity.id }}')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div>
-                        <h4 class="font-medium text-gray-800">Jollof Rice Meal Plan</h4>
-                        <p class="text-sm text-gray-500">Created on March 8, 2025</p>
-                    </div>
-                    <div class="ml-auto flex space-x-2">
-                        <button 
-                            class="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                            data-mealplan-id="{{ meal_plan.id }}">
-                            <i class="fas fa-file-pdf mr-1"></i> PDF
-                        </button>
-                        <a href="#" class="text-blue-500 hover:text-blue-600">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                    </div>
-                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-8 text-gray-500">
+                <i class="fas fa-history text-4xl mb-3"></i>
+                <p>No recent activities to display.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Activity Details Modal -->
+<div id="activityModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Activity Details</h3>
+            <div class="mt-2 text-gray-600" id="modalContent"></div>
+            <div class="mt-4">
+                <button onclick="closeModal()"
+                        class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
+                    Close
+                </button>
             </div>
         </div>
     </div>
+</div>
 
     <!-- Footer -->
     <footer class="bg-gray-800 text-white py-12 mt-12">
@@ -167,4 +213,42 @@
         </div>
     </footer>
 </div>
+
+<script>
+function exportActivity(activityId, type) {
+    const exportUrl = type === 'meal_plan' 
+        ? `/meal-plans/${activityId}/export/`
+        : `/recipes/${activityId}/export/`;
+    window.location.href = exportUrl;
+}
+
+    function viewActivityDetails(activityId) {
+        fetch(`/activity/${activityId}/detail/`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('modalContent').innerHTML = `
+                    <p><strong>Action:</strong> ${data.action}</p>
+                    <p><strong>Time:</strong> ${data.timestamp}</p>
+                    <p><strong>Details:</strong></p>
+                    <pre class="bg-gray-100 p-2 rounded mt-2">${JSON.stringify(data.details, null, 2)}</pre>
+                `;
+                document.getElementById('activityModal').classList.remove('hidden');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error loading activity details');
+            });
+    }
+
+    function closeModal() {
+        document.getElementById('activityModal').classList.add('hidden');
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('activityModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+</script>
 {% endblock %}

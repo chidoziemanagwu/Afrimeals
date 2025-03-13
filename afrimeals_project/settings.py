@@ -12,6 +12,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # SECURITY WARNING: keep the secret key used in production secret!  
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'  # Ensure boolean conversion
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-for-dev')  # Provide a default for development
+SECURE_SSL_REDIRECT = False  # Set to False for local development
 
 # In settings.py
 STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
@@ -110,6 +111,29 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Ensure this matches your 
 STATICFILES_DIRS = [  
     os.path.join(BASE_DIR, 'dashboard/static'),  
 ]  
+
+# Media files configuration
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Add media directories
+MEDIA_DIRS = {
+    'recipes': os.path.join(MEDIA_ROOT, 'recipes'),
+    'profiles': os.path.join(MEDIA_ROOT, 'profiles'),
+}
+
+
+# File upload settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
+FILE_UPLOAD_PERMISSIONS = 0o644
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
+
+# Image validation settings
+VALID_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif']
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
+IMAGE_MIN_DIMENSIONS = (100, 100)  # Minimum dimensions
+IMAGE_MAX_DIMENSIONS = (2000, 2000)  # Maximum dimensions
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'  
 

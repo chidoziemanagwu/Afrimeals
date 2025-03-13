@@ -3,6 +3,7 @@ from django import forms
 from .models import Recipe, UserFeedback
 from django.core.validators import MinLengthValidator, MaxLengthValidator
 
+# dashboard/forms.py
 class RecipeForm(forms.ModelForm):
     title = forms.CharField(
         min_length=3,
@@ -34,9 +35,24 @@ class RecipeForm(forms.ModelForm):
         help_text='Provide detailed cooking instructions'
     )
 
+    is_admin_recipe = forms.BooleanField(
+        required=False,
+        initial=False,
+        widget=forms.HiddenInput()
+    )
+
     class Meta:
         model = Recipe
-        fields = ['title', 'ingredients', 'instructions']
+        fields = ['title', 'ingredients', 'instructions', 'is_admin_recipe']
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user and user.is_staff:
+            self.fields['is_admin_recipe'].widget = forms.CheckboxInput(attrs={
+                'class': 'form-checkbox h-5 w-5 text-green-600'
+            })
+            self.fields['is_admin_recipe'].label = "Add as Featured Recipe"
 
     def clean_title(self):
         title = self.cleaned_data.get('title', '').strip()
@@ -63,7 +79,6 @@ class RecipeForm(forms.ModelForm):
         if len(instructions) < 20:
             raise forms.ValidationError("Please provide more detailed instructions (at least 20 characters)")
         return instructions
-
 class FeedbackForm(forms.ModelForm):
     FEEDBACK_CHOICES = [
         ('bug', 'Bug Report'),

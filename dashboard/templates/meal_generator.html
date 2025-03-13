@@ -297,55 +297,69 @@
             <div class="bg-white rounded-xl shadow-xl p-6 mb-8">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-2xl font-bold text-gray-800">Your Meal Plan</h3>
-                    
-                    <!-- Premium Features Banner -->
-                    {% if not has_subscription %}
-                    <div class="flex items-center">
+                    <div class="flex items-center space-x-4">
+                        <button onclick="shareMealPlan()" 
+                                class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors duration-200">
+                            <i class="fas fa-share-alt mr-2"></i>
+                            Share Meal Plan
+                        </button>
+                        {% if not has_subscription %}
                         <a href="{% url 'pricing' %}" class="group inline-flex items-center bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-md hover:from-purple-700 hover:to-indigo-700 transition-all duration-300">
                             <i class="fas fa-crown mr-2"></i>
                             Upgrade for PDF Export
                             <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform duration-300"></i>
                         </a>
+                        {% endif %}
                     </div>
-                    {% endif %}
                 </div>
                 
                 <div class="overflow-x-auto">
-                    <table id="mealPlanTable" class="w-full">
-                        <thead>
-                            <tr>
-                                <th class="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100 rounded-tl-lg">Day</th>
-                                <th class="text-left py-3 px-4 font-semibold text-orange-800 bg-orange-100">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-sun text-orange-500 mr-2"></i>
-                                        <span>Breakfast</span>
-                                    </div>
-                                </th>
-                                <th class="text-left py-3 px-4 font-semibold text-green-800 bg-green-100">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-utensils text-green-500 mr-2"></i>
-                                        <span>Lunch</span>
-                                    </div>
-                                </th>
-                                <th class="text-left py-3 px-4 font-semibold text-purple-800 bg-purple-100 include-snacks">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-cookie text-purple-500 mr-2"></i>
-                                        <span>Snack</span>
-                                    </div>
-                                </th>
-                                <th class="text-left py-3 px-4 font-semibold text-blue-800 bg-blue-100">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-moon text-blue-500 mr-2"></i>
-                                        <span>Dinner</span>
-                                    </div>
-                                </th>
-                                <th class="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100 rounded-tr-lg">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="mealPlanBody">
-                            <!-- Dynamically populated -->
-                        </tbody>
-                    </table>
+<!-- Replace the current table structure with this -->
+<div class="mb-8">
+    <!-- Desktop View -->
+    <div class="hidden md:block">
+        <table id="mealPlanTable" class="w-full">
+            <thead>
+                <tr>
+                    <th class="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100 rounded-tl-lg">Day</th>
+                    <th class="text-left py-3 px-4 font-semibold text-orange-800 bg-orange-100">
+                        <div class="flex items-center">
+                            <i class="fas fa-sun text-orange-500 mr-2"></i>
+                            <span>Breakfast</span>
+                        </div>
+                    </th>
+                    <th class="text-left py-3 px-4 font-semibold text-green-800 bg-green-100">
+                        <div class="flex items-center">
+                            <i class="fas fa-utensils text-green-500 mr-2"></i>
+                            <span>Lunch</span>
+                        </div>
+                    </th>
+                    <th class="text-left py-3 px-4 font-semibold text-purple-800 bg-purple-100 include-snacks">
+                        <div class="flex items-center">
+                            <i class="fas fa-cookie text-purple-500 mr-2"></i>
+                            <span>Snack</span>
+                        </div>
+                    </th>
+                    <th class="text-left py-3 px-4 font-semibold text-blue-800 bg-blue-100">
+                        <div class="flex items-center">
+                            <i class="fas fa-moon text-blue-500 mr-2"></i>
+                            <span>Dinner</span>
+                        </div>
+                    </th>
+                    <th class="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100 rounded-tr-lg">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="mealPlanBody">
+                <!-- Dynamically populated -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Mobile View -->
+    <div class="md:hidden" id="mobileMealPlan">
+        <!-- Cards will be rendered here -->
+    </div>
+</div>
                 </div>
             </div>
             
@@ -483,20 +497,30 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <!-- Ingredients List -->
                 <div class="bg-white rounded-xl shadow-xl p-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-xl font-bold text-gray-800 flex items-center">
-                            <i class="fas fa-shopping-basket text-green-500 mr-2"></i>Shopping List
-                        </h3>
-                        <div class="flex space-x-2">
-                            <button id="prevPage" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
-                                <i class="fas fa-chevron-left"></i>
-                            </button>
-                            <span id="pageIndicator" class="flex items-center px-2">Page <span class="mx-1" id="currentPage">1 </span> of <span class="mx-1" id="totalPages"> 1</span></span>
-                            <button id="nextPage" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
-                                <i class="fas fa-chevron-right"></i>
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Update the shopping list header section -->
+<div class="flex justify-between items-center mb-4">
+    <h3 class="text-xl font-bold text-gray-800 flex items-center">
+        <i class="fas fa-shopping-basket text-green-500 mr-2"></i>Shopping List
+    </h3>
+    <div class="flex items-center space-x-2">
+        <!-- Share button -->
+        <button onclick="shareShoppingList()" 
+                class="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors duration-200 flex items-center">
+            <i class="fas fa-share-alt mr-1"></i>
+            <span class="hidden sm:inline">Share List</span>
+        </button>
+        <!-- Existing pagination controls -->
+        <button id="prevPage" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <span id="pageIndicator" class="flex items-center px-2">
+            Page <span class="mx-1" id="currentPage">1</span> of <span class="mx-1" id="totalPages">1</span>
+        </span>
+        <button id="nextPage" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+</div>
                     <div id="ingredientsList" class="space-y-2">
                         <!-- Dynamically populated -->
                     </div>
@@ -578,7 +602,545 @@
 <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.html5.min.js"></script>
 
 <script>
+
+const recipeCache = new Map();
+window.groceryList = [];
+
+function shareMealPlan() {
+    if (!window.currentMealPlan || window.currentMealPlan.length === 0) {
+        alert('No meal plan available. Please generate a meal plan first.');
+        return;
+    }
+
+    const text = "🍳 My NaijaPlate Meal Plan:\n\n" + 
+        window.currentMealPlan.map(day => {
+            return `📆 ${day.day}:\n` +
+                Object.entries(day.meals)
+                    .filter(([_, meal]) => meal !== null)
+                    .map(([type, meal]) => {
+                        const emoji = type === 'breakfast' ? '🌅' :
+                                    type === 'lunch' ? '🍽️' :
+                                    type === 'snack' ? '🥨' : '🌙';
+                        return `${emoji} ${type.charAt(0).toUpperCase() + type.slice(1)}: ${meal}`;
+                    })
+                    .join('\n');
+        }).join('\n\n');
+
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + '\n\n📱 Generated by NaijaPlate')}`;
+    window.open(whatsappUrl, '_blank');
+}
+
+function shareShoppingList() {
+    if (!window.groceryList || window.groceryList.length === 0) {
+        alert('No shopping list available. Please generate a meal plan first.');
+        return;
+    }
+
+    let text = "🛒 My NaijaPlate Shopping List:\n\n";
+    text += window.groceryList.map(item => `📌 ${typeof item === 'string' ? item : item.name}`).join('\n');
+    text += "\n\n📱 Generated by NaijaPlate";
+
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank');
+}
+
+function shareViaWhatsApp(text) {
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank');
+}
+
+// Add copy to clipboard functionality as another sharing option
+function copyToClipboard(text) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                // Show success message
+                const toast = document.createElement('div');
+                toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg';
+                toast.textContent = 'Shopping list copied to clipboard!';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            })
+            .catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+    }
+}
+
+// Add a dropdown menu for sharing options
+function showShareOptions(event) {
+    const shareMenu = document.createElement('div');
+    shareMenu.className = 'absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50';
+    shareMenu.innerHTML = `
+        <div class="py-1" role="menu" aria-orientation="vertical">
+            <button onclick="shareViaWhatsApp(createShoppingListText())" 
+                    class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+                <i class="fab fa-whatsapp mr-2 text-green-500"></i>Share via WhatsApp
+            </button>
+            <button onclick="copyToClipboard(createShoppingListText())"
+                    class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+                <i class="far fa-copy mr-2 text-blue-500"></i>Copy to Clipboard
+            </button>
+            <button onclick="shareShoppingList()"
+                    class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+                <i class="fas fa-share-alt mr-2 text-purple-500"></i>More Options
+            </button>
+        </div>
+    `;
+    
+    // Position the menu
+    const button = event.currentTarget;
+    const rect = button.getBoundingClientRect();
+    shareMenu.style.top = `${rect.bottom + window.scrollY}px`;
+    shareMenu.style.right = `${window.innerWidth - rect.right}px`;
+    
+    // Add the menu to the document
+    document.body.appendChild(shareMenu);
+    
+    // Close menu when clicking outside
+    function closeMenu(e) {
+        if (!shareMenu.contains(e.target) && e.target !== button) {
+            shareMenu.remove();
+            document.removeEventListener('click', closeMenu);
+        }
+    }
+    
+    // Add click listener to close menu
+    setTimeout(() => {
+        document.addEventListener('click', closeMenu);
+    }, 0);
+}
+
+function createShoppingListText() {
+    let text = "🛒 My NaijaPlate Shopping List:\n\n";
+    text += groceryList.map(item => `• ${typeof item === 'string' ? item : item.name}`).join('\n');
+    text += "\n\n💡 Generated by NaijaPlate";
+    return text;
+}
+
+// Add these functions near the top of your script
+function printDayMeals(dayIndex) {
+    const day = window.currentMealPlan[dayIndex];
+    const printWindow = window.open('', '_blank');
+    
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Meal Plan - ${day.day}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    h1 { color: #333; }
+                    .meal { margin-bottom: 20px; }
+                    .meal-title { color: #666; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                <h1>${day.day} Meal Plan</h1>
+                ${Object.entries(day.meals)
+                    .filter(([_, meal]) => meal !== null)
+                    .map(([type, meal]) => `
+                        <div class="meal">
+                            <div class="meal-title">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+                            <div>${meal}</div>
+                        </div>
+                    `).join('')}
+            </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.print();
+}
+
+function exportDayMeals(dayIndex) {
+    const day = window.currentMealPlan[dayIndex];
+    const meals = Object.entries(day.meals)
+        .filter(([_, meal]) => meal !== null)
+        .map(([type, meal]) => `${type}: ${meal}`)
+        .join('\n');
+    
+    const blob = new Blob([`${day.day}\n\n${meals}`], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `meal-plan-${day.day.toLowerCase().replace(/\s+/g, '-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+
+// Modified viewRecipe function with optimizations
+function viewRecipe(dayIndex, mealType) {
+    const cacheKey = `${window.currentMealPlanId}-${dayIndex}-${mealType}`;
+    
+    // Show loading state in modal
+    $('#recipeModal').removeClass('hidden');
+    $('#recipeTitle').html('<i class="fas fa-spinner fa-spin mr-2"></i> Loading Recipe...');
+    
+    // Check cache first
+    if (recipeCache.has(cacheKey)) {
+        updateRecipeModal(recipeCache.get(cacheKey));
+        return;
+    }
+
+    // Show progressive loading state
+    showProgressiveLoading();
+
+    // Fetch recipe details
+    fetch(`/api/recipe-details/${window.currentMealPlanId}/${dayIndex}/${mealType}/`)
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return response.json();
+        })
+        .then(recipeData => {
+            // Cache the recipe data
+            recipeCache.set(cacheKey, recipeData);
+            updateRecipeModal(recipeData);
+        })
+        .catch(handleRecipeError);
+}
+
+// Add this function to show progressive loading
+function showProgressiveLoading() {
+    const loadingStates = {
+        overview: '<div class="animate-pulse bg-gray-200 h-20 rounded-lg mb-4"></div>',
+        ingredients: '<div class="space-y-2">' + Array(5).fill('<div class="animate-pulse bg-gray-200 h-6 rounded"></div>').join('') + '</div>',
+        instructions: '<div class="space-y-4">' + Array(3).fill('<div class="animate-pulse bg-gray-200 h-16 rounded-lg"></div>').join('') + '</div>',
+        nutrition: '<div class="grid grid-cols-2 gap-4">' + Array(4).fill('<div class="animate-pulse bg-gray-200 h-12 rounded"></div>').join('') + '</div>'
+    };
+
+    Object.entries(loadingStates).forEach(([key, html]) => {
+        $(`#content-${key}`).html(html);
+    });
+}
+
+// Add preloading for the next recipes
+function preloadNextRecipes(currentDayIndex, currentMealType) {
+    const mealTypes = ['breakfast', 'lunch', 'snack', 'dinner'];
+    const currentMealIndex = mealTypes.indexOf(currentMealType);
+    
+    // Preload next meal in the same day
+    if (currentMealIndex < mealTypes.length - 1) {
+        preloadRecipe(currentDayIndex, mealTypes[currentMealIndex + 1]);
+    }
+    // Preload first meal of next day
+    else if (currentDayIndex < window.currentMealPlan.length - 1) {
+        preloadRecipe(currentDayIndex + 1, mealTypes[0]);
+    }
+}
+
+function preloadRecipe(dayIndex, mealType) {
+    const cacheKey = `${window.currentMealPlanId}-${dayIndex}-${mealType}`;
+    if (!recipeCache.has(cacheKey)) {
+        fetch(`/api/recipe-details/${window.currentMealPlanId}/${dayIndex}/${mealType}/`)
+            .then(response => response.json())
+            .then(recipeData => recipeCache.set(cacheKey, recipeData))
+            .catch(() => {}); // Silently fail for preloading
+    }
+}
+
+// Add this helper function to update the modal content
+function updateRecipeModal(recipeData) {
+    // Update modal title and basic info
+    $('#recipeTitle').text(recipeData.title || 'Recipe Details');
+    $('#recipeDescription').text(recipeData.description || 'No description available');
+    $('#recipePrepTime').text(recipeData.prepTime || 'N/A');
+    $('#recipeCookTime').text(recipeData.cookTime || 'N/A');
+    $('#recipeServings').text(recipeData.servings || '4');
+    $('#recipeDifficulty').text(recipeData.difficulty || 'Intermediate');
+
+    // Update ingredients list
+    const ingredients = Array.isArray(recipeData.ingredients) ? recipeData.ingredients : [];
+    const ingredientsHtml = ingredients.map(ingredient => `
+        <li class="flex items-center p-2 hover:bg-green-50 rounded-lg transition-colors duration-200">
+            <i class="fas fa-check text-green-500 mr-2"></i>
+            <span>${ingredient}</span>
+        </li>
+    `).join('');
+    $('#recipeIngredients').html(ingredientsHtml || '<li class="text-gray-500">No ingredients listed</li>');
+
+    // Update instructions
+    const instructions = Array.isArray(recipeData.instructions) ? recipeData.instructions : [];
+    const instructionsHtml = instructions.map((step, index) => `
+        <li class="flex items-start mb-4">
+            <div class="flex-shrink-0 h-6 w-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center mr-3">
+                ${index + 1}
+            </div>
+            <p class="flex-1">${step}</p>
+        </li>
+    `).join('');
+    $('#recipeInstructions').html(instructionsHtml || '<li class="text-gray-500">No instructions available</li>');
+
+    // Update nutrition information
+    const nutrition = recipeData.nutrition || {};
+    const nutritionHtml = Object.entries(nutrition).map(([key, value]) => `
+        <div class="bg-white p-3 rounded-lg shadow-sm">
+            <span class="block text-sm text-gray-600 capitalize">${key.replace(/_/g, ' ')}</span>
+            <span class="block font-medium text-gray-800">${value}</span>
+        </div>
+    `).join('');
+    $('#recipeNutrition').html(nutritionHtml || '<div class="text-gray-500">No nutritional information available</div>');
+
+    // Show the overview tab
+    $('.recipe-content').addClass('hidden');
+    $('#content-overview').removeClass('hidden');
+}
+
 $(document).ready(function() {
+
+
+    function renderDesktopMealPlan(mealPlanData) {
+    let mealPlanHtml = '';
+    mealPlanData.forEach((day, index) => {
+        mealPlanHtml += `
+            <tr class="border-b border-gray-200 hover:bg-opacity-80 transition-colors duration-150">
+                <td class="py-3 px-4 font-medium bg-gray-100">${day.day}</td>
+                <td class="py-3 px-4 bg-orange-100">
+                    <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-orange-200">${day.meals.breakfast}</div>
+                    <button onclick="viewRecipe(${index}, 'breakfast')" 
+                            class="text-xs bg-white hover:bg-orange-200 text-orange-800 px-2 py-1 rounded transition-colors duration-200 border border-orange-300">
+                        <i class="fas fa-book-open mr-1"></i> View Recipe
+                    </button>
+                </td>
+                <td class="py-3 px-4 bg-green-100">
+                    <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-green-200">${day.meals.lunch}</div>
+                    <button onclick="viewRecipe(${index}, 'lunch')" 
+                            class="text-xs bg-white hover:bg-green-200 text-green-800 px-2 py-1 rounded transition-colors duration-200 border border-green-300">
+                        <i class="fas fa-book-open mr-1"></i> View Recipe
+                    </button>
+                </td>
+                ${day.meals.snack !== null ? `
+                    <td class="py-3 px-4 bg-purple-100">
+                        <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-purple-200">${day.meals.snack}</div>
+                        <button onclick="viewRecipe(${index}, 'snack')" 
+                                class="text-xs bg-white hover:bg-purple-200 text-purple-800 px-2 py-1 rounded transition-colors duration-200 border border-purple-300">
+                            <i class="fas fa-book-open mr-1"></i> View Recipe
+                        </button>
+                    </td>
+                ` : ''}
+                <td class="py-3 px-4 bg-blue-100">
+                    <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-blue-200">${day.meals.dinner}</div>
+                    <button onclick="viewRecipe(${index}, 'dinner')" 
+                            class="text-xs bg-white hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors duration-200 border border-blue-300">
+                        <i class="fas fa-book-open mr-1"></i> View Recipe
+                    </button>
+                </td>
+                <td class="py-3 px-4 bg-gray-100">
+                    <button onclick="printDayMeals(${index})" 
+                            class="text-xs bg-white hover:bg-gray-200 text-gray-800 px-3 py-1 rounded transition-colors duration-200 border border-gray-300 w-full mb-2">
+                        <i class="fas fa-print mr-1"></i> Print Day
+                    </button>
+                    <button onclick="exportDayMeals(${index})" 
+                            class="text-xs bg-white hover:bg-gray-200 text-gray-800 px-3 py-1 rounded transition-colors duration-200 border border-gray-300 w-full">
+                        <i class="fas fa-download mr-1"></i> Export
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    $('#mealPlanBody').html(mealPlanHtml);
+}
+
+
+
+
+function renderMobileMealPlan(mealPlanData) {
+    let html = '';
+    mealPlanData.forEach((day, index) => {
+        html += `
+            <div class="mb-6 bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="bg-gray-100 p-4 font-semibold">${day.day}</div>
+                <div class="p-4 space-y-4">
+                    ${Object.entries(day.meals)
+                        .filter(([type, meal]) => meal !== null)
+                        .map(([type, meal]) => `
+                            <div class="bg-${type === 'breakfast' ? 'orange' : type === 'lunch' ? 'green' : type === 'snack' ? 'purple' : 'blue'}-50 p-3 rounded-lg">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h3 class="font-medium capitalize">${type}</h3>
+                                    <button onclick="viewRecipe(${index}, '${type}')"
+                                            class="text-xs bg-white hover:bg-opacity-90 px-2 py-1 rounded-full transition-colors duration-200">
+                                        View Recipe
+                                    </button>
+                                </div>
+                                <p class="text-sm">${meal}</p>
+                            </div>
+                        `).join('')}
+                </div>
+            </div>
+        `;
+    });
+    $('#mobileMealPlan').html(html);
+}
+
+// Update your form submission success handler to use these functions
+$('#mealPlanForm').on('submit', function(e) {
+    e.preventDefault();
+    
+    // Show loading animation
+    $('#mealPlanForm').addClass('hidden');
+    $('#loading').removeClass('hidden');
+    
+    const formData = new FormData(this);
+    
+    $.ajax({
+        url: '{% url "meal_generator" %}',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            $('#loading').addClass('hidden');
+            
+            if (response.success) {
+                // Store the meal plan ID globally
+                window.currentMealPlanId = response.meal_plan_id;
+                window.currentMealPlan = response.meal_plan;
+                
+                // Show results
+                $('#results').removeClass('hidden');
+                
+                // Render meal plan based on screen size
+                if (window.innerWidth < 768) {
+                    renderMobileMealPlan(response.meal_plan);
+                } else {
+                    renderDesktopMealPlan(response.meal_plan);
+                }
+                
+                // Update grocery list
+                groceryList = response.grocery_list;
+                updateShoppingList();
+            } else if (response.requires_upgrade) {
+                alert(response.message);
+                window.location.href = "{% url 'pricing' %}";
+            }
+        },
+        error: function(xhr, status, error) {
+            $('#loading').addClass('hidden');
+            $('#mealPlanForm').removeClass('hidden');
+            alert('Error generating meal plan: ' + error);
+        }
+    });
+});
+
+// Add resize listener to handle responsive layout
+window.addEventListener('resize', () => {
+    if (window.currentMealPlan) {
+        if (window.innerWidth < 768) {
+            renderMobileMealPlan(window.currentMealPlan);
+        } else {
+            renderDesktopMealPlan(window.currentMealPlan);
+        }
+    }
+});
+
+
+function viewRecipe(dayIndex, mealType) {
+    console.log('View Recipe called with:', {
+        mealPlanId: window.currentMealPlanId,
+        dayIndex,
+        mealType
+    });
+    
+    if (!window.currentMealPlanId) {
+        console.error('No meal plan ID available');
+        alert('Please generate a meal plan first');
+        return;
+    }
+
+    // Get meal plan ID from the response data
+    const mealPlanId = window.currentMealPlanId;
+    
+    if (!mealPlanId) {
+        console.error('No meal plan ID found');
+        alert('Please generate a meal plan first');
+        return;
+    }
+
+    // Show loading state in modal
+    $('#recipeModal').removeClass('hidden');
+    $('#recipeTitle').html('<i class="fas fa-spinner fa-spin mr-2"></i> Loading Recipe...');
+    
+    // Reset modal content
+    $('.recipe-content').addClass('hidden');
+    $('#content-overview').removeClass('hidden');
+    $('#content-error').addClass('hidden');
+    
+    // Reset tabs
+    $('.recipe-tab').removeClass('active-tab text-green-600 border-green-500')
+                    .addClass('text-gray-500 border-transparent');
+    $('#tab-overview').addClass('active-tab text-green-600 border-green-500')
+                    .removeClass('text-gray-500 border-transparent');
+
+    // Fetch recipe details
+    fetch(`/api/recipe-details/${mealPlanId}/${dayIndex}/${mealType}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(recipeData => {
+            if (recipeData.error) {
+                throw new Error(recipeData.error);
+            }
+
+            // Update modal title and basic info
+            $('#recipeTitle').text(recipeData.title || 'Recipe Details');
+            $('#recipeDescription').text(recipeData.description || 'No description available');
+            $('#recipePrepTime').text(recipeData.prepTime || 'N/A');
+            $('#recipeCookTime').text(recipeData.cookTime || 'N/A');
+            $('#recipeServings').text(recipeData.servings || '4');
+            $('#recipeDifficulty').text(recipeData.difficulty || 'Intermediate');
+
+            // Update ingredients list
+            const ingredients = Array.isArray(recipeData.ingredients) ? recipeData.ingredients : [];
+            const ingredientsHtml = ingredients.map(ingredient => `
+                <li class="flex items-center p-2 hover:bg-green-50 rounded-lg transition-colors duration-200">
+                    <i class="fas fa-check text-green-500 mr-2"></i>
+                    <span>${ingredient}</span>
+                </li>
+            `).join('');
+            $('#recipeIngredients').html(ingredientsHtml || '<li class="text-gray-500">No ingredients listed</li>');
+
+            // Update instructions
+            const instructions = Array.isArray(recipeData.instructions) ? recipeData.instructions : [];
+            const instructionsHtml = instructions.map((step, index) => `
+                <li class="flex items-start mb-4">
+                    <div class="flex-shrink-0 h-6 w-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center mr-3">
+                        ${index + 1}
+                    </div>
+                    <p class="flex-1">${step}</p>
+                </li>
+            `).join('');
+            $('#recipeInstructions').html(instructionsHtml || '<li class="text-gray-500">No instructions available</li>');
+
+            // Update nutrition information
+            const nutrition = recipeData.nutrition || {};
+            const nutritionHtml = Object.entries(nutrition).map(([key, value]) => `
+                <div class="bg-white p-3 rounded-lg shadow-sm">
+                    <span class="block text-sm text-gray-600 capitalize">${key.replace(/_/g, ' ')}</span>
+                    <span class="block font-medium text-gray-800">${value}</span>
+                </div>
+            `).join('');
+            $('#recipeNutrition').html(nutritionHtml || '<div class="text-gray-500">No nutritional information available</div>');
+
+            // Show the overview tab
+            $('.recipe-content').addClass('hidden');
+            $('#content-overview').removeClass('hidden');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            $('#recipeTitle').html('<i class="fas fa-exclamation-circle text-red-500 mr-2"></i> Error Loading Recipe');
+            $('#content-error').removeClass('hidden')
+                .html(`
+                    <div class="p-4 bg-red-50 rounded-lg">
+                        <p class="text-red-600">Failed to load recipe details. Please try again later.</p>
+                        <p class="text-red-500 text-sm mt-2">${error.message}</p>
+                    </div>
+                `);
+        });
+}
     // Function to check if any field has input
     function checkFormInputs() {
         let hasInput = false;
@@ -636,29 +1198,31 @@ $(document).ready(function() {
     let groceryList = [];
     
     function updateShoppingList() {
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const itemsToShow = groceryList.slice(startIndex, endIndex);
-        
-        let ingredientsHtml = '';
-        itemsToShow.forEach(ingredient => {
-            ingredientsHtml += `
-                <div class="flex items-center p-3 rounded-lg hover:bg-green-50 transition-colors duration-200">
-                    <i class="fas fa-check-circle text-green-500 mr-3"></i>
-                    <span class="text-gray-800">${ingredient}</span>
-                </div>
-            `;
-        });
-        
-        $('#ingredientsList').html(ingredientsHtml);
-        $('#currentPage').text(currentPage);
-        $('#totalPages').text(Math.ceil(groceryList.length / itemsPerPage));
-        
-        // Update pagination button states
-        $('#prevPage').prop('disabled', currentPage === 1);
-        $('#nextPage').prop('disabled', currentPage === Math.ceil(groceryList.length / itemsPerPage));
-    }
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const itemsToShow = window.groceryList.slice(startIndex, endIndex);
     
+    let ingredientsHtml = '';
+    itemsToShow.forEach(ingredient => {
+        ingredientsHtml += `
+            <div class="flex items-center p-3 rounded-lg hover:bg-green-50 transition-colors duration-200">
+                <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                <span class="text-gray-800">${ingredient}</span>
+            </div>
+        `;
+    });
+    
+    $('#ingredientsList').html(ingredientsHtml);
+    $('#currentPage').text(currentPage);
+    $('#totalPages').text(Math.ceil(window.groceryList.length / itemsPerPage));
+    
+    // Update pagination button states
+    $('#prevPage').prop('disabled', currentPage === 1);
+    $('#nextPage').prop('disabled', currentPage === Math.ceil(window.groceryList.length / itemsPerPage));
+}
+
+
+
     $('#nextPage').on('click', function() {
         if (currentPage < Math.ceil(groceryList.length / itemsPerPage)) {
             currentPage++;
@@ -764,219 +1328,56 @@ $(document).ready(function() {
     
     // Form submission
     $('#mealPlanForm').on('submit', function(e) {
-        e.preventDefault();
-        
-        // Reset pagination
-        currentPage = 1;
-        
-        // Check if snacks are included
-        const includeSnacks = includeSnacksCheckbox.is(':checked');
-        if (!includeSnacks) {
-            $('.include-snacks').hide();
-        } else {
-            $('.include-snacks').show();
-        }
-        
-        // Show loading animation
-        $('#mealPlanForm').addClass('hidden');
-        $('#loading').removeClass('hidden');
-        
-        // Create form data with explicit handling for checkboxes
-        const formData = new FormData(this);
-        
-        // Ensure the include_snacks value is correctly passed
-        formData.set('include_snacks', includeSnacks ? 'on' : 'off');
-        
-        $.ajax({
-            url: '{% url "meal_generator" %}',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            headers: {
-                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
-            },
-            success: function(response) {
-                // Hide loading animation
-                $('#loading').addClass('hidden');
-                
-                if (response.requires_upgrade) {
-                    // Handle premium feature request without subscription
-                    alert(response.message);
-                    window.location.href = "{% url 'pricing' %}";
-                    return;
-                }
+    e.preventDefault();
+    
+    // Show loading animation
+    $('#mealPlanForm').addClass('hidden');
+    $('#loading').removeClass('hidden');
+    
+    const formData = new FormData(this);
+    
+    $.ajax({
+        url: '{% url "meal_generator" %}',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            $('#loading').addClass('hidden');
+            
+            if (response.success) {
+                // Store the meal plan ID globally
+                window.currentMealPlanId = response.meal_plan_id;
+                window.currentMealPlan = response.meal_plan;
                 
                 // Show results
                 $('#results').removeClass('hidden');
                 
-                // Populate meal plan table with structured data
-                let mealPlanHtml = '';
-                response.meal_plan.forEach((day, index) => {
-                    // Ensure each meal object has all required properties, even if they're empty
-                    if (!day.meals.hasOwnProperty('snack')) {
-                        day.meals.snack = includeSnacks ? 'Fruit or nuts' : '';
-                    }
-                    
-                    // Update this part in your form submission success handler
-                    mealPlanHtml += `
-                        <tr class="border-b border-gray-200 hover:bg-opacity-80 transition-colors duration-150">
-                            <td class="py-3 px-4 font-medium bg-gray-100">${day.day}</td>
-                            <td class="py-3 px-4 bg-orange-100">
-                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-orange-200">${day.meals.breakfast}</div>
-                                <button class="view-recipe text-xs bg-white hover:bg-orange-200 text-orange-800 px-2 py-1 rounded transition-colors duration-200 border border-orange-300" 
-                                        data-meal="breakfast" 
-                                        data-day="${index}">
-                                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                                </button>
-                            </td>
-                            <td class="py-3 px-4 bg-green-100">
-                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-green-200">${day.meals.lunch}</div>
-                                <button class="view-recipe text-xs bg-white hover:bg-green-200 text-green-800 px-2 py-1 rounded transition-colors duration-200 border border-green-300" 
-                                        data-meal="lunch" 
-                                        data-day="${index}">
-                                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                                </button>
-                            </td>
-                            <td class="py-3 px-4 bg-purple-100 include-snacks">
-                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-purple-200">${day.meals.snack || 'No snack'}</div>
-                                ${day.meals.snack ? `<button class="view-recipe text-xs bg-white hover:bg-purple-200 text-purple-800 px-2 py-1 rounded transition-colors duration-200 border border-purple-300" 
-                                        data-meal="snack" 
-                                        data-day="${index}">
-                                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                                </button>` : ''}
-                            </td>
-                            <td class="py-3 px-4 bg-blue-100">
-                                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-blue-200">${day.meals.dinner}</div>
-                                <button class="view-recipe text-xs bg-white hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors duration-200 border border-blue-300" 
-                                        data-meal="dinner" 
-                                        data-day="${index}">
-                                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                                </button>
-                            </td>
-                            <td class="py-3 px-4 bg-gray-100">
-                                <button class="bg-white hover:bg-gray-200 text-gray-800 px-3 py-1 rounded flex items-center transition-colors duration-200 border border-gray-300">
-                                    <i class="fas fa-print text-xs"></i>
-                                    <span class="text-xs ml-1">Print</span>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-               
-                });
-                $('#mealPlanBody').html(mealPlanHtml);
-                
-                // Store and display grocery list with pagination
-                groceryList = response.grocery_list;
-                updateShoppingList();
-                
-                // Attach recipe view handlers
-                $('.view-recipe').on('click', function() {
-                    const dayIndex = $(this).data('day');
-                    const mealType = $(this).data('meal');
-                    const day = response.meal_plan[dayIndex];
-                    const mealName = day.meals[mealType];
-                    
-                    // Example recipe data (in a real app, this would come from the backend)
-                    const recipeData = {
-                        title: mealName,
-                        description: `A delicious ${mealType} recipe from ${day.day} of your meal plan. This traditional Nigerian dish is perfect for family meals and showcases authentic flavors of ${$('#preferred_cuisine').val() || 'Nigerian'} cuisine.`,
-                        prepTime: '20 mins',
-                        cookTime: '35 mins',
-                        servings: $('#family_size').val() || '4',
-                        difficulty: 'Medium',
-                        ingredients: [
-                            "2 cups of flour",
-                            "3 tablespoons of palm oil",
-                            "1 onion, chopped",
-                            "2 tomatoes, diced",
-                            "1 teaspoon of ground crayfish",
-                            "1/2 teaspoon of ground pepper",
-                            "2 cloves of garlic, minced",
-                            "1 scotch bonnet pepper (optional for heat)",
-                            "Fresh herbs for garnish"
-                        ],
-                        instructions: [
-                            "Heat palm oil in a large pot over medium heat.",
-                            "Add onions and garlic, cook until translucent, about 3-4 minutes.",
-                            "Add tomatoes and peppers, then cook for 5 minutes until softened.",
-                            "Stir in the ground crayfish and other seasonings.",
-                            "Add the remaining ingredients and stir well to combine.",
-                            "Cover and simmer for 20 minutes, stirring occasionally.",
-                            "Taste and adjust seasonings as needed.",
-                            "Serve hot with your choice of side dishes like rice or yam."
-                        ],
-                        nutrition: {
-                            "Calories": "320 kcal",
-                            "Protein": "15g",
-                            "Carbs": "42g",
-                            "Fat": "12g",
-                            "Fiber": "5g",
-                            "Sugar": "8g"
-                        }
-                    };
-                    
-                    showRecipeModal(recipeData);
-                });
-                
-                // Smooth scroll to results
-                $('html, body').animate({
-                    scrollTop: $("#results").offset().top - 100
-                }, 500);
-                
-                // Initialize DataTable for premium users only
-                {% if has_subscription %}
-                if ($.fn.DataTable.isDataTable('#mealPlanTable')) {
-                    $('#mealPlanTable').DataTable().destroy();
+                // Render meal plan based on screen size
+                if (window.innerWidth < 768) {
+                    renderMobileMealPlan(response.meal_plan);
+                } else {
+                    renderDesktopMealPlan(response.meal_plan);
                 }
                 
-                $('#mealPlanTable').DataTable({
-                    dom: '<"flex justify-between items-center mb-4"<"flex space-x-2"B><"flex"f>>rtip',
-                    buttons: [
-                        {
-                            extend: 'csv',
-                            text: '<i class="fas fa-file-csv mr-1"></i> CSV',
-                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-300'
-                        },
-                        {
-                            extend: 'excel',
-                            text: '<i class="fas fa-file-excel mr-1"></i> Excel',
-                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-300'
-                        },
-                        {
-                            extend: 'pdf',
-                            text: '<i class="fas fa-file-pdf mr-1"></i> PDF',
-                            className: 'bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-300'
-                        }
-                    ],
-                    responsive: true,
-                    ordering: true,
-                    searching: true,
-                    info: true,
-                    paging: false,
-                    language: {
-                        search: "_INPUT_",
-                        searchPlaceholder: "Search meals...",
-                    },
-                    initComplete: function() {
-                        // Add custom styling to search input
-                        $('.dataTables_filter input').addClass('p-2 border rounded-lg focus:ring-2 focus:ring-green-500 w-64');
-                        // Add container classes for proper alignment
-                        $('.dataTables_filter').addClass('ml-auto');
-                        $('.dt-buttons').addClass('flex space-x-2');
-                    }
-                });
-                {% endif %}
-            },
-            error: function(xhr, status, error) {
-                // Hide loading animation
-                $('#loading').addClass('hidden');
-                $('#mealPlanForm').removeClass('hidden');
-                alert('Error generating meal plan: ' + error);
+                // Update grocery list
+                window.groceryList = response.grocery_list;
+                updateShoppingList();
+            } else if (response.requires_upgrade) {
+                alert(response.message);
+                window.location.href = "{% url 'pricing' %}";
             }
-        });
+        },
+        error: function(xhr, status, error) {
+            $('#loading').addClass('hidden');
+            $('#mealPlanForm').removeClass('hidden');
+            alert('Error generating meal plan: ' + error);
+        }
     });
-    
+});
+
+
+
     // Premium feature click handler for non-premium users
     {% if not has_subscription %}
     $('#downloadMealPlan, #downloadIngredients').on('click', function(e) {
