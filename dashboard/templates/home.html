@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-
+{% load static %}
 
 {% block extra_head %}
 <style>
@@ -9,28 +9,36 @@
   }
   
   /* Mobile menu styles */
-  #child-mobile-menu {
+  #mobile-menu {
     display: none;
-    position: absolute; /* Ensure it stays in place */
-    top: 100%; /* Position below the button */
+    position: absolute;
+    top: 100%;
     left: 0;
     right: 0;
-    z-index: 10; /* Ensure it's above other content */
+    z-index: 10;
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    margin-top: 0.5rem;
   }
   
-  #child-mobile-menu.show {
+  #mobile-menu.show {
     display: block;
   }
   
   /* Force desktop menu to show on larger screens */
   @media (min-width: 768px) {
-    nav.bg-white .md\:flex {
+    nav .hidden.md\:flex {
       display: flex !important;
+    }
+    
+    button[data-collapse-toggle="navbar-sticky"] {
+      display: none;
     }
   }
 </style>
 {% endblock %}
-
 
 {% block content %}
 <div class="bg-gradient-to-b from-green-50 to-white min-h-screen">
@@ -39,7 +47,7 @@
         <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
             <!-- Logo -->
             <a href="#" class="flex items-center space-x-3 rtl:space-x-reverse">
-                <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" class="h-10 w-10 object-cover rounded-full" alt="NaijaPlate Logo">
+                <img src="https://images.pexels.com/photos/5836766/pexels-photo-5836766.jpeg?auto=compress&cs=tinysrgb&w=600" class="h-10 w-10 object-cover rounded-full" alt="NaijaPlate Logo">
                 <span class="self-center text-2xl font-bold text-green-600">NaijaPlate</span>
             </a>
             
@@ -49,7 +57,7 @@
                     Sign In
                 </a>
                 <!-- Mobile menu button -->
-                <button data-collapse-toggle="navbar-sticky" type="button" class="inline-flex items-center p-2 w-10 h-10 justify-center text-gray-700 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200" aria-controls="navbar-sticky" aria-expanded="false">
+                <button id="mobile-menu-toggle" type="button" class="inline-flex items-center p-2 w-10 h-10 justify-center text-gray-700 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200" aria-controls="navbar-sticky" aria-expanded="false">
                     <span class="sr-only">Open main menu</span>
                     <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 17 14">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"/>
@@ -58,7 +66,7 @@
             </div>
             
             <!-- Navigation menu -->
-            <div class="items-center justify-between hidden w-full md:flex md:w-auto md:order-1" id="navbar-sticky">
+            <div class="hidden w-full md:flex md:w-auto md:order-1" id="navbar-sticky">
                 <ul class="flex flex-col p-4 mt-4 font-medium border border-gray-100 rounded-lg bg-gray-50 md:flex-row md:space-x-8 md:mt-0 md:border-0 md:bg-transparent">
                     <li>
                         <a href="#how-it-works" class="block py-2 px-3 text-green-500 rounded-md md:bg-transparent md:text-green-600 md:p-0 md:hover:text-green-800 transition duration-300" aria-current="page">
@@ -80,19 +88,17 @@
         </div>
     </nav>
     
-
-  
     <!-- Hero Section -->
-    <div class="pt-16 pb-20 sm:pt-16 sm:pb-28 lg:pt-32 lg:pb-36">
+    <div class="pt-24 pb-20 sm:pt-24 sm:pb-28 lg:pt-32 lg:pb-36">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="lg:grid lg:grid-cols-12 lg:gap-8">
                 <div class="sm:text-center md:max-w-2xl md:mx-auto lg:col-span-6 lg:text-left">
                     <h1 class="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-                        <span class="block">Authentic Nigerian</span>
-                        <span class="block text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-600">Meals Made Easy</span>
+                        <span class="block">AI-Generated</span>
+                        <span class="block text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-600">Nigerian Meal Plans</span>
                     </h1>
                     <p class="mt-6 text-lg text-gray-500">
-                        Personalized Nigerian meal plans for diaspora living in the UK. Preserve your cultural identity through food, even when far from home.
+                        Personalized Nigerian meal plans and grocery lists for diaspora living in the UK. Maintain your cultural identity through authentic home cooking.
                     </p>
                     <div class="mt-8 sm:flex sm:justify-center lg:justify-start">
                         <div class="rounded-md shadow">
@@ -111,7 +117,7 @@
                     <div class="bg-white sm:max-w-md sm:w-full sm:mx-auto sm:rounded-lg sm:overflow-hidden shadow-xl transform -rotate-2 hover:rotate-0 transition-all duration-300">
                         <div class="px-4 py-8 sm:px-10">
                             <div>
-                                <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="Nigerian Food" class="w-full rounded-lg">
+                                <img src="{% static 'naijafood2.jpeg' %}" alt="Nigerian Food" class="w-full rounded-lg">
                             </div>
                         </div>
                     </div>
@@ -125,13 +131,13 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center">
                 <span class="inline-block px-3 py-1 text-sm font-semibold text-green-600 bg-green-100 rounded-full mb-3">
-                    <i class="fas fa-info-circle mr-1"></i> How It Works
+                    <i class="fas fa-robot mr-1"></i> AI-Powered Solution
                 </span>
                 <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-                    Simple Steps to Authentic Meals
+                    How Our AI Plans Your Nigerian Meals
                 </h2>
                 <p class="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
-                    Enjoy delicious Nigerian cuisine with just a few clicks
+                    Our AI creates personalized Nigerian meal plans tailored to the UK
                 </p>
             </div>
 
@@ -139,12 +145,12 @@
                 <div class="space-y-10 md:space-y-0 md:grid md:grid-cols-3 md:gap-x-8 md:gap-y-10">
                     <div class="relative bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 border-t-4 border-green-500">
                         <div class="absolute -top-4 -left-4 flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-                            <i class="fas fa-clipboard-list text-2xl"></i>
+                            <i class="fas fa-brain text-2xl"></i>
                         </div>
                         <div class="pt-6 pl-10">
-                            <h3 class="text-xl font-medium text-gray-900">1. Build Your Meal Plan</h3>
+                            <h3 class="text-xl font-medium text-gray-900">1. AI Meal Planning</h3>
                             <p class="mt-2 text-base text-gray-500">
-                                Tell us your preferences, dietary needs, and budget. Our AI will craft your personalized Nigerian meal plan.
+                                Our AI analyzes your preferences, dietary needs, and UK location to create authentic Nigerian meal plans customized just for you.
                             </p>
                         </div>
                     </div>
@@ -154,21 +160,21 @@
                             <i class="fas fa-shopping-basket text-2xl"></i>
                         </div>
                         <div class="pt-6 pl-10">
-                            <h3 class="text-xl font-medium text-gray-900">2. Get Your Ingredients</h3>
+                            <h3 class="text-xl font-medium text-gray-900">2. Smart Grocery Lists</h3>
                             <p class="mt-2 text-base text-gray-500">
-                                We create your shopping list with UK substitutes for Nigerian ingredients and connect you with local African stores.
+                                Get AI-generated shopping lists with UK substitutes for Nigerian ingredients and locations of nearby African stores.
                             </p>
                         </div>
                     </div>
 
                     <div class="relative bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 border-t-4 border-green-500">
                         <div class="absolute -top-4 -left-4 flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-                            <i class="fas fa-utensils text-2xl"></i>
+                            <i class="fas fa-comment-dots text-2xl"></i>
                         </div>
                         <div class="pt-6 pl-10">
-                            <h3 class="text-xl font-medium text-gray-900">3. Cook and Enjoy</h3>
+                            <h3 class="text-xl font-medium text-gray-900">3. Cuisine Assistant</h3>
                             <p class="mt-2 text-base text-gray-500">
-                                Follow our detailed recipes with step-by-step instructions, cooking videos, and cultural context.
+                                Chat with our AI assistant for cooking tips, ingredient substitutions, and cultural context about Nigerian dishes.
                             </p>
                         </div>
                     </div>
@@ -177,7 +183,7 @@
         </div>
     </div>
 
-    <!-- Benefits Section (New) -->
+    <!-- Benefits Section -->
     <div class="py-16 bg-gradient-to-b from-green-50 to-white overflow-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center">
@@ -188,7 +194,7 @@
                     Why Choose NaijaPlate?
                 </h2>
                 <p class="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
-                    We make Nigerian cooking accessible, authentic, and easy
+                    We bring Nigerian cuisine to your UK kitchen with AI precision
                 </p>
             </div>
 
@@ -197,13 +203,13 @@
                     <div class="flex">
                         <div class="flex-shrink-0">
                             <div class="flex items-center justify-center h-12 w-12 rounded-md bg-green-500 text-white">
-                                <i class="fas fa-globe-africa"></i>
+                                <i class="fas fa-map-marker-alt"></i>
                             </div>
                         </div>
                         <div class="ml-4">
-                            <h3 class="text-lg font-medium text-gray-900">Authentic Nigerian Recipes</h3>
+                            <h3 class="text-lg font-medium text-gray-900">UK-Specific Ingredient Finder</h3>
                             <p class="mt-2 text-base text-gray-500">
-                                Our recipes are sourced from Nigerian home cooks and professional chefs to ensure authenticity.
+                                Our AI helps you find Nigerian ingredients in UK stores or suggests perfect local substitutes, integrated with Google Maps.
                             </p>
                         </div>
                     </div>
@@ -211,13 +217,13 @@
                     <div class="flex">
                         <div class="flex-shrink-0">
                             <div class="flex items-center justify-center h-12 w-12 rounded-md bg-green-500 text-white">
-                                <i class="fas fa-map-marker-alt"></i>
+                                <i class="fas fa-brain"></i>
                             </div>
                         </div>
                         <div class="ml-4">
-                            <h3 class="text-lg font-medium text-gray-900">UK Ingredient Locator</h3>
+                            <h3 class="text-lg font-medium text-gray-900">AI Recipe Generation</h3>
                             <p class="mt-2 text-base text-gray-500">
-                                We help you find Nigerian ingredients in UK stores or suggest perfect local substitutes.
+                                Advanced AI technology creates authentic Nigerian recipes tailored to your preferences and available ingredients.
                             </p>
                         </div>
                     </div>
@@ -231,7 +237,7 @@
                         <div class="ml-4">
                             <h3 class="text-lg font-medium text-gray-900">Personalized Experience</h3>
                             <p class="mt-2 text-base text-gray-500">
-                                Customize your meal plans based on dietary preferences, budget, and cooking experience.
+                                Our AI learns your preferences over time, creating increasingly personalized meal plans that match your taste.
                             </p>
                         </div>
                     </div>
@@ -239,13 +245,13 @@
                     <div class="flex">
                         <div class="flex-shrink-0">
                             <div class="flex items-center justify-center h-12 w-12 rounded-md bg-green-500 text-white">
-                                <i class="fas fa-book"></i>
+                                <i class="fas fa-video"></i>
                             </div>
                         </div>
                         <div class="ml-4">
-                            <h3 class="text-lg font-medium text-gray-900">Cultural Context</h3>
+                            <h3 class="text-lg font-medium text-gray-900">YouTube Tutorial Integration</h3>
                             <p class="mt-2 text-base text-gray-500">
-                                Learn about the history and cultural significance of each dish as you cook.
+                                Access curated Nigerian cooking tutorials on YouTube that match your recipes and skill level.
                             </p>
                         </div>
                     </div>
@@ -277,7 +283,7 @@
                             <p class="text-gray-500 text-sm">Birmingham</p>
                         </div>
                     </div>
-                    <p class="text-gray-600">"Finally I can make Egusi soup just like my mother used to make back home! The ingredient substitution guide is brilliant for finding alternatives in local UK shops."</p>
+                    <p class="text-gray-600">"The AI meal planning is amazing! It suggested jollof rice with perfect UK substitutes for palm oil and scotch bonnets. I even found all ingredients at my local Tesco!"</p>
                     <div class="mt-3 text-green-500">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -297,7 +303,7 @@
                             <p class="text-gray-500 text-sm">London</p>
                         </div>
                     </div>
-                    <p class="text-gray-600">"As a busy professional, I don't have time to plan meals. NaijaPlate does it all for me - plans my week, creates my shopping list, and helps me maintain my connection to home."</p>
+                    <p class="text-gray-600">"The AI chatbot explained how to properly prepare egusi using UK alternatives when I got stuck. It even recommended YouTube videos showing exactly what to do!"</p>
                     <div class="mt-3 text-green-500">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -317,7 +323,7 @@
                             <p class="text-gray-500 text-sm">Manchester</p>
                         </div>
                     </div>
-                    <p class="text-gray-600">"The cultural context provided with each recipe is amazing. I'm teaching my British-born children about their Nigerian heritage through food, thanks to NaijaPlate."</p>
+                    <p class="text-gray-600">"The Google Maps integration is brilliant! I found an African grocery store 10 minutes from my flat that I never knew existed. Now I get authentic ingredients easily."</p>
                     <div class="mt-3 text-green-500">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -330,149 +336,149 @@
         </div>
     </div>
 
-    <!-- Pricing Section -->
-    <div id="pricing" class="bg-gradient-to-b from-green-50 to-white py-16 scroll-mt-16">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center">
-                <span class="inline-block px-3 py-1 text-sm font-semibold text-green-600 bg-green-100 rounded-full mb-3">
-                    <i class="fas fa-tags mr-1"></i> Pricing
-                </span>
-                <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-                    Choose Your Plan
-                </h2>
-                <p class="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
-                    Flexible options to suit your needs and budget
-                </p>
+<!-- Pricing Section -->
+<div id="pricing" class="bg-gradient-to-b from-green-50 to-white py-16 scroll-mt-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+            <span class="inline-block px-3 py-1 text-sm font-semibold text-green-600 bg-green-100 rounded-full mb-3">
+                <i class="fas fa-tags mr-1"></i> Pricing
+            </span>
+            <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                Choose Your Plan
+            </h2>
+            <p class="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
+                Flexible options to suit your needs and budget
+            </p>
+        </div>
+
+        <div class="mt-12 space-y-4 sm:mt-16 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-6 lg:max-w-4xl lg:mx-auto xl:max-w-none xl:mx-0">
+            <!-- Free Plan -->
+            <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 divide-y divide-gray-200">
+                <div class="p-6">
+                    <h3 class="text-xl font-medium text-gray-900">Free Plan</h3>
+                    <p class="mt-4 text-gray-500">Try basic Nigerian recipes at no cost.</p>
+                    <p class="mt-8">
+                        <span class="text-4xl font-extrabold text-gray-900">£0</span>
+                        <span class="text-base font-medium text-gray-500">/forever</span>
+                    </p>
+                    <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
+                        <i class="fas fa-sign-in-alt mr-2"></i> Sign Up
+                    </a>
+                </div>
+                <div class="px-6 pt-6 pb-8">
+                    <h4 class="text-sm font-medium text-gray-900 tracking-wide">What's included:</h4>
+                    <ul class="mt-6 space-y-4">
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Limited meal plan options</span>
+                        </li>
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Basic grocery lists</span>
+                        </li>
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Access to 5 popular recipes</span>
+                        </li>
+                    </ul>
+                </div>
             </div>
 
-            <div class="mt-12 space-y-4 sm:mt-16 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-6 lg:max-w-4xl lg:mx-auto xl:max-w-none xl:mx-0">
-                <!-- Pay As You Go -->
-                <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 divide-y divide-gray-200">
-                    <div class="p-6">
-                        <h3 class="text-xl font-medium text-gray-900">Pay As You Go</h3>
-                        <p class="mt-4 text-gray-500">Perfect for occasional Nigerian cooking adventures.</p>
-                        <p class="mt-8">
-                            <span class="text-4xl font-extrabold text-gray-900">£9.99</span>
-                            <span class="text-base font-medium text-gray-500">/meal plan</span>
-                        </p>
-                        <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
-                            <i class="fas fa-shopping-cart mr-2"></i> Buy Now
-                        </a>
-                    </div>
-                    <div class="px-6 pt-6 pb-8">
-                        <h4 class="text-sm font-medium text-gray-900 tracking-wide">What's included:</h4>
-                        <ul class="mt-6 space-y-4">
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Single meal plan generation</span>
-                            </li>
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Basic recipe access</span>
-                            </li>
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Downloadable shopping list</span>
-                            </li>
-                        </ul>
-                    </div>
+            <!-- Pay Once Plan -->
+            <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 divide-y divide-gray-200">
+                <div class="p-6">
+                    <h3 class="text-xl font-medium text-gray-900">Pay Once</h3>
+                    <p class="mt-4 text-gray-500">Full features for a single meal plan.</p>
+                    <p class="mt-8">
+                        <span class="text-4xl font-extrabold text-gray-900">£5.99</span>
+                        <span class="text-base font-medium text-gray-500">/meal plan</span>
+                    </p>
+                    <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
+                        <i class="fas fa-shopping-cart mr-2"></i> Buy Now
+                    </a>
                 </div>
-
-                <!-- Weekly Plan -->
-                <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 divide-y divide-gray-200">
-                    <div class="p-6">
-                        <h3 class="text-xl font-medium text-gray-900">Weekly Plan</h3>
-                        <p class="mt-4 text-gray-500">Great for exploring Nigerian cuisine for a week.</p>
-                        <p class="mt-8">
-                            <span class="text-4xl font-extrabold text-gray-900">£14.99</span>
-                            <span class="text-base font-medium text-gray-500">/week</span>
-                        </p>
-                        <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
-                            <i class="fas fa-calendar-week mr-2"></i> Subscribe
-                        </a>
-                    </div>
-                    <div class="px-6 pt-6 pb-8">
-                        <h4 class="text-sm font-medium text-gray-900 tracking-wide">What's included:</h4>
-                        <ul class="mt-6 space-y-4">
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">7-day access</span>
-                            </li>
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Up to 3 meal plan generations</span>
-                            </li>
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Full recipe database access</span>
-                            </li>
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Shopping list integration</span>
-                            </li>
-                        </ul>
-                    </div>
+                <div class="px-6 pt-6 pb-8">
+                    <h4 class="text-sm font-medium text-gray-900 tracking-wide">What's included:</h4>
+                    <ul class="mt-6 space-y-4">
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Single AI-generated meal plan</span>
+                        </li>
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Complete grocery list with UK prices</span>
+                        </li>
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Cooking instructions with videos</span>
+                        </li>
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Store location details</span>
+                        </li>
+                    </ul>
                 </div>
+            </div>
 
-                <!-- Monthly Plan -->
-                <div class="bg-gradient-to-b from-green-50 via-white to-white border-2 border-green-500 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 divide-y divide-gray-200 relative">
-                    <div class="absolute -top-5 inset-x-0 flex justify-center">
-                        <span class="inline-flex rounded-full bg-green-600 px-4 py-1 text-sm font-semibold tracking-wide uppercase text-white">
-                            <i class="fas fa-crown mr-1"></i> Most Popular
-                        </span>
-                    </div>
-                    <div class="p-6 pt-10">
-                        <h3 class="text-xl font-medium text-gray-900">Monthly Plan</h3>
-                        <p class="mt-4 text-gray-500">Full access to all premium features.</p>
-                        <p class="mt-8">
-                            <span class="text-4xl font-extrabold text-gray-900">£39.99</span>
-                            <span class="text-base font-medium text-gray-500">/month</span>
-                        </p>
-                        <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
-                            <i class="fas fa-check-circle mr-2"></i> Subscribe
-                        </a>
-                    </div>
-                    <div class="px-6 pt-6 pb-8">
-                        <h4 class="text-sm font-medium text-gray-900 tracking-wide">What's included:</h4>
-                        <ul class="mt-6 space-y-4">
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Full 30-day access</span>
-                            </li>
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Unlimited meal plan generations</span>
-                            </li>
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Premium recipe collection access</span>
-                            </li>
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Advanced nutritional analytics</span>
-                            </li>
-                            <li class="flex">
-                                <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                                <span class="ml-3 text-base text-gray-500">Shopping list with store integration</span>
-                            </li>
-                        </ul>
-                    </div>
+            <!-- Weekly Plan -->
+            <div class="bg-gradient-to-b from-green-50 via-white to-white border-2 border-green-500 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 divide-y divide-gray-200 relative">
+                <div class="absolute -top-5 inset-x-0 flex justify-center">
+                    <span class="inline-flex rounded-full bg-green-600 px-4 py-1 text-sm font-semibold tracking-wide uppercase text-white">
+                        <i class="fas fa-crown mr-1"></i> Most Popular
+                    </span>
+                </div>
+                <div class="p-6 pt-10">
+                    <h3 class="text-xl font-medium text-gray-900">Weekly Access</h3>
+                    <p class="mt-4 text-gray-500">Full AI assistant access for a week.</p>
+                    <p class="mt-8">
+                        <span class="text-4xl font-extrabold text-gray-900">£12.99</span>
+                        <span class="text-base font-medium text-gray-500">/week</span>
+                    </p>
+                    <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
+                        <i class="fas fa-check-circle mr-2"></i> Subscribe
+                    </a>
+                </div>
+                <div class="px-6 pt-6 pb-8">
+                    <h4 class="text-sm font-medium text-gray-900 tracking-wide">What's included:</h4>
+                    <ul class="mt-6 space-y-4">
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Unlimited meal plans for 7 days</span>
+                        </li>
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Full AI cuisine assistant access</span>
+                        </li>
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Advanced ingredient location finder</span>
+                        </li>
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">YouTube tutorial recommendations</span>
+                        </li>
+                        <li class="flex">
+                            <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
+                            <span class="ml-3 text-base text-gray-500">Full Google Maps integration</span>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
     <!-- Call to Action -->
     <div class="bg-gradient-to-r from-green-600 to-green-700 mt-10">
         <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8 lg:flex lg:items-center lg:justify-between">
             <h2 class="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-                <span class="block">Ready to start cooking?</span>
-                <span class="block text-green-200">Create your personalized Nigerian meal plan today.</span>
+                <span class="block">Ready to enjoy Nigerian cuisine?</span>
+                <span class="block text-green-200">Let our AI create your perfect meal plan today.</span>
             </h2>
             <div class="mt-8 flex lg:mt-0 lg:flex-shrink-0">
                 <div class="inline-flex rounded-md shadow">
                     <a href="{% url 'pricing' %}" class="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-green-600 bg-white hover:bg-green-50 transition duration-300 transform hover:-translate-y-1">
-                        <i class="fas fa-utensils mr-2"></i> Get Started
+                        <i class="fas fa-robot mr-2"></i> Try AI Meal Planner
                     </a>
                 </div>
             </div>
@@ -515,7 +521,7 @@
                     <a href="#" class="text-gray-400 hover:text-gray-500">Contact</a>
                 </div>
                 <p class="mt-8 text-base text-gray-400 md:mt-0 md:order-1">
-                    Bringing Nigerian cuisine to your UK kitchen.
+                    AI-powered Nigerian cuisine for the UK diaspora.
                 </p>
             </div>
         </div>
@@ -535,54 +541,28 @@
     });
 </script>
 
-<!-- Direct toggle function -->
+<!-- Mobile menu toggle script -->
 <script>
-function toggleMobileMenu(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  
-  const menu = document.getElementById('child-mobile-menu');
-  if (menu) {
-    console.log('Toggling menu visibility');
-    // Direct DOM manipulation 
-    if (window.getComputedStyle(menu).display === 'none') {
-      menu.style.display = 'block';
-      menu.classList.remove('hidden');
-    } else {
-      menu.style.display = 'none';
-      menu.classList.add('hidden');
-    }
-  }
-  return false;
-} 
-  
-</script>
-{% endblock %}
-
-{% block extra_scripts %}
-    <!-- Add this script for toggle functionality -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Get mobile menu button and menu
-            const mobileMenuButton = document.querySelector('[data-collapse-toggle="navbar-sticky"]');
-            const menu = document.getElementById('navbar-sticky');
-            
-            // Add click event to toggle menu
-            if (mobileMenuButton) {
-                mobileMenuButton.addEventListener('click', function() {
-                    menu.classList.toggle('hidden');
-                });
-            }
-            
-            // Close menu when clicking outside
-            document.addEventListener('click', function(event) {
-                if (!menu.contains(event.target) && !mobileMenuButton.contains(event.target)) {
-                    if (!menu.classList.contains('hidden')) {
-                        menu.classList.add('hidden');
-                    }
-                }
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get mobile menu button and menu
+        const mobileMenuButton = document.getElementById('mobile-menu-toggle');
+        const menu = document.getElementById('navbar-sticky');
+        
+        // Add click event to toggle menu
+        if (mobileMenuButton && menu) {
+            mobileMenuButton.addEventListener('click', function() {
+                menu.classList.toggle('hidden');
             });
+        }
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            if (menu && mobileMenuButton && !menu.contains(event.target) && !mobileMenuButton.contains(event.target)) {
+                if (!menu.classList.contains('hidden')) {
+                    menu.classList.add('hidden');
+                }
+            }
         });
-    </script>
-{{ block.super }} <!-- Keep the original scripts from base.html -->
+    });
+</script>
 {% endblock %}

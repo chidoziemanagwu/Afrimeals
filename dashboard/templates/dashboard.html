@@ -1,15 +1,13 @@
 {% extends 'base.html' %}
 {% load static %}
 
-
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-green-50 via-emerald-100 to-teal-100">
-
-
     <!-- Hero Section -->
     <div class="max-w-6xl mx-auto px-4 py-10">
         <div class="bg-white rounded-xl shadow-xl overflow-hidden">
             <div class="md:flex">
+                <!-- Left Content -->
                 <div class="p-8 md:w-3/5">
                     <h2 class="text-3xl font-bold text-gray-800 mb-4">Welcome to NaijaPlate</h2>
                     <p class="text-gray-600 mb-6 text-lg">
@@ -20,19 +18,34 @@
                            class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-lg font-medium transition duration-300 shadow-md">
                             <i class="fas fa-utensils mr-2"></i>Generate Meal Plan
                         </a>
-                        <a href="#" 
+                        <a href="{% url 'recipe_list' %}" 
                            class="bg-white border-2 border-green-500 text-green-600 hover:bg-green-50 px-6 py-3 rounded-lg font-medium transition duration-300">
                             <i class="fas fa-book-open mr-2"></i>Browse Recipes
                         </a>
                     </div>
                 </div>
-                <div class="md:w-2/5 bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center p-6">
-                    <div class="text-center">
-                        <i class="fas fa-plate-wheat text-white text-6xl mb-4"></i>
-                        <h3 class="text-white text-xl font-bold">Nigerian Cuisine</h3>
-                        <p class="text-green-100">Discover authentic flavors</p>
-                    </div>
-                </div>
+
+<!-- Right Glassmorphism Panel -->
+<div class="md:w-2/5 relative">
+    <!-- Glass Background -->
+    <div class="absolute inset-0 rounded-lg" style="
+        background: rgba(14, 159, 110, 0.7);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+    "></div>
+
+    <!-- Content Overlay (isolated from glass effect) -->
+    <div class="relative z-10 h-full flex flex-col items-center justify-center">
+        <!-- Text Container -->
+        <div class="bg-green/100 backdrop-blur-none p-4 rounded-lg  text-center">
+            <i class="fas fa-plate-wheat text-white text-7xl mb-6"></i>
+            <h3 class="text-white text-2xl font-extrabold mb-2">Nigerian Cuisine</h3>
+            <p class="text-white text-lg font-medium">Discover authentic flavors from home</p>
+        </div>
+    </div>
+</div>
             </div>
         </div>
     </div>
@@ -41,86 +54,90 @@
     <div class="max-w-6xl mx-auto px-4 py-8">
         <h3 class="text-2xl font-bold text-gray-800 mb-6">Quick Access</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Meal Plans -->
             <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border-t-4 border-green-500">
-                <div class="flex items-center justify-center h-14 w-14 rounded-full bg-green-100 text-green-600 mb-4">
-                    <i class="fas fa-calendar-days text-2xl"></i>
+                <div class="flex items-center justify-center h-12 w-12 rounded-full bg-green-100 text-green-600 mb-4">
+                    <i class="fas fa-calendar-week text-2xl"></i>
                 </div>
                 <h4 class="text-xl font-semibold text-gray-800 mb-2">Weekly Meal Plans</h4>
-                <p class="text-gray-600 mb-4">Create customized weekly meal plans based on your dietary preferences and nutritional goals.</p>
+                <p class="text-gray-600 mb-4">Customize meal plans with cultural authenticity and dietary preferences.</p>
                 <a href="{% url 'meal_generator' %}" class="text-green-600 hover:text-green-700 font-medium">
-                    Get started <i class="fas fa-arrow-right ml-1"></i>
+                    Create Plan <i class="fas fa-arrow-right ml-1"></i>
                 </a>
             </div>
-            
+
+            <!-- Shopping List -->
             <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border-t-4 border-emerald-500">
-                <div class="flex items-center justify-center h-14 w-14 rounded-full bg-emerald-100 text-emerald-600 mb-4">
-                    <i class="fas fa-clipboard-list text-2xl"></i>
+                <div class="flex items-center justify-center h-12 w-12 rounded-full bg-emerald-100 text-emerald-600 mb-4">
+                    <i class="fas fa-shopping-basket text-2xl"></i>
                 </div>
-                <h4 class="text-xl font-semibold text-gray-800 mb-2">Shopping Lists</h4>
-                <p class="text-gray-600 mb-4">Generate smart shopping lists based on your meal plans with local ingredient options.</p>
+                <h4 class="text-xl font-semibold text-gray-800 mb-2">Smart Shopping Lists</h4>
+                <p class="text-gray-600 mb-4">Generate location-aware shopping lists with Nigerian ingredients prioritized.</p>
                 <a href="#" class="text-emerald-600 hover:text-emerald-700 font-medium">
-                    View lists <i class="fas fa-arrow-right ml-1"></i>
+                    View List <i class="fas fa-arrow-right ml-1"></i>
                 </a>
             </div>
-            
+
+            <!-- Recipe Library -->
             <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border-t-4 border-teal-500">
-                <div class="flex items-center justify-center h-14 w-14 rounded-full bg-teal-100 text-teal-600 mb-4">
-                    <i class="fas fa-mortar-pestle text-2xl"></i>
+                <div class="flex items-center justify-center h-12 w-12 rounded-full bg-teal-100 text-teal-600 mb-4">
+                    <i class="fas fa-fire-alt text-2xl"></i>
                 </div>
-                <h4 class="text-xl font-semibold text-gray-800 mb-2">Recipe Collection</h4>
-                <p class="text-gray-600 mb-4">Explore our growing collection of authentic Nigerian recipes with step-by-step instructions.</p>
-                <a href="#" class="text-teal-600 hover:text-teal-700 font-medium">
-                    Discover recipes <i class="fas fa-arrow-right ml-1"></i>
+                <h4 class="text-xl font-semibold text-gray-800 mb-2">Recipe Library</h4>
+                <p class="text-gray-600 mb-4">Over 200+ authentic Nigerian recipes with video tutorials and ingredient substitutions.</p>
+                <a href="{% url 'recipe_list' %}" class="text-teal-600 hover:text-teal-700 font-medium">
+                    Explore <i class="fas fa-arrow-right ml-1"></i>
                 </a>
             </div>
         </div>
     </div>
-    
-    <!-- Recent Activity Section -->
+
+    <!-- Recent Activity -->
     <div class="max-w-6xl mx-auto px-4 py-8">
         <div class="bg-white rounded-xl shadow-md p-6">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-2xl font-bold text-gray-800">Your Recent Activity</h3>
-                <a href="#" class="text-green-600 hover:text-green-700 font-medium">View all</a>
+                <a href="#" class="text-green-600 hover:text-green-700 font-medium">View all →</a>
             </div>
-            
-<!-- In the Recent Activity section -->
-<div class="space-y-4">
-    <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors flex items-center">
-        <div class="flex items-center justify-center h-10 w-10 rounded-full bg-green-100 text-green-600 mr-4">
-            <i class="fas fa-utensils"></i>
-        </div>
-        <div>
-            <h4 class="font-medium text-gray-800">Vegetarian Meal Plan</h4>
-            <p class="text-sm text-gray-500">Created on March 8, 2025</p>
-        </div>
-        <div class="ml-auto flex space-x-2">
-            <button 
-                class="export-pdf-btn px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                data-mealplan-id="{{ meal_plan.id }}"
-                data-loading-text="Generating PDF...">
-                <i class="fas fa-file-pdf mr-1"></i> Export PDF
-            </button>
-            <a href="#" class="text-blue-500 hover:text-blue-600">
-                <i class="fas fa-eye"></i>
-            </a>
-        </div>
-    </div>
-</div>
-        </div>
-    </div>
-    
-    <!-- Footer -->
-    <footer class="bg-gray-800 text-white py-8 mt-12">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="flex flex-col md:flex-row justify-between">
-                <div class="mb-6 md:mb-0">
-                    <h4 class="text-xl font-bold mb-4">NaijaPlate</h4>
-                    <p class="text-gray-400">Authentic Nigerian meal planning made easy</p>
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-8">
+            <div class="space-y-4">
+                <!-- Example Activity -->
+                <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors flex items-center">
+                    <div class="flex items-center justify-center h-10 w-10 rounded-full bg-green-100 text-green-600 mr-4">
+                        <i class="fas fa-utensils"></i>
+                    </div>
                     <div>
-                        <h5 class="font-medium mb-2">Quick Links</h5>
+                        <h4 class="font-medium text-gray-800">Jollof Rice Meal Plan</h4>
+                        <p class="text-sm text-gray-500">Created on March 8, 2025</p>
+                    </div>
+                    <div class="ml-auto flex space-x-2">
+                        <button 
+                            class="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                            data-mealplan-id="{{ meal_plan.id }}">
+                            <i class="fas fa-file-pdf mr-1"></i> PDF
+                        </button>
+                        <a href="#" class="text-blue-500 hover:text-blue-600">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-12 mt-12">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between gap-8">
+                <!-- Brand -->
+                <div class="mb-6 md:mb-0">
+                    <h4 class="text-2xl font-extrabold mb-2">NaijaPlate</h4>
+                    <p class="text-gray-400">Bringing Nigerian flavors to your kitchen with AI-powered meal solutions</p>
+                </div>
+
+                <!-- Links -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <h5 class="text-lg font-medium mb-2">Quick Links</h5>
                         <ul class="space-y-2">
                             <li><a href="#" class="text-gray-400 hover:text-white transition">Home</a></li>
                             <li><a href="#" class="text-gray-400 hover:text-white transition">Meal Plans</a></li>
@@ -128,7 +145,7 @@
                         </ul>
                     </div>
                     <div>
-                        <h5 class="font-medium mb-2">Support</h5>
+                        <h5 class="text-lg font-medium mb-2">Support</h5>
                         <ul class="space-y-2">
                             <li><a href="#" class="text-gray-400 hover:text-white transition">Contact Us</a></li>
                             <li><a href="#" class="text-gray-400 hover:text-white transition">FAQ</a></li>
@@ -136,8 +153,15 @@
                         </ul>
                     </div>
                 </div>
+
+                <!-- Social Icons -->
+                <div class="flex items-center gap-4">
+                    <a href="#" class="text-gray-400 hover:text-white transition"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#" class="text-gray-400 hover:text-white transition"><i class="fab fa-twitter"></i></a>
+                    <a href="#" class="text-gray-400 hover:text-white transition"><i class="fab fa-instagram"></i></a>
+                </div>
             </div>
-            <div class="border-t border-gray-700 mt-8 pt-6 text-center text-gray-400 text-sm">
+            <div class="border-t border-gray-700 mt-12 pt-6 text-center text-gray-400 text-sm">
                 &copy; 2025 NaijaPlate. All rights reserved.
             </div>
         </div>
