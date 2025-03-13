@@ -5,7 +5,8 @@ from dashboard.views import (
     ExportMealPlanPDF, HomeView, DashboardView, MealGeneratorView,
     PricingView, CheckoutView, RecipeDetailsView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView,
     UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView, RecipeDeleteView,
-    ExportMealPlanView, FeedbackView, check_task_status, export_activity_pdf, activity_detail_api, gemini_chat
+    ExportMealPlanView, FeedbackView, check_task_status, export_activity_pdf, activity_detail_api, gemini_chat, 
+    checkout_success, checkout_cancel
 )
 from rest_framework.routers import DefaultRouter
 from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
@@ -13,6 +14,8 @@ from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
 from django.conf import settings
 from django.conf.urls.static import static
 from dashboard.api.gemini_views import chat
+from dashboard.webhooks import stripe_webhook
+
 
 # Create a router and register our API viewsets
 router = DefaultRouter()
@@ -66,10 +69,13 @@ urlpatterns = [
         name='export_meal_plan'),
 
     path('api/gemini/chat/', chat, name='gemini_chat'),
-    # path('api/gemini/recommendations/', get_recipe_recommendations, name='recipe_recommendations'),
-    # path('api/gemini/substitutes/', find_ingredient_substitutes, name='ingredient_substitutes'),
-    # path('api/gemini/cooking-tips/', get_cooking_tips, name='cooking_tips'),
-    # API authentication
+    path('webhooks/stripe/', stripe_webhook, name='stripe_webhook'),
+
+
+    path('checkout/success/', checkout_success, name='checkout_success'),
+    path('checkout/cancel/', checkout_cancel, name='checkout_cancel'),
+
+
     path('api-auth/', include('rest_framework.urls')),
     path('task-status/<str:task_id>/', check_task_status, name='check_task_status'),
 ]

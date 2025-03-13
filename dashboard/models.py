@@ -7,6 +7,8 @@ from django.core.cache import cache
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 import openai
+from django.conf import settings
+import stripe
 
 # Cache configuration
 CACHE_TIMEOUTS = {
@@ -216,14 +218,57 @@ class SubscriptionTier(models.Model, CacheModelMixin):
     features = models.JSONField(default=dict)
     is_active = models.BooleanField(default=True, db_index=True)
     stripe_price_id = models.CharField(max_length=100, blank=True, null=True)
+    stripe_product_id = models.CharField(max_length=100, blank=True, null=True)
+    created_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         indexes = [
             models.Index(fields=['tier_type', 'price'], name='tier_type_price_idx'),
+            models.Index(fields=['stripe_price_id'], name='stripe_price_idx'),
         ]
 
     def __str__(self):
         return f"{self.name} (£{self.price})"
+
+    def save(self, *args, **kwargs):
+        # Create or update Stripe product/price if not in test mode
+        if not settings.STRIPE_TEST_MODE and not self.stripe_product_id:
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+
+            # Create or update Stripe product
+            try:
+                product = stripe.Product.create(
+                    name=self.name,
+                    description=self.description,
+                    metadata={'tier_id': str(self.id) if self.id else 'pending'}
+                )
+                self.stripe_product_id = product.id
+
+                # Create Stripe price
+                price_data = {
+                    'product': product.id,
+                    'unit_amount': int(self.price * 100),  # Convert to cents
+                    'currency': 'gbp',
+                }
+
+                # Add recurring data for subscription tiers
+                if self.tier_type != 'one_time':
+                    price_data['recurring'] = {
+                        'interval': self.tier_type,
+                        'interval_count': 1
+                    }
+
+                price = stripe.Price.create(**price_data)
+                self.stripe_price_id = price.id
+
+            except stripe.error.StripeError as e:
+                # Log the error but don't prevent model save
+                logger.error(f"Stripe product/price creation failed: {str(e)}")
+
+        # Clear cache on save
+        self.clear_cache()
+        super().save(*args, **kwargs)
 
     @classmethod
     def get_active_tiers(cls):
@@ -236,6 +281,24 @@ class SubscriptionTier(models.Model, CacheModelMixin):
             cache.set(cache_key, tiers, CACHE_TIMEOUTS['long'])
 
         return tiers
+
+    def clear_cache(self):
+        """Clear all related caches"""
+        cache_keys = [
+            "active_subscription_tiers",
+            f"subscription_tier_{self.id}",
+        ]
+        cache.delete_many(cache_keys)
+
+    @property
+    def stripe_price_amount(self):
+        """Return price in cents for Stripe"""
+        return int(self.price * 100)
+
+    @property
+    def interval_display(self):
+        """Return human-readable interval"""
+        return dict(self.TIER_CHOICES).get(self.tier_type, '')
 
 class UserSubscription(models.Model, CacheModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)

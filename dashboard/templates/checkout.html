@@ -1,25 +1,69 @@
 {% extends 'base.html' %}
+{% load static %}
 
+
+{% block extra_head %}
+<style>
+  body > nav {
+    display: none !important;
+  }
+</style>
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const stripe = Stripe('{{ STRIPE_PUBLIC_KEY }}');
+        const form = document.querySelector('form');
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error('Error:', data.error);
+                    return;
+                }
+
+                const result = await stripe.redirectToCheckout({
+                    sessionId: data.sessionId
+                });
+
+                if (result.error) {
+                    console.error(result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+    });
+</script>
+{% endblock %}
 {% block content %}
 <div class="min-h-screen bg-gray-100">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-lg">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="flex justify-between items-center py-4">
-                <div class="flex items-center">
-                    <span class="text-xl font-bold text-gray-800">NaijaPlate</span>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span class="text-gray-600">{{ user.email }}</span>
-                    <a href="{% url 'account_logout' %}" 
-                       class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
-                        Logout
-                    </a>
-                </div>
+<!-- Navigation -->
+<div class="bg-white shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+            <a href="{% url 'home' %}" class="flex items-center text-gray-600 hover:text-green-600 transition-colors duration-300">
+                <i class="fas fa-arrow-left mr-2"></i>
+                <span>Back to Home</span>
+            </a>
+            <div class="flex items-center space-x-3">
+                <img src="https://images.pexels.com/photos/5836766/pexels-photo-5836766.jpeg?auto=compress&cs=tinysrgb&w=600" class="h-8 w-8 object-cover rounded-full" alt="NaijaPlate Logo">
+                <span class="text-xl font-bold text-green-600">NaijaPlate</span>
             </div>
         </div>
-    </nav>
-
+    </div>
+</div>
     <!-- Checkout Form -->
     <div class="max-w-md mx-auto pt-10 pb-12 px-4 sm:px-6 lg:px-8">
         <div class="bg-white rounded-lg shadow-lg overflow-hidden">

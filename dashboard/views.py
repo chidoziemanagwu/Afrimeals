@@ -1,11 +1,12 @@
 import os
+from django.urls import reverse
 from openai import OpenAI
 import json
 from django.views.generic import TemplateView, DetailView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render, get_object_or_404
 from django.views import View
-from django.http import JsonResponse, HttpResponse
+from django.http import FileResponse, JsonResponse, HttpResponse
 from django.utils import timezone
 from datetime import timedelta
 from django.core.cache import cache
@@ -56,6 +57,7 @@ CACHE_TIMEOUTS = {
     'long': 3600,        # 1 hour
     'very_long': 86400,  # 24 hours
 }
+
 
 
 @require_http_methods(["POST"])
@@ -404,91 +406,141 @@ class PricingView(TemplateView):
             cache.set(cache_key, subscription_tiers, CACHE_TIMEOUTS['long'])
 
         context['subscription_tiers'] = subscription_tiers
+        context['stripe_public_key'] = settings.STRIPE_PUBLISHABLE_KEY
         return context
 
 
-class CheckoutView(LoginRequiredMixin, View):
-    @rate_limit('checkout', max_requests=5, timeout=3600)
+class CheckoutView(View):
     def get(self, request, tier_id):
-        tier = get_object_or_404(SubscriptionTier, id=tier_id, is_active=True)
-        return render(request, 'checkout.html', {
-            'tier': tier,
-            'stripe_public_key': settings.STRIPE_PUBLIC_KEY
-        })
-
-    @rate_limit('checkout', max_requests=5, timeout=3600)
-    def post(self, request, tier_id):
-        tier = get_object_or_404(SubscriptionTier, id=tier_id, is_active=True)
-        token = request.POST.get('stripeToken')
-
         try:
-            # Create Stripe customer
-            customer = stripe.Customer.create(
-                email=request.user.email,
-                source=token
-            )
+            tier = SubscriptionTier.objects.get(id=tier_id)
 
-            # Handle subscription based on tier type
-            if tier.tier_type == 'monthly':
-                subscription = stripe.Subscription.create(
-                    customer=customer.id,
-                    items=[{'price': tier.stripe_price_id}]
-                )
-                end_date = timezone.now() + timedelta(days=30)
-                payment_id = subscription.id
-            elif tier.tier_type == 'weekly':
-                subscription = stripe.Subscription.create(
-                    customer=customer.id,
-                    items=[{'price': tier.stripe_price_id}]
-                )
-                end_date = timezone.now() + timedelta(days=7)
-                payment_id = subscription.id
+            # Check if user already has an active subscription
+            if hasattr(request.user, 'subscription') and request.user.subscription.is_active:
+                return render(request, 'checkout_error.html', {
+                    'error': 'You already have an active subscription'
+                })
+
+            return render(request, 'checkout.html', {
+                'tier': tier,
+                'STRIPE_PUBLIC_KEY': settings.STRIPE_PUBLIC_KEY
+            })
+        except SubscriptionTier.DoesNotExist:
+            logger.error(f"Subscription tier {tier_id} not found")
+            return render(request, 'checkout_error.html', {
+                'error': 'Selected subscription plan not found'
+            })
+
+    def post(self, request, tier_id):
+        try:
+            tier = SubscriptionTier.objects.get(id=tier_id)
+
+            # Use stored Stripe price ID if available
+            if tier.stripe_price_id:
+                checkout_session = self._create_checkout_session_with_price_id(request, tier)
             else:
-                charge = stripe.Charge.create(
-                    customer=customer.id,
-                    amount=int(tier.price * 100),
-                    currency='gbp',
-                    description=f'{tier.name} - One-time payment'
-                )
-                end_date = timezone.now() + timedelta(days=1)
-                payment_id = charge.id
+                checkout_session = self._create_checkout_session_with_price_data(request, tier)
 
-            # Create subscription in database
-            UserSubscription.objects.create(
-                user=request.user,
-                subscription_tier=tier,
-                end_date=end_date,
-                payment_id=payment_id
-            )
+            return JsonResponse({'sessionId': checkout_session.id})
 
-            # Track activity
-            UserActivity.objects.create(
-                user=request.user,
-                action='subscription',
-                details={'tier': tier.name, 'type': tier.tier_type}
-            )
-
-            # Invalidate relevant caches
-            cache.delete_many([
-                f"user_subscription_{request.user.id}",
-                f"dashboard_data_{request.user.id}",
-                f"meal_generator_data_{request.user.id}"
-            ])
-
-            messages.success(request, f"Successfully subscribed to {tier.name}!")
-            return redirect('subscription_success')
-
-        except stripe.error.CardError as e:
-            messages.error(request, f"Payment failed: {e.error.message}")
+        except SubscriptionTier.DoesNotExist:
+            logger.error(f"Subscription tier {tier_id} not found during checkout")
+            return JsonResponse({'error': 'Subscription tier not found'}, status=404)
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error during checkout: {str(e)}")
+            return JsonResponse({'error': str(e)}, status=400)
         except Exception as e:
-            messages.error(request, "An unexpected error occurred. Please try again.")
+            logger.error(f"Unexpected error during checkout: {str(e)}")
+            return JsonResponse({'error': 'An unexpected error occurred'}, status=500)
 
-        return render(request, 'checkout.html', {
-            'tier': tier,
-            'stripe_public_key': settings.STRIPE_PUBLIC_KEY
-        })
+    def _create_checkout_session_with_price_id(self, request, tier):
+        """Create checkout session using stored Stripe price ID"""
+        return stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price': tier.stripe_price_id,
+                'quantity': 1,
+            }],
+            mode='payment' if tier.tier_type == 'one_time' else 'subscription',
+            success_url=request.build_absolute_uri(reverse('checkout_success')),
+            cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
+            metadata=self._get_metadata(request, tier),
+            customer_email=request.user.email
+        )
 
+    def _create_checkout_session_with_price_data(self, request, tier):
+        """Create checkout session using price data"""
+        price_data = self._get_price_data(tier)
+        return stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': price_data,
+                'quantity': 1,
+            }],
+            mode='payment' if tier.tier_type == 'one_time' else 'subscription',
+            success_url=request.build_absolute_uri(reverse('checkout_success')),
+            cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
+            metadata=self._get_metadata(request, tier),
+            customer_email=request.user.email
+        )
 
+    def _get_price_data(self, tier):
+        """Generate price data based on tier type"""
+        base_price_data = {
+            'currency': 'gbp',
+            'unit_amount': int(float(tier.price) * 100),
+            'product_data': {
+                'name': tier.name,
+                'description': f'{tier.tier_type.capitalize()} plan - {tier.name}',
+            }
+        }
+
+        if tier.tier_type != 'one_time':
+            base_price_data['recurring'] = {
+                'interval': 'week' if tier.tier_type == 'weekly' else 'month',
+                'interval_count': 1
+            }
+
+        return base_price_data
+
+    def _get_metadata(self, request, tier):
+        """Generate metadata for the checkout session"""
+        return {
+            'user_id': str(request.user.id),
+            'tier_id': str(tier.id),
+            'tier_type': tier.tier_type,
+            'email': request.user.email
+        }
+
+    @staticmethod
+    def handle_successful_payment(session):
+        """Handle successful payment webhook"""
+        try:
+            user_id = session.metadata.get('user_id')
+            tier_id = session.metadata.get('tier_id')
+
+            user = User.objects.get(id=user_id)
+            tier = SubscriptionTier.objects.get(id=tier_id)
+
+            # Update or create subscription
+            subscription, created = Subscription.objects.update_or_create(
+                user=user,
+                defaults={
+                    'tier': tier,
+                    'is_active': True,
+                    'stripe_subscription_id': session.subscription,
+                    'stripe_customer_id': session.customer,
+                    'current_period_end': None  # Set this based on webhook data
+                }
+            )
+
+            logger.info(f"Successfully processed payment for user {user_id}")
+            return subscription
+
+        except Exception as e:
+            logger.error(f"Error processing successful payment: {str(e)}")
+            raise
+        
 class SubscriptionSuccessView(LoginRequiredMixin, TemplateView):
     template_name = 'subscription_success.html'
 
@@ -1149,6 +1201,21 @@ class ExportMealPlanPDF(LoginRequiredMixin, View):
             filename=f'meal_plan_{meal_plan_id}.pdf'
         )
 
+
+@login_required
+def checkout_success(request):
+    """Handle successful checkout"""
+    return render(request, 'checkout_success.html', {
+        'title': 'Payment Successful',
+    })
+
+@login_required
+def checkout_cancel(request):
+    """Handle cancelled checkout"""
+    messages.warning(request, 'Your payment was cancelled.')
+    return render(request, 'checkout_cancel.html', {
+        'title': 'Payment Cancelled',
+    })
 
 @login_required
 def export_activity_pdf(request, activity_id):
