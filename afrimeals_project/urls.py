@@ -5,7 +5,7 @@ from dashboard.views import (
     ExportMealPlanPDF, HomeView, DashboardView, MealGeneratorView,
     PricingView, CheckoutView, RecipeDetailsView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView,
     UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView, RecipeDeleteView,
-    ExportMealPlanView, FeedbackView, check_task_status, export_activity_pdf, activity_detail_api
+    ExportMealPlanView, FeedbackView, check_task_status, export_activity_pdf, activity_detail_api, gemini_chat
 )
 from rest_framework.routers import DefaultRouter
 from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
@@ -65,7 +65,7 @@ path('meal-plan/<int:meal_plan_id>/export/',
      ExportMealPlanPDF.as_view(),
      name='export_meal_plan'),
 
-
+    path('api/gemini/chat/', gemini_chat, name='gemini_chat'),
     # API authentication
     path('api-auth/', include('rest_framework.urls')),
     path('task-status/<str:task_id>/', check_task_status, name='check_task_status'),

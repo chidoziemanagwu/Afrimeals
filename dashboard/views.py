@@ -35,6 +35,8 @@ from openai import OpenAIError, RateLimitError, APIError
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.decorators import login_required
 import pandas as pd
+from django.views.decorators.http import require_http_methods
+
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -53,6 +55,23 @@ CACHE_TIMEOUTS = {
     'long': 3600,        # 1 hour
     'very_long': 86400,  # 24 hours
 }
+
+
+@require_http_methods(["POST"])
+def gemini_chat(request):
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '')
+
+        # Here you would integrate with the Gemini API
+        # For now, we'll return a simple response
+        response = {
+            'message': f"I received your message about: {user_message}"
+        }
+
+        return JsonResponse(response)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 def check_task_status(request, task_id):
     task = AsyncResult(task_id)

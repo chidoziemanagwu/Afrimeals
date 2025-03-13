@@ -1,13 +1,12 @@
-# dashboard/api.py
+# dashboard/api/viewsets.py
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from .models import MealPlan, Recipe, GroceryList
-from .serializers import MealPlanSerializer, RecipeSerializer, GroceryListSerializer
 from django.views.decorators.cache import cache_page
 from django.utils.decorators import method_decorator
+from ..models import MealPlan, Recipe, GroceryList
+from ..serializers import MealPlanSerializer, RecipeSerializer, GroceryListSerializer
 
-
-@method_decorator(cache_page(60 * 15), name='dispatch')  # Cache for 15 minutes
+@method_decorator(cache_page(60 * 15), name='dispatch')
 class RecipeViewSet(viewsets.ModelViewSet):
     serializer_class = RecipeSerializer
     permission_classes = [IsAuthenticated]
@@ -17,7 +16,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-
 
 @method_decorator(cache_page(60 * 15), name='dispatch')
 class MealPlanViewSet(viewsets.ModelViewSet):
@@ -30,8 +28,7 @@ class MealPlanViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-
-@method_decorator(cache_page(60 * 5), name='dispatch')  # Cache for 5 minutes
+@method_decorator(cache_page(60 * 5), name='dispatch')
 class GroceryListViewSet(viewsets.ModelViewSet):
     serializer_class = GroceryListSerializer
     permission_classes = [IsAuthenticated]

@@ -160,6 +160,62 @@
   {% endif %}
 </div>
 
+
+<!-- Gemini Chat Widget -->
+<div id="gemini-chat-widget" class="fixed bottom-4 right-4 z-50">
+  <!-- Chat Toggle Button -->
+  <button id="chat-toggle" class="bg-green-600 text-white p-4 rounded-full shadow-lg hover:bg-green-700 transition-all duration-300">
+      <i class="fas fa-comments text-xl"></i>
+  </button>
+
+  <!-- Chat Window -->
+  <div id="chat-window" class="hidden absolute bottom-16 right-0 w-96 bg-white rounded-lg shadow-xl">
+      <!-- Chat Header -->
+      <div class="bg-green-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+          <h3 class="text-lg font-semibold">Gemini Assistant</h3>
+          <button id="close-chat" class="text-white hover:text-gray-200">
+              <i class="fas fa-times"></i>
+          </button>
+      </div>
+      
+      <!-- Chat Messages -->
+      <div id="chat-messages" class="h-96 overflow-y-auto p-4 space-y-4">
+          <!-- Welcome Message -->
+          <div class="flex items-start">
+              <div class="flex-shrink-0">
+                  <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                      <i class="fas fa-robot text-green-600"></i>
+                  </div>
+              </div>
+              <div class="ml-3 bg-gray-100 rounded-lg p-3">
+                  <p class="text-sm text-gray-800">
+                      Hello! I'm your Nigerian cuisine assistant. I can help you with:
+                      - Finding ingredients
+                      - Recipe suggestions
+                      - Cooking tips
+                      What would you like to know?
+                  </p>
+              </div>
+          </div>
+      </div>
+      
+      <!-- Chat Input -->
+      <div class="border-t p-4">
+          <form id="chat-form" class="flex items-center space-x-2">
+              <input type="text" 
+                     id="chat-input" 
+                     class="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                     placeholder="Type your message...">
+              <button type="submit" 
+                      class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                  <i class="fas fa-paper-plane"></i>
+              </button>
+          </form>
+      </div>
+  </div>
+</div>
+
+
   <!-- JavaScript Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.js"></script>
   <!-- Optional: jQuery for additional functionality -->
@@ -298,9 +354,12 @@
   });
 </script>
 
+
+
   {% block extra_scripts %}
   <script src="{% static 'js/main.js' %}"></script>
   <script src="{% static 'js/responsive-test.js' %}"></script>
+  <script src="{% static 'js/gemini_assistant.js' %}"></script>
   {% endblock %}
 </body>
 </html>

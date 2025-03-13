@@ -12,7 +12,10 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # SECURITY WARNING: keep the secret key used in production secret!  
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'  # Ensure boolean conversion
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-for-dev')  # Provide a default for development
-SECURE_SSL_REDIRECT = False  # Set to False for local development
+# afrimeals_project/settings.py
+
+# Add to your existing settings
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # In settings.py
 STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
