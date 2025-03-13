@@ -12,7 +12,7 @@ from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
 # urls.py
 from django.conf import settings
 from django.conf.urls.static import static
-from dashboard.api.gemini_views import chat, get_recipe_recommendations, find_ingredient_substitutes, get_cooking_tips
+from dashboard.api.gemini_views import chat
 
 # Create a router and register our API viewsets
 router = DefaultRouter()
@@ -66,9 +66,9 @@ urlpatterns = [
         name='export_meal_plan'),
 
     path('api/gemini/chat/', chat, name='gemini_chat'),
-    path('api/gemini/recommendations/', get_recipe_recommendations, name='recipe_recommendations'),
-    path('api/gemini/substitutes/', find_ingredient_substitutes, name='ingredient_substitutes'),
-    path('api/gemini/cooking-tips/', get_cooking_tips, name='cooking_tips'),
+    # path('api/gemini/recommendations/', get_recipe_recommendations, name='recipe_recommendations'),
+    # path('api/gemini/substitutes/', find_ingredient_substitutes, name='ingredient_substitutes'),
+    # path('api/gemini/cooking-tips/', get_cooking_tips, name='cooking_tips'),
     # API authentication
     path('api-auth/', include('rest_framework.urls')),
     path('task-status/<str:task_id>/', check_task_status, name='check_task_status'),

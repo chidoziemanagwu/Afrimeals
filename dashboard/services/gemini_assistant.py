@@ -10,7 +10,7 @@ class GeminiAssistant:
     def __init__(self):
         # Initialize Gemini client with your API key
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        
+
         # Base context for Nigerian cuisine
         self.base_context = """
         You are a Nigerian cuisine expert assistant for NaijaPlate, specializing in:
@@ -24,7 +24,7 @@ class GeminiAssistant:
         """Process a chat message and return a response"""
         try:
             prompt = f"{self.base_context}\n\nUser: {message}\nAssistant:"
-            response = await self.client.models.generate_content(
+            response = self.client.models.generate_content(
                 model='gemini-2.0-flash',
                 contents=prompt
             )
@@ -36,7 +36,7 @@ class GeminiAssistant:
     async def get_recipe_recommendations(self, preferences):
         prompt = f"Suggest Nigerian recipes based on these preferences: {preferences}"
         try:
-            response = await self.client.models.generate_content(
+            response = self.client.models.generate_content(
                 model='gemini-2.0-flash',
                 contents=self.base_context + prompt
             )
@@ -54,7 +54,7 @@ class GeminiAssistant:
     async def find_ingredient_substitutes(self, ingredient, location):
         prompt = f"Suggest substitutes for {ingredient} that can be found in {location} for Nigerian cooking"
         try:
-            response = await self.client.models.generate_content(
+            response = self.client.models.generate_content(
                 model='gemini-2.0-flash',
                 contents=self.base_context + prompt
             )
@@ -72,7 +72,7 @@ class GeminiAssistant:
     async def get_cooking_tips(self, recipe_name):
         prompt = f"Provide cooking tips for preparing {recipe_name} (Nigerian cuisine)"
         try:
-            response = await self.client.models.generate_content(
+            response = self.client.models.generate_content(
                 model='gemini-2.0-flash',
                 contents=self.base_context + prompt
             )
