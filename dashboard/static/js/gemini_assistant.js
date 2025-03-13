@@ -2,9 +2,7 @@
 class GeminiAssistant {
     constructor() {
         this.baseUrl = '/api/gemini';
-        // Remove duplicate chat interface setup since it's already in base.html
         this.setupEventListeners();
-        // No need to add welcome message as it's in the HTML
     }
 
     async chat(message) {
@@ -32,58 +30,59 @@ class GeminiAssistant {
         const chatWindow = document.getElementById('chat-window');
         const chatForm = document.getElementById('chat-form');
         const chatInput = document.getElementById('chat-input');
+        const chatMessages = document.getElementById('chat-messages');
 
-        // Toggle chat window
-        chatToggle?.addEventListener('click', () => {
-            chatWindow.classList.toggle('hidden');
-            chatToggle.classList.toggle('hidden');
-            chatInput.focus();
-        });
+        // Ensure elements exist before adding listeners
+        if (chatToggle) {
+            chatToggle.addEventListener('click', () => {
+                chatWindow.classList.toggle('hidden');
+                chatToggle.classList.toggle('hidden');
+                chatInput.focus();
+            });
+        }
 
-        // Close chat window
-        closeChat?.addEventListener('click', () => {
-            chatWindow.classList.add('hidden');
-            chatToggle.classList.remove('hidden');
-        });
+        if (closeChat) {
+            closeChat.addEventListener('click', () => {
+                chatWindow.classList.add('hidden');
+                chatToggle.classList.remove('hidden');
+            });
+        }
 
-        // Handle chat form submission
-        chatForm?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const message = chatInput.value.trim();
-            if (!message) return;
-
-            // Add user message to chat
-            this.addMessage('user', message);
-            chatInput.value = '';
-            chatInput.focus();
-
-            try {
-                // Show typing indicator
-                this.showTypingIndicator();
-
-                // Get response from Gemini
-                const response = await this.chat(message);
-                
-                // Remove typing indicator and add response
-                this.removeTypingIndicator();
-                this.addMessage('assistant', response.message);
-            } catch (error) {
-                console.error('Chat error:', error);
-                this.removeTypingIndicator();
-                this.addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
-            }
-        });
-
-        // Handle Enter key
-        chatInput?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+        if (chatForm) {
+            chatForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                chatForm.dispatchEvent(new Event('submit'));
-            }
-        });
+                const message = chatInput.value.trim();
+                if (!message) return;
+
+                this.addMessage('user', message);
+                chatInput.value = '';
+                chatInput.focus();
+
+                try {
+                    this.showTypingIndicator();
+                    const response = await this.chat(message);
+                    this.removeTypingIndicator();
+                    this.addMessage('assistant', response.message);
+                } catch (error) {
+                    console.error('Chat error:', error);
+                    this.removeTypingIndicator();
+                    this.addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+                }
+            });
+        }
+
+        if (chatInput) {
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    chatForm.dispatchEvent(new Event('submit'));
+                }
+            });
+        }
     }
 
     showTypingIndicator() {
+        const chatMessages = document.getElementById('chat-messages');
         const typingDiv = document.createElement('div');
         typingDiv.id = 'typing-indicator';
         typingDiv.className = 'flex items-start';
@@ -101,7 +100,7 @@ class GeminiAssistant {
                 </div>
             </div>
         `;
-        document.getElementById('chat-messages').appendChild(typingDiv);
+        chatMessages.appendChild(typingDiv);
         this.scrollToBottom();
     }
 
@@ -117,7 +116,7 @@ class GeminiAssistant {
         const messageDiv = document.createElement('div');
         messageDiv.className = `flex items-start ${type === 'user' ? 'justify-end' : ''}`;
 
-        const messageContent = `
+        messageDiv.innerHTML = `
             ${type === 'assistant' ? `
                 <div class="flex-shrink-0">
                     <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
@@ -130,7 +129,6 @@ class GeminiAssistant {
             </div>
         `;
 
-        messageDiv.innerHTML = messageContent;
         chatMessages.appendChild(messageDiv);
         this.scrollToBottom();
     }

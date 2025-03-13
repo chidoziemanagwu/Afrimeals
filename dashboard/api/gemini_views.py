@@ -1,4 +1,5 @@
 # dashboard/api/gemini_views.py
+
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -6,7 +7,6 @@ from rest_framework.permissions import IsAuthenticated
 from dashboard.services.gemini_assistant import GeminiAssistant
 from django.core.cache import cache
 import logging
-import asyncio
 
 logger = logging.getLogger(__name__)
 gemini = GeminiAssistant()
@@ -29,8 +29,8 @@ def chat(request):
         if cached_response:
             return Response(cached_response)
 
-        # Run async function in sync context
-        response = asyncio.run(gemini.chat(message))
+        # Call synchronous chat method
+        response = gemini.chat(message)
 
         response_data = {
             'success': True,
