@@ -8,7 +8,8 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.  
 BASE_DIR = Path(__file__).resolve().parent.parent  
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 # SECURITY WARNING: keep the secret key used in production secret!  
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'  # Ensure boolean conversion
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-for-dev')  # Provide a default for development

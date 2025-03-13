@@ -1,3 +1,5 @@
+import os
+from openai import OpenAI
 import json
 from django.views.generic import TemplateView, DetailView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -16,8 +18,7 @@ from .models import (
     MealPlan, Recipe, GroceryList, SubscriptionTier,
     UserSubscription, UserActivity, UserFeedback
 )
-import os
-from openai import OpenAI
+
 import hashlib
 from .forms import FeedbackForm, RecipeForm
 import stripe

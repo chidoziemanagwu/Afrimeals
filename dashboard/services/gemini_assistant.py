@@ -1,17 +1,16 @@
 # dashboard/services/gemini_assistant.py
 
-import google.generativeai as genai
+from google import genai
 from django.conf import settings
-from typing import Dict, List, Optional
-from geopy.geocoders import Nominatim
-from geopy.distance import geodesic
+import logging
+
+logger = logging.getLogger(__name__)
 
 class GeminiAssistant:
     def __init__(self):
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-pro')
-        self.geolocator = Nominatim(user_agent="naijaplate")
-
+        # Initialize Gemini client with your API key
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        
         # Base context for Nigerian cuisine
         self.base_context = """
         You are a Nigerian cuisine expert assistant for NaijaPlate, specializing in:
@@ -21,105 +20,69 @@ class GeminiAssistant:
         4. Cooking techniques and cultural context
         """
 
-    async def get_recipe_recommendations(self, preferences: Dict) -> List[str]:
-        prompt = f"""
-        Based on these preferences:
-        - Dietary restrictions: {preferences.get('dietary_restrictions', 'None')}
-        - Cooking skill: {preferences.get('cooking_skill', 'Intermediate')}
-        - Available ingredients: {preferences.get('available_ingredients', 'Standard UK ingredients')}
-
-        Suggest 3 Nigerian recipes that would be suitable.
-        Include brief descriptions and difficulty levels.
-        """
-
-        response = await self.model.generate_content(self.base_context + prompt)
-        return response.text
-
-    async def find_ingredient_substitutes(self, ingredient: str, location: Dict) -> Dict:
-        """Find ingredient substitutes and nearby stores based on user location"""
+    async def chat(self, message: str) -> str:
+        """Process a chat message and return a response"""
         try:
-            user_coords = (location.get('latitude'), location.get('longitude'))
+            prompt = f"{self.base_context}\n\nUser: {message}\nAssistant:"
+            response = await self.client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            logger.error(f"Error in chat: {str(e)}", exc_info=True)
+            return "I apologize, but I encountered an error. Please try again."
 
-            prompt = f"""
-            For the Nigerian ingredient '{ingredient}' near {location.get('address', 'UK')}:
-            1. Suggest common substitutes available in UK supermarkets
-            2. Provide closest matching alternatives
-            3. Explain how it might affect the dish's taste
-            4. Recommend types of stores to find the authentic ingredient
-            """
-
-            response = await self.model.generate_content(self.base_context + prompt)
-
+    async def get_recipe_recommendations(self, preferences):
+        prompt = f"Suggest Nigerian recipes based on these preferences: {preferences}"
+        try:
+            response = await self.client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=self.base_context + prompt
+            )
             return {
-                'ingredient': ingredient,
-                'location': location.get('address'),
+                'recommendations': response.text,
+                'status': 'success'
+            }
+        except Exception as e:
+            logger.error(f"Error getting recommendations: {str(e)}", exc_info=True)
+            return {
+                'message': f"Error getting recommendations: {str(e)}",
+                'status': 'error'
+            }
+
+    async def find_ingredient_substitutes(self, ingredient, location):
+        prompt = f"Suggest substitutes for {ingredient} that can be found in {location} for Nigerian cooking"
+        try:
+            response = await self.client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=self.base_context + prompt
+            )
+            return {
                 'substitutes': response.text,
-                'coordinates': user_coords
+                'status': 'success'
             }
         except Exception as e:
-            return {'error': str(e)}
-
-    async def get_cooking_tips(self, recipe_name: str) -> str:
-        prompt = f"""
-        Provide detailed cooking tips for '{recipe_name}':
-        1. Common mistakes to avoid
-        2. Traditional techniques
-        3. Modern adaptations for UK kitchens
-        4. How to tell when it's properly cooked
-        5. Serving suggestions and accompaniments
-        """
-
-        response = await self.model.generate_content(self.base_context + prompt)
-        return response.text
-
-    async def analyze_youtube_tutorial(self, video_title: str, transcript: str) -> Dict:
-        prompt = f"""
-        Analyze this Nigerian cooking tutorial:
-        Title: {video_title}
-        Transcript: {transcript}
-
-        Provide:
-        1. Key cooking steps
-        2. Important techniques mentioned
-        3. Ingredient substitutions discussed
-        4. Cultural context and tips
-        """
-
-        response = await self.model.generate_content(self.base_context + prompt)
-        return {
-            'title': video_title,
-            'analysis': response.text
-        }
-
-    def _get_coordinates(self, location: str) -> Optional[tuple]:
-        """Get coordinates for a location string"""
-        try:
-            loc = self.geolocator.geocode(location)
-            if loc:
-                return (loc.latitude, loc.longitude)
-            return None
-        except:
-            return None
-
-    async def get_nearby_stores(self, location: Dict, radius_km: float = 5.0) -> List[Dict]:
-        """Find African/Nigerian grocery stores near the user's location"""
-        try:
-            user_coords = (location.get('latitude'), location.get('longitude'))
-
-            prompt = f"""
-            For someone near {location.get('address', 'UK')}, suggest:
-            1. Types of stores that typically stock Nigerian ingredients
-            2. Common store names in the UK that carry African products
-            3. What sections to look in regular supermarkets
-            4. Tips for finding authentic ingredients
-            """
-
-            response = await self.model.generate_content(self.base_context + prompt)
-
+            logger.error(f"Error finding substitutes: {str(e)}", exc_info=True)
             return {
-                'location': location.get('address'),
-                'suggestions': response.text,
-                'coordinates': user_coords
+                'message': f"Error finding substitutes: {str(e)}",
+                'status': 'error'
+            }
+
+    async def get_cooking_tips(self, recipe_name):
+        prompt = f"Provide cooking tips for preparing {recipe_name} (Nigerian cuisine)"
+        try:
+            response = await self.client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=self.base_context + prompt
+            )
+            return {
+                'tips': response.text,
+                'status': 'success'
             }
         except Exception as e:
-            return {'error': str(e)}
+            logger.error(f"Error getting cooking tips: {str(e)}", exc_info=True)
+            return {
+                'message': f"Error getting cooking tips: {str(e)}",
+                'status': 'error'
+            }
