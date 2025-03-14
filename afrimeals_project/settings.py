@@ -19,9 +19,18 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-for-dev')  # P
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # In settings.py
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
+STRIPE_TEST_MODE = os.getenv('STRIPE_TEST_MODE', 'True').lower() == 'true'
 STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
-STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '')
+
+# Stripe Currency
+STRIPE_CURRENCY = 'gbp'  # or your preferred currency
+
+# Additional Stripe Settings
+STRIPE_API_VERSION = '2023-10-16'  # Use the latest API version
+
 
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com', 'afrimeals-production.up.railway.app']  
