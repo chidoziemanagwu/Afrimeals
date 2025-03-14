@@ -10,6 +10,11 @@ import openai
 from django.conf import settings
 import stripe
 
+import logging
+
+
+logger = logging.getLogger(__name__)
+
 # Cache configuration
 CACHE_TIMEOUTS = {
     'short': 300,        # 5 minutes
@@ -71,17 +76,18 @@ class Recipe(models.Model, CacheModelMixin):
     description = models.TextField(blank=True)
     ingredients = models.TextField()
     instructions = models.TextField()
-    prep_time = models.CharField(max_length=20, default='30 mins')
-    cook_time = models.CharField(max_length=20, default='45 mins')
-    servings = models.IntegerField(default=4)
-    difficulty = models.CharField(max_length=20, default='Intermediate')
+    prep_time = models.CharField(max_length=200, default='30 mins')
+    cook_time = models.CharField(max_length=200, default='45 mins')
+    servings = models.IntegerField(default=3)
+    difficulty = models.CharField(max_length=200, default='Intermediate')
     nutrition_info = models.JSONField(default=dict, blank=True)
     tips = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     is_admin_recipe = models.BooleanField(default=False)
     meal_plan = models.ForeignKey('MealPlan', on_delete=models.CASCADE, null=True, blank=True)
-    meal_type = models.CharField(max_length=20, null=True, blank=True)
+    meal_type = models.CharField(max_length=200, null=True, blank=True)
     day_index = models.IntegerField(null=True, blank=True)
+    is_ai_generated = models.BooleanField(default=False)  # Add this field
 
     class Meta:
         indexes = [
@@ -94,6 +100,34 @@ class Recipe(models.Model, CacheModelMixin):
 
     def __str__(self):
         return self.title
+    
+    @property
+    def ingredients_list(self):
+        """Return ingredients as a list, whether stored as JSON or newline-separated text"""
+        try:
+            # Try to parse as JSON first (for AI-generated recipes)
+            return json.loads(self.ingredients)
+        except json.JSONDecodeError:
+            # If not JSON, split by newlines (for user-created recipes)
+            return [item.strip() for item in self.ingredients.split('\n') if item.strip()]
+
+    @property
+    def instructions_list(self):
+        """Return instructions as a list, whether stored as JSON or newline-separated text"""
+        try:
+            # Try to parse as JSON first (for AI-generated recipes)
+            return json.loads(self.instructions)
+        except json.JSONDecodeError:
+            # If not JSON, split by newlines (for user-created recipes)
+            return [item.strip() for item in self.instructions.split('\n') if item.strip()]
+
+    def save(self, *args, **kwargs):
+        # Handle ingredients and instructions based on whether they're lists or strings
+        if isinstance(self.ingredients, (list, tuple)):
+            self.ingredients = json.dumps(self.ingredients)
+        if isinstance(self.instructions, (list, tuple)):
+            self.instructions = json.dumps(self.instructions)
+        super().save(*args, **kwargs)
 
     @classmethod
     def get_user_recipes(cls, user_id):
@@ -177,6 +211,10 @@ class Recipe(models.Model, CacheModelMixin):
         except Exception as e:
             print(f"Error generating recipe: {str(e)}")
             return None
+
+
+
+
 
 class GroceryList(models.Model, CacheModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
@@ -365,6 +403,18 @@ class UserActivity(models.Model, CacheModelMixin):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_action_display()} - {self.timestamp}"
+    
+
+    @classmethod
+    def log_meal_plan_activity(cls, user, action, meal_plan):
+        return cls.objects.create(
+            user=user,
+            action=action,
+            details={
+                'meal_plan_id': meal_plan.id,
+                'meal_plan_name': meal_plan.name
+            }
+        )
 
     @classmethod
     def log_activity(cls, user, action, details=None, request=None):

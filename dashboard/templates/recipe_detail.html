@@ -1,4 +1,3 @@
-<!-- templates/recipe_detail.html -->
 {% extends 'base.html' %}
 
 {% block title %}{{ recipe.title }} - NaijaPlate{% endblock %}
@@ -50,7 +49,15 @@
                             <i class="fas fa-list-ul mr-2"></i>Ingredients
                         </h2>
                         <div class="bg-gray-50 p-6 rounded-lg">
-                            {{ recipe.ingredients|linebreaks }}
+                            {% if recipe.ingredients|safe %}
+                                <ul class="list-disc pl-5 space-y-2">
+                                    {% for ingredient in recipe.ingredients_list %}
+                                    <li class="text-gray-700">{{ ingredient }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-gray-500">No ingredients available.</p>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -60,18 +67,60 @@
                             <i class="fas fa-tasks mr-2"></i>Instructions
                         </h2>
                         <div class="bg-gray-50 p-6 rounded-lg">
-                            {{ recipe.instructions|linebreaks }}
+                            {% if recipe.instructions|safe %}
+                                <ol class="list-decimal pl-5 space-y-2">
+                                    {% for step in recipe.instructions_list %}
+                                    <li class="text-gray-700">{{ step }}</li>
+                                    {% endfor %}
+                                </ol>
+                            {% else %}
+                                <p class="text-gray-500">No instructions available.</p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
+
+                <!-- Nutrition Info -->
+                {% if recipe.nutrition_info %}
+                <div class="mt-8">
+                    <h2 class="text-xl font-semibold text-green-700 mb-4">
+                        <i class="fas fa-apple-alt mr-2"></i>Nutrition Information
+                    </h2>
+                    <div class="bg-gray-50 p-6 rounded-lg">
+                        <ul class="list-disc pl-5 space-y-2">
+                            {% for key, value in recipe.nutrition_info.items %}
+                            <li class="text-gray-700">
+                                <span class="font-semibold">{{ key|capfirst }}:</span> {{ value }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Tips Section -->
+                {% if recipe.tips %}
+                <div class="mt-8">
+                    <h2 class="text-xl font-semibold text-green-700 mb-4">
+                        <i class="fas fa-lightbulb mr-2"></i>Cooking Tips
+                    </h2>
+                    <div class="bg-gray-50 p-6 rounded-lg">
+                        <ul class="list-disc pl-5 space-y-2">
+                            {% for tip in recipe.tips %}
+                            <li class="text-gray-700">{{ tip }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- Share Section -->
                 <div class="mt-8 pt-6 border-t border-gray-200">
                     <h3 class="text-lg font-semibold text-gray-700 mb-4">Share this recipe</h3>
                     <div class="flex space-x-6">
-                        <a href="https://api.whatsapp.com/send?text={{ recipe.title|urlencode }}%20-%20{{ request.build_absolute_uri|urlencode }}" 
-                           target="_blank" 
-                           class="text-green-500 hover:text-green-700 transition-colors">
+                        <a href="#" 
+                            onclick="shareRecipeOnWhatsApp(event)"
+                            class="text-green-500 hover:text-green-700 transition-colors">
                             <i class="fab fa-whatsapp text-3xl"></i>
                         </a>
                         <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|urlencode }}" 
@@ -113,7 +162,64 @@
     </div>
 </div>
 
+<!-- Add this JavaScript function -->
 <script>
+function shareRecipeOnWhatsApp(event) {
+    event.preventDefault();
+    
+    // Get recipe details
+    const title = "{{ recipe.title|escapejs }}";
+    const ingredients = {{ recipe.ingredients_list|safe|default:"[]" }};
+    const instructions = {{ recipe.instructions_list|safe|default:"[]" }};
+    const nutrition = {{ recipe.nutrition_info|safe|default:"{}" }};
+    const tips = {{ recipe.tips|safe|default:"[]" }};
+
+    // Format the message
+    let message = `🍽️ *${title}*\n\n`;
+
+    // Add ingredients
+    message += "*📝 Ingredients:*\n";
+    ingredients.forEach((ingredient, index) => {
+        message += `• ${ingredient}\n`;
+    });
+    message += "\n";
+
+    // Add instructions
+    message += "*👩‍🍳 Instructions:*\n";
+    instructions.forEach((instruction, index) => {
+        message += `${index + 1}. ${instruction}\n`;
+    });
+    message += "\n";
+
+    // Add nutrition info if available
+    if (Object.keys(nutrition).length > 0) {
+        message += "*🥗 Nutrition Information:*\n";
+        for (const [key, value] of Object.entries(nutrition)) {
+            message += `• ${key}: ${value}\n`;
+        }
+        message += "\n";
+    }
+
+    // Add cooking tips if available
+    if (tips.length > 0) {
+        message += "*💡 Cooking Tips:*\n";
+        tips.forEach(tip => {
+            message += `• ${tip}\n`;
+        });
+        message += "\n";
+    }
+
+    // Add footer
+    message += "👨‍🍳 *Shared from NaijaPlate*";
+
+    // Encode the message for WhatsApp
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Open WhatsApp with the formatted message
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+}
+
+// Keep existing delete modal functions
 let recipeIdToDelete = null;
 
 function confirmDelete(recipeId) {

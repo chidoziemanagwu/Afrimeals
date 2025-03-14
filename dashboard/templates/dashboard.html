@@ -1,6 +1,24 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block extra_head %}
+<style>
+    .modal-table-wrapper {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-table th {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1;
+}
+</style>
+{% endblock %}
+
+
+
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-green-50 via-emerald-100 to-teal-100">
     <!-- Hero Section -->
@@ -92,83 +110,7 @@
         </div>
     </div>
 
-<!-- Recent Activity -->
-<div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-xl shadow-md p-6">
-        <div class="flex justify-between items-center mb-6">
-            <h3 class="text-2xl font-bold text-gray-800">Your Recent Activity</h3>
-            <a href="{% url 'user_profile' %}" class="text-green-600 hover:text-green-700 font-medium">View all →</a>
-        </div>
-        
-        {% if recent_activities %}
-            <div class="space-y-4">
-                {% for activity in recent_activities|slice:":5" %}
-                    <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center flex-grow">
-                                <!-- Activity Icon -->
-                                <div class="flex items-center justify-center h-10 w-10 rounded-full mr-4
-                                            {% if 'meal' in activity.action %}bg-green-100 text-green-600
-                                            {% elif 'recipe' in activity.action %}bg-blue-100 text-blue-600
-                                            {% elif activity.action == 'subscription' %}bg-purple-100 text-purple-600
-                                            {% else %}bg-gray-100 text-gray-600{% endif %}">
-                                    <i class="fas {% if 'meal' in activity.action %}fa-utensils
-                                                {% elif 'recipe' in activity.action %}fa-book-open
-                                                {% elif activity.action == 'subscription' %}fa-crown
-                                                {% else %}fa-clock{% endif %}"></i>
-                                </div>
 
-                                <!-- Activity Details -->
-                                <div>
-                                    <h4 class="font-medium text-gray-800">{{ activity.get_action_display }}</h4>
-                                    <p class="text-sm text-gray-500">{{ activity.timestamp|date:"F j, Y, g:i a" }}</p>
-                                    {% if activity.details.title %}
-                                        <p class="text-sm text-gray-600 mt-1">{{ activity.details.title }}</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <!-- Action Buttons -->
-                            {% if 'meal' in activity.action or 'recipe' in activity.action %}
-                                <div class="flex space-x-2">
-                                    <button class="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                            onclick="exportActivity('{{ activity.id }}')">
-                                        <i class="fas fa-file-pdf mr-1"></i> PDF
-                                    </button>
-                                    <button class="text-blue-500 hover:text-blue-600"
-                                            onclick="viewActivityDetails('{{ activity.id }}')">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="text-center py-8 text-gray-500">
-                <i class="fas fa-history text-4xl mb-3"></i>
-                <p>No recent activities to display.</p>
-            </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Activity Details Modal -->
-<div id="activityModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3">
-            <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Activity Details</h3>
-            <div class="mt-2 text-gray-600" id="modalContent"></div>
-            <div class="mt-4">
-                <button onclick="closeModal()"
-                        class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
     <!-- Footer -->
     <footer class="bg-gray-800 text-white py-12 mt-12">
@@ -215,40 +157,137 @@
 </div>
 
 <script>
-function exportActivity(activityId, type) {
-    const exportUrl = type === 'meal_plan' 
-        ? `/meal-plans/${activityId}/export/`
-        : `/recipes/${activityId}/export/`;
-    window.location.href = exportUrl;
-}
 
-    function viewActivityDetails(activityId) {
-        fetch(`/activity/${activityId}/detail/`)
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('modalContent').innerHTML = `
-                    <p><strong>Action:</strong> ${data.action}</p>
-                    <p><strong>Time:</strong> ${data.timestamp}</p>
-                    <p><strong>Details:</strong></p>
-                    <pre class="bg-gray-100 p-2 rounded mt-2">${JSON.stringify(data.details, null, 2)}</pre>
-                `;
-                document.getElementById('activityModal').classList.remove('hidden');
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error loading activity details');
-            });
+function shareMealPlanOnWhatsApp() {
+    const mealPlanTable = document.getElementById('mealPlanTable');
+    if (!mealPlanTable) {
+        alert('No meal plan available to share.');
+        return;
     }
 
-    function closeModal() {
-        document.getElementById('activityModal').classList.add('hidden');
-    }
+    // Extract meal plan details from the table
+    let message = "🍽️ *My NaijaPlate Meal Plan*:\n\n";
+    const rows = mealPlanTable.querySelectorAll('tr');
+    rows.forEach((row, index) => {
+        if (index === 0) return; // Skip the header row
+        const cells = row.querySelectorAll('td');
+        if (cells.length === 5) {
+            const day = cells[0].innerText.trim();
+            const breakfast = cells[1].innerText.trim();
+            const lunch = cells[2].innerText.trim();
+            const snack = cells[3].innerText.trim();
+            const dinner = cells[4].innerText.trim();
 
-    // Close modal when clicking outside
-    document.getElementById('activityModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeModal();
+            message += `📅 *${day}*\n`;
+            message += `🌅 *Breakfast*: ${breakfast || 'N/A'}\n`;
+            message += `🍽️ *Lunch*: ${lunch || 'N/A'}\n`;
+            if (snack) {
+                message += `🥨 *Snack*: ${snack || 'N/A'}\n`;
+            }
+            message += `🌙 *Dinner*: ${dinner || 'N/A'}\n\n`;
         }
     });
+
+    message += "📱 Generated by *NaijaPlate*";
+
+    // Encode the message for WhatsApp
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+}
+
+
+
+function viewActivityDetails(activityId) {
+    fetch(`/activity/${activityId}/detail/`)
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
+        .then(data => {
+            console.log('Activity data:', data); // For debugging
+
+            // Basic activity information
+            let contentHtml = `
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-sm text-gray-600">Action</p>
+                            <p class="font-medium">${data.action}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Time</p>
+                            <p class="font-medium">${data.timestamp}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // If there's a meal plan, display it with recipe links
+            if (data.meal_plan && data.meal_plan.days) {
+                document.getElementById('mealPlanContent').classList.remove('hidden');
+                let mealPlanHtml = '';
+                
+                data.meal_plan.days.forEach((day, index) => {
+                    mealPlanHtml += `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                ${day.day}
+                            </td>
+                            ${['breakfast', 'lunch', 'snack', 'dinner'].map(mealType => `
+                                <td class="px-6 py-4 text-sm text-gray-500">
+                                    <div class="flex flex-col gap-2">
+                                        <span>${day.meals[mealType] || '-'}</span>
+                                        ${day.meals[`${mealType}_recipe`] ? `
+                                            <button onclick="viewRecipe(${day.meals[`${mealType}_recipe`]})" 
+                                                    class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">
+                                                <i class="fas fa-utensils mr-1"></i>View Recipe
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </td>
+                            `).join('')}
+                        </tr>
+                    `;
+                });
+                
+                document.getElementById('mealPlanTable').innerHTML = mealPlanHtml;
+            } else {
+                document.getElementById('mealPlanContent').classList.add('hidden');
+            }
+
+            // Update modal content
+            document.getElementById('modalContent').innerHTML = contentHtml;
+            document.getElementById('activityModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading activity details');
+        });
+}
+
+
+function viewRecipe(recipeId) {
+    console.log('Viewing recipe:', recipeId);
+    window.location.href = `/recipes/${recipeId}/`;
+}
+
+
+function exportActivityPDF() {
+    const activityId = document.getElementById('activityModal').dataset.activityId;
+    window.location.href = `/activity/${activityId}/export/`;
+}
+
+function closeModal() {
+    document.getElementById('activityModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+document.getElementById('activityModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+
 </script>
 {% endblock %}

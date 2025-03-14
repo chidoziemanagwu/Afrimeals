@@ -1,4 +1,5 @@
 import os
+import re
 from django.urls import reverse
 from openai import OpenAI
 import json
@@ -38,7 +39,9 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.decorators import login_required
 import pandas as pd
 from django.views.decorators.http import require_http_methods
-
+from django.contrib.auth.models import User
+from google import genai
+from .services.gemini_assistant import GeminiAssistant
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -375,6 +378,14 @@ class MealGeneratorView(LoginRequiredMixin, View):
             description=json.dumps(structured_meal_plan)  # Store as JSON string
         )
 
+
+        # Log the activity with the meal plan ID
+        UserActivity.log_meal_plan_activity(
+            user=user,
+            action='create_meal',
+            meal_plan=meal_plan
+        )
+
         # Create grocery list
         grocery_items = "\n".join(structured_grocery_list)
         GroceryList.objects.create(
@@ -523,7 +534,7 @@ class CheckoutView(View):
             tier = SubscriptionTier.objects.get(id=tier_id)
 
             # Update or create subscription
-            subscription, created = Subscription.objects.update_or_create(
+            subscription, created = SubscriptionTier.objects.update_or_create(
                 user=user,
                 defaults={
                     'tier': tier,
@@ -647,106 +658,160 @@ class RecipeDetailView(LoginRequiredMixin, DetailView):
 
 
 class RecipeDetailsView(LoginRequiredMixin, View):
+    def __init__(self):
+        super().__init__()
+        self.gemini_assistant = GeminiAssistant()
+
+    def _clean_json_response(self, response_text: str) -> str:
+        """Clean the response text to get valid JSON"""
+        # Remove markdown code block markers
+        cleaned_text = re.sub(r'^```json\s*', '', response_text)
+        cleaned_text = re.sub(r'\s*```$', '', cleaned_text)
+
+        # Remove any leading/trailing whitespace
+        cleaned_text = cleaned_text.strip()
+
+        return cleaned_text
+
     def get(self, request, meal_plan_id, day_index, meal_type):
         try:
+            # Get the meal plan
             meal_plan = get_object_or_404(MealPlan, id=meal_plan_id, user=request.user)
-            meal_data = json.loads(meal_plan.description)
-            meal_name = meal_data[day_index]['meals'][meal_type]
 
-            # Generate recipe using GPT-4
+            try:
+                meal_data = json.loads(meal_plan.description)
+                meal_name = meal_data[int(day_index)]['meals'][meal_type]
+            except (json.JSONDecodeError, IndexError, KeyError) as e:
+                logger.error(f"Error parsing meal plan data: {str(e)}")
+                return JsonResponse({
+                    'error': 'Invalid meal plan data'
+                }, status=400)
+
+            # Check for existing recipe
+            existing_recipe = Recipe.objects.filter(
+                meal_plan=meal_plan,
+                day_index=day_index,
+                meal_type=meal_type
+            ).first()
+
+            if existing_recipe:
+                return JsonResponse({
+                    'title': existing_recipe.title,
+                    'description': self.gemini_assistant.format_response(existing_recipe.description),
+                    'prepTime': existing_recipe.prep_time,
+                    'cookTime': existing_recipe.cook_time,
+                    'servings': existing_recipe.servings,
+                    'difficulty': existing_recipe.difficulty,
+                    'ingredients': existing_recipe.ingredients_list,
+                    'instructions': existing_recipe.instructions_list,
+                    'nutrition': existing_recipe.nutrition_info,
+                    'tips': existing_recipe.tips
+                })
+
+            # Construct the recipe generation prompt
             prompt = f"""
-            Generate a detailed Nigerian recipe for {meal_name}. Format the response as JSON with the following structure:
+            Create a detailed Nigerian recipe for {meal_name}.
+            Return only the JSON object without any markdown formatting or code blocks.
+            The response should be a valid JSON object with this structure:
             {{
-                "description": "Brief description and cultural significance of the dish",
-                "prep_time": "Preparation time in minutes",
-                "cook_time": "Cooking time in minutes",
-                "servings": "Number of servings (integer)",
-                "difficulty": "Cooking difficulty level",
-                "ingredients": ["List of ingredients with quantities"],
-                "instructions": ["Step by step cooking instructions"],
+                "title": "{meal_name}",
+                "description": "Brief description including cultural significance and UK-Nigerian fusion notes",
+                "prep_time": "30 mins",
+                "cook_time": "45 mins",
+                "servings": 4,
+                "difficulty": "Medium",
+                "ingredients": [
+                    "List each ingredient with UK measurements",
+                    "Include UK store suggestions in parentheses"
+                ],
+                "instructions": [
+                    "Detailed steps with UK-specific notes",
+                    "Include temperature in both Celsius and Fahrenheit"
+                ],
                 "nutrition_info": {{
                     "calories": "per serving",
                     "protein": "in grams",
                     "carbs": "in grams",
-                    "fat": "in grams",
-                    "fiber": "in grams"
+                    "fat": "in grams"
                 }},
-                "tips": ["Traditional cooking tips and variations"]
+                "tips": [
+                    "UK ingredient substitutions",
+                    "Storage and reheating advice",
+                    "Serving suggestions"
+                ]
             }}
             """
 
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are an expert Nigerian chef."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7
-            )
+            try:
+                # Generate recipe using GeminiAssistant
+                response = self.gemini_assistant.client.models.generate_content(
+                    model=self.gemini_assistant.model,
+                    contents=self.gemini_assistant.base_context + "\n" + prompt
+                )
 
-            recipe_data = json.loads(response.choices[0].message.content)
+                if not response or not response.text:
+                    raise ValueError("Empty response from Gemini API")
 
-            # Save the recipe to the database
-            recipe = Recipe.objects.create(
-                user=request.user,
-                meal_plan=meal_plan,
-                meal_type=meal_type,
-                day_index=day_index,
-                title=meal_name,
-                description=recipe_data['description'],
-                prep_time=recipe_data['prep_time'],
-                cook_time=recipe_data['cook_time'],
-                servings=recipe_data['servings'],
-                difficulty=recipe_data['difficulty'],
-                ingredients=recipe_data['ingredients'],
-                instructions=recipe_data['instructions'],
-                nutrition_info=recipe_data['nutrition_info'],
-                tips=recipe_data['tips']
-            )
+                # Clean the response text before parsing JSON
+                cleaned_response = self._clean_json_response(response.text)
+                recipe_data = json.loads(cleaned_response)
 
-            # Track recipe generation
-            UserActivity.objects.create(
-                user=request.user,
-                action='create_recipe',
-                details={
-                    'meal_plan_id': meal_plan_id,
-                    'meal_type': meal_type,
-                    'day_index': day_index,
-                    'recipe_id': recipe.id
-                }
-            )
+                # Create the recipe
+                recipe = Recipe.objects.create(
+                    user=request.user,
+                    meal_plan=meal_plan,
+                    meal_type=meal_type,
+                    day_index=day_index,
+                    title=recipe_data['title'],
+                    description=recipe_data['description'],
+                    ingredients=json.dumps(recipe_data['ingredients']),
+                    instructions=json.dumps(recipe_data['instructions']),
+                    prep_time=recipe_data['prep_time'],
+                    cook_time=recipe_data['cook_time'],
+                    servings=recipe_data['servings'],
+                    difficulty=recipe_data['difficulty'],
+                    nutrition_info=recipe_data['nutrition_info'],
+                    tips=recipe_data.get('tips', []),
+                    is_ai_generated=True
+                )
 
-            # Return recipe details
-            return JsonResponse({
-                'title': recipe.title,
-                'description': recipe.description,
-                'prepTime': recipe.prep_time,
-                'cookTime': recipe.cook_time,
-                'servings': recipe.servings,
-                'difficulty': recipe.difficulty,
-                'ingredients': recipe.ingredients,
-                'instructions': recipe.instructions,
-                'nutrition': recipe.nutrition_info,
-                'tips': recipe.tips
-            })
+                # Format the response
+                return JsonResponse({
+                    'title': recipe.title,
+                    'description': self.gemini_assistant.format_response(recipe.description),
+                    'prepTime': recipe.prep_time,
+                    'cookTime': recipe.cook_time,
+                    'servings': recipe.servings,
+                    'difficulty': recipe.difficulty,
+                    'ingredients': [
+                        self.gemini_assistant.format_response(ingredient)
+                        for ingredient in recipe.ingredients_list
+                    ],
+                    'instructions': [
+                        self.gemini_assistant.format_response(instruction)
+                        for instruction in recipe.instructions_list
+                    ],
+                    'nutrition': recipe.nutrition_info,
+                    'tips': [
+                        self.gemini_assistant.format_response(tip)
+                        for tip in recipe.tips
+                    ]
+                })
 
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON decode error: {str(e)}", exc_info=True)
-            return JsonResponse({
-                'error': 'Invalid recipe data format'
-            }, status=400)
-        except OpenAIError as e:
-            logger.error(f"OpenAI API error: {str(e)}", exc_info=True)
-            return JsonResponse({
-                'error': 'Failed to generate recipe. Please try again.'
-            }, status=500)
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in Gemini response: {response.text if 'response' in locals() else 'No response'}")
+                logger.error(f"JSON parse error: {str(e)}")
+                return JsonResponse({
+                    'error': 'Invalid recipe data format from AI'
+                }, status=500)
+
         except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+            logger.error(f"Error in RecipeDetailsView: {str(e)}", exc_info=True)
             return JsonResponse({
-                'error': 'An unexpected error occurred'
+                'error': 'An error occurred while generating the recipe'
             }, status=500)
-
-
+            
+                       
 
 
 class UserProfileView(LoginRequiredMixin, View):
@@ -1254,16 +1319,87 @@ def export_activity_pdf(request, activity_id):
 
 @login_required
 def activity_detail_api(request, activity_id):
-    activity = get_object_or_404(UserActivity, id=activity_id, user=request.user)
+    try:
+        activity = get_object_or_404(UserActivity, id=activity_id, user=request.user)
 
-    data = {
-        'id': activity.id,
-        'action': activity.get_action_display(),
-        'timestamp': activity.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-        'details': activity.details
-    }
+        # Base response data
+        response_data = {
+            'id': activity.id,
+            'action': activity.get_action_display(),
+            'timestamp': activity.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            'details': activity.details
+        }
 
-    return JsonResponse(data)
+        # If this is a meal plan activity
+        if 'meal' in activity.action:
+            meal_plan_id = activity.details.get('meal_plan_id')
+            if meal_plan_id:
+                try:
+                    meal_plan = MealPlan.objects.get(id=meal_plan_id)
+                    meal_data = json.loads(meal_plan.description)
+
+                    # Structure for the meal plan data
+                    structured_days = []
+
+                    # Process each day in the meal plan
+                    for day_index, day_data in enumerate(meal_data):
+                        day_meals = {}
+
+                        # Process each meal type
+                        for meal_type in ['breakfast', 'lunch', 'snack', 'dinner']:
+                            if meal_type in day_data['meals']:
+                                # Get the recipe for this meal
+                                recipe = Recipe.objects.filter(
+                                    meal_plan=meal_plan,
+                                    day_index=day_index,
+                                    meal_type=meal_type
+                                ).first()
+
+                                day_meals[meal_type] = day_data['meals'][meal_type]
+
+                                if recipe:
+                                    day_meals[f'{meal_type}_recipe'] = recipe.id
+                                    day_meals[f'{meal_type}_recipe_details'] = {
+                                        'title': recipe.title,
+                                        'prep_time': recipe.prep_time,
+                                        'cook_time': recipe.cook_time,
+                                        'servings': recipe.servings,
+                                        'difficulty': recipe.difficulty,
+                                        'ingredients': recipe.ingredients_list,
+                                        'instructions': recipe.instructions_list,
+                                        'nutrition_info': recipe.nutrition_info,
+                                        'tips': recipe.tips
+                                    }
+
+                        structured_days.append({
+                            'day': f"Day {day_index + 1}",
+                            'meals': day_meals
+                        })
+
+                    response_data['meal_plan'] = {
+                        'id': meal_plan.id,
+                        'name': meal_plan.name,
+                        'created_at': meal_plan.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                        'days': structured_days
+                    }
+
+                except MealPlan.DoesNotExist:
+                    logger.error(f"Meal plan {meal_plan_id} not found")
+                except json.JSONDecodeError:
+                    logger.error(f"Invalid JSON in meal plan description")
+                except Exception as e:
+                    logger.error(f"Error processing meal plan: {str(e)}")
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        logger.error(f"Error in activity_detail_api: {str(e)}")
+        return JsonResponse({
+            'error': 'An error occurred while fetching activity details'
+        }, status=500)
+
+
+
 class ActivityListView(LoginRequiredMixin, ListView):
     model = UserActivity
     template_name = 'dashboard/activity_list.html'

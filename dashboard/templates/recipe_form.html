@@ -1,15 +1,33 @@
-<!-- recipe_form.html -->
 {% extends 'base.html' %}
 
 {% block title %}{{ title }} - NaijaPlate{% endblock %}
 
+{% block extra_head %}
+<style>
+    .ingredient-item, .instruction-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .remove-item {
+        color: #EF4444;
+        cursor: pointer;
+    }
+    .add-item {
+        color: #059669;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="max-w-2xl mx-auto">
+    <div class="max-w-3xl mx-auto">
         <div class="bg-white rounded-lg shadow-md p-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-6">{{ title }}</h2>
             
-            <form method="post" class="space-y-6">
+            <form method="post" class="space-y-6" id="recipeForm">
                 {% csrf_token %}
                 
                 <!-- Title Field -->
@@ -17,10 +35,11 @@
                     <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                         Recipe Title
                     </label>
-                    {{ form.title }}
-                    {% if form.title.help_text %}
-                    <p class="text-xs text-gray-500 mt-1">{{ form.title.help_text }}</p>
-                    {% endif %}
+                    <input type="text" 
+                           name="title" 
+                           id="{{ form.title.id_for_label }}" 
+                           value="{{ form.title.value|default:'' }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
                     {% if form.title.errors %}
                     <p class="text-red-500 text-xs mt-1">{{ form.title.errors.0 }}</p>
                     {% endif %}
@@ -28,30 +47,34 @@
 
                 <!-- Ingredients Field -->
                 <div class="form-group">
-                    <label for="{{ form.ingredients.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
                         Ingredients
                     </label>
-                    {{ form.ingredients }}
-                    {% if form.ingredients.help_text %}
-                    <p class="text-xs text-gray-500 mt-1">{{ form.ingredients.help_text }}</p>
-                    {% endif %}
-                    {% if form.ingredients.errors %}
-                    <p class="text-red-500 text-xs mt-1">{{ form.ingredients.errors.0 }}</p>
-                    {% endif %}
+                    <div id="ingredientsList" class="space-y-2 mb-2">
+                        <!-- Ingredients will be dynamically added here -->
+                    </div>
+                    <button type="button" 
+                            onclick="addIngredient()"
+                            class="mt-2 px-4 py-2 border border-green-500 text-green-600 rounded-lg hover:bg-green-50 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Add Ingredient
+                    </button>
+                    <input type="hidden" name="ingredients" id="ingredientsInput">
                 </div>
 
                 <!-- Instructions Field -->
                 <div class="form-group">
-                    <label for="{{ form.instructions.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
                         Instructions
                     </label>
-                    {{ form.instructions }}
-                    {% if form.instructions.help_text %}
-                    <p class="text-xs text-gray-500 mt-1">{{ form.instructions.help_text }}</p>
-                    {% endif %}
-                    {% if form.instructions.errors %}
-                    <p class="text-red-500 text-xs mt-1">{{ form.instructions.errors.0 }}</p>
-                    {% endif %}
+                    <div id="instructionsList" class="space-y-2 mb-2">
+                        <!-- Instructions will be dynamically added here -->
+                    </div>
+                    <button type="button" 
+                            onclick="addInstruction()"
+                            class="mt-2 px-4 py-2 border border-green-500 text-green-600 rounded-lg hover:bg-green-50 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Add Instruction
+                    </button>
+                    <input type="hidden" name="instructions" id="instructionsInput">
                 </div>
 
                 {% if user.is_staff %}
@@ -78,4 +101,116 @@
         </div>
     </div>
 </div>
+
+<script>
+let ingredients = [];
+let instructions = [];
+
+// Initialize form with existing data
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        // Load ingredients
+        const ingredientsValue = '{{ form.ingredients.value|safe|escapejs }}';
+        if (ingredientsValue) {
+            ingredients = JSON.parse(ingredientsValue);
+        }
+    } catch (e) {
+        // Handle non-JSON ingredients
+        const ingredientsValue = '{{ form.ingredients.value|default:""|escapejs }}';
+        if (ingredientsValue) {
+            ingredients = ingredientsValue.split('\n').filter(item => item.trim());
+        }
+    }
+
+    try {
+        // Load instructions
+        const instructionsValue = '{{ form.instructions.value|safe|escapejs }}';
+        if (instructionsValue) {
+            instructions = JSON.parse(instructionsValue);
+        }
+    } catch (e) {
+        // Handle non-JSON instructions
+        const instructionsValue = '{{ form.instructions.value|default:""|escapejs }}';
+        if (instructionsValue) {
+            instructions = instructionsValue.split('\n').filter(item => item.trim());
+        }
+    }
+
+    // Render initial lists
+    renderIngredients();
+    renderInstructions();
+});
+
+function addIngredient() {
+    ingredients.push('');
+    renderIngredients();
+}
+
+function removeIngredient(index) {
+    ingredients.splice(index, 1);
+    renderIngredients();
+}
+
+function updateIngredient(index, value) {
+    ingredients[index] = value;
+    document.getElementById('ingredientsInput').value = JSON.stringify(ingredients);
+}
+
+function renderIngredients() {
+    const container = document.getElementById('ingredientsList');
+    container.innerHTML = ingredients.map((ingredient, index) => `
+        <div class="ingredient-item">
+            <input type="text"
+                   value="${ingredient}"
+                   onchange="updateIngredient(${index}, this.value)"
+                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                   placeholder="Enter ingredient">
+            <button type="button" onclick="removeIngredient(${index})" class="remove-item">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+    document.getElementById('ingredientsInput').value = JSON.stringify(ingredients);
+}
+
+function addInstruction() {
+    instructions.push('');
+    renderInstructions();
+}
+
+function removeInstruction(index) {
+    instructions.splice(index, 1);
+    renderInstructions();
+}
+
+function updateInstruction(index, value) {
+    instructions[index] = value;
+    document.getElementById('instructionsInput').value = JSON.stringify(instructions);
+}
+
+function renderInstructions() {
+    const container = document.getElementById('instructionsList');
+    container.innerHTML = instructions.map((instruction, index) => `
+        <div class="instruction-item">
+            <span class="text-gray-500 mr-2">${index + 1}.</span>
+            <textarea
+                onchange="updateInstruction(${index}, this.value)"
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                placeholder="Enter instruction step"
+                rows="2">${instruction}</textarea>
+            <button type="button" onclick="removeInstruction(${index})" class="remove-item">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+    document.getElementById('instructionsInput').value = JSON.stringify(instructions);
+}
+
+// Form submission
+document.getElementById('recipeForm').onsubmit = function() {
+    document.getElementById('ingredientsInput').value = JSON.stringify(ingredients);
+    document.getElementById('instructionsInput').value = JSON.stringify(instructions);
+    return true;
+};
+</script>
 {% endblock %}

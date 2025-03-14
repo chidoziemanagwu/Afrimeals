@@ -34,12 +34,394 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #45a049;
     }
-  </style>
-  
+
+/* Chat Widget Core Styles */
+#gemini-chat-widget {
+    width: 90vw;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#chat-window {
+    background-color: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    width: 100%;
+    position: relative;
+    max-height: 80vh;
+}
+
+/* Header Styling */
+.chat-header {
+    background-color: #0F5132;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Message Container */
+#chat-messages {
+    background-color: #ffffff;
+    padding: 16px;
+    height: calc(80vh - 140px);
+    overflow-y: auto;
+}
+
+/* Message Bubbles */
+.user-message {
+    background-color: #0F5132;
+    color: white;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    margin-left: auto;
+    max-width: 80%;
+    font-size: 14px;
+}
+
+.assistant-message {
+    background-color: #E8F5E9;
+    color: #1F2937;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    margin-right: auto;
+    max-width: 80%;
+    font-size: 14px;
+}
+
+/* Section Headers in Assistant Messages */
+.section-title {
+    color: #0F5132;
+    font-weight: 600;
+    font-size: 14px;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+/* Message Content */
+.message-content {
+    line-height: 1.5;
+    font-size: 14px;
+}
+
+/* Links in Messages */
+.message-link {
+    color: #0F5132;
+    text-decoration: underline;
+}
+
+/* Input Field */
+#chat-input {
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 14px;
+    width: 100%;
+    background-color: white;
+}
+
+#chat-input:focus {
+    border-color: #0F5132;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(15, 81, 50, 0.1);
+}
+
+/* Send Button */
+.send-button {
+    background-color: #0F5132;
+    color: white;
+    border-radius: 8px;
+    padding: 12px 16px;
+    transition: background-color 0.2s;
+}
+
+.send-button:hover {
+    background-color: #134E4A;
+}
+
+/* Chat Toggle Button Container */
+.chat-toggle-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+}
+
+/* Chat Toggle Button */
+#chat-toggle {
+    background-color: #0F5132;
+    color: white;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#chat-toggle:hover {
+    transform: scale(1.1);
+    background-color: #134E4A;
+}
+
+/* Message Sections */
+.message-section {
+    margin-bottom: 8px;
+    padding: 8px 0;
+}
+
+/* Bullet Points */
+.message-content ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.message-content ul li {
+    position: relative;
+    padding-left: 20px;
+    margin: 4px 0;
+}
+
+.message-content ul li::before {
+    content: "•";
+    position: absolute;
+    left: 8px;
+    color: #0F5132;
+}
+
+/* Chat Window Animations */
+#chat-window {
+    transition: all 0.3s ease-in-out;
+    transform-origin: bottom right;
+}
+
+#chat-window.hidden {
+    transform: scale(0.95);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+    #gemini-chat-widget {
+        width: 90vw;
+        max-width: none;
+    }
+
+    #chat-window {
+        max-height: 80vh;
+        border-radius: 12px;
+    }
+    
+    #chat-messages {
+        height: calc(80vh - 140px);
+    }
+}
+
+
+
+/* Scrollbar Styling for Chat Messages */
+#chat-messages::-webkit-scrollbar {
+    width: 4px;
+}
+
+#chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(15, 81, 50, 0.2);
+    border-radius: 20px;
+}
+
+#chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(15, 81, 50, 0.4);
+}
+
+/* Add these styles to your existing CSS */
+
+/* Card Layout for Long Responses */
+.response-cards {
+    display: grid;
+    gap: 12px;
+    margin: 8px 0;
+}
+
+/* Video Card */
+.video-card {
+    background-color: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 12px;
+    transition: all 0.2s ease;
+}
+
+.video-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.video-card-title {
+    color: #0F5132;
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.video-card-details {
+    color: #6B7280;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Recipe Card */
+.recipe-card {
+    background-color: #F8FAF8;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 8px 0;
+}
+
+.recipe-card-header {
+    color: #0F5132;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.recipe-card-content {
+    font-size: 13px;
+    color: #374151;
+}
+
+/* List Groups */
+.list-group {
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 8px 0;
+}
+
+.list-group-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid #E5E7EB;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+/* Steps/Instructions */
+.steps-container {
+    counter-reset: step;
+    margin: 8px 0;
+}
+
+.step-item {
+    position: relative;
+    padding: 12px 12px 12px 40px;
+    margin-bottom: 8px;
+    background-color: white;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.step-item::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    background-color: #0F5132;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Expandable Section */
+.expandable-section {
+    position: relative;
+    max-height: 400px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.expandable-section.expanded {
+    max-height: none;
+}
+
+.expand-trigger {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, white);
+    padding: 40px 0 8px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.expand-button {
+    background-color: #0F5132;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.expand-button:hover {
+    background-color: #134E4A;
+}
+
+/* Tags/Badges */
+.tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    background-color: #E8F5E9;
+    color: #0F5132;
+    border-radius: 12px;
+    font-size: 12px;
+    margin: 2px;
+}
+
+/* Responsive Grid Layouts */
+@media (min-width: 480px) {
+    .response-cards {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+/* Hide chat widget on meal generator page */
+.meal-generator-page #gemini-chat-widget {
+    display: none !important;
+}
+</style>
   {% block extra_head %}{% endblock %}
   
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50 {% block body_class %}{% endblock %}">
   {% csrf_token %}
   <!-- Navigation Bar -->
   <nav class="bg-white shadow-lg">
@@ -161,39 +543,47 @@
   {% endif %}
 </div>
 
-
-<!-- Gemini Chat Widget -->
+{% if not hide_chat %}
 <div id="gemini-chat-widget" class="fixed bottom-4 right-4 z-50">
   <!-- Chat Toggle Button -->
-  <button id="chat-toggle" class="bg-green-600 text-white p-4 rounded-full shadow-lg hover:bg-green-700 transition-all duration-300">
-      <i class="fas fa-comments text-xl"></i>
-  </button>
+  <div class="flex justify-end">
+      <button class="bg-green-800 text-white p-4 rounded-full shadow-lg hover:bg-green-700 transition-all duration-300">
+          <i id="chat-toggle" class="fas fa-comments text-xl"></i>
+      </button>
+  </div>
 
   <!-- Chat Window -->
-  <div id="chat-window" class="hidden absolute bottom-16 right-0 w-96 bg-white rounded-lg shadow-xl">
+  <div id="chat-window" class="hidden w-[400px] bg-white rounded-xl shadow-xl max-h-[80vh] flex flex-col mt-4">
       <!-- Chat Header -->
-      <div class="bg-green-600 text-white p-4 rounded-t-lg flex justify-between items-center">
-          <h3 class="text-lg font-semibold">Gemini Assistant</h3>
+      <div class="bg-green-800 text-white px-4 py-3 rounded-t-xl flex justify-between items-center">
+          <div class="flex items-center space-x-2">
+              <i class="fas fa-robot text-lg"></i>
+              <h3 class="text-base font-medium">Gemini Assistant</h3>
+          </div>
           <button id="close-chat" class="text-white hover:text-gray-200">
               <i class="fas fa-times"></i>
           </button>
       </div>
       
       <!-- Chat Messages -->
-      <div id="chat-messages" class="h-96 overflow-y-auto p-4 space-y-4">
+      <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-6">
           <!-- Welcome Message -->
-          <div class="flex items-start">
+          <div class="flex items-start space-x-2">
               <div class="flex-shrink-0">
                   <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                      <i class="fas fa-robot text-green-600"></i>
+                      <i class="fas fa-robot text-green-800"></i>
                   </div>
               </div>
-              <div class="ml-3 bg-gray-100 rounded-lg p-3">
-                  <p class="text-sm text-gray-800">
+              <div class="flex-1 bg-white border border-gray-100 rounded-xl p-3 shadow-sm">
+                  <p class="text-sm text-gray-800 mb-2">
                       Hello! I'm your Nigerian cuisine assistant. I can help you with:
-                      - Finding ingredients
-                      - Recipe suggestions
-                      - Cooking tips
+                  </p>
+                  <ul class="text-sm text-gray-800 list-disc pl-4 space-y-1">
+                      <li>Finding ingredients</li>
+                      <li>Recipe suggestions</li>
+                      <li>Cooking tips</li>
+                  </ul>
+                  <p class="text-sm text-gray-800 mt-2">
                       What would you like to know?
                   </p>
               </div>
@@ -202,19 +592,21 @@
       
       <!-- Chat Input -->
       <div class="border-t p-4">
-          <form id="chat-form" class="flex items-center space-x-2">
+          <form id="chat-form" class="flex space-x-2">
               <input type="text" 
                      id="chat-input" 
-                     class="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                     class="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                      placeholder="Type your message...">
               <button type="submit" 
-                      class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                      class="px-4 py-2 bg-green-800 text-white rounded-lg hover:bg-green-700 transition-colors duration-300">
                   <i class="fas fa-paper-plane"></i>
               </button>
           </form>
       </div>
   </div>
 </div>
+{% endif %}
+
 
 
   <!-- JavaScript Libraries -->
@@ -238,6 +630,68 @@
       const desktopNav = document.getElementById('desktop-nav');
       const userActions = document.getElementById('user-actions');
       
+      // Add to your existing JavaScript
+function initializeExpandableContent() {
+    document.querySelectorAll('.expandable-section').forEach(section => {
+        if (section.scrollHeight > 400) {
+            const trigger = document.createElement('div');
+            trigger.className = 'expand-trigger';
+            trigger.innerHTML = `<button class="expand-button">Show More</button>`;
+            section.appendChild(trigger);
+
+            trigger.addEventListener('click', () => {
+                section.classList.toggle('expanded');
+                const button = trigger.querySelector('.expand-button');
+                button.textContent = section.classList.contains('expanded') ? 'Show Less' : 'Show More';
+            });
+        }
+    });
+}
+
+// Example usage for different content types
+function formatVideoResponse(videos) {
+    return `
+        <div class="expandable-section">
+            <div class="response-cards">
+                ${videos.map(video => `
+                    <div class="video-card">
+                        <div class="video-card-title">
+                            <i class="fas fa-play-circle mr-2"></i>${video.title}
+                        </div>
+                        <div class="video-card-details">
+                            <span><i class="fas fa-user mr-1"></i>${video.creator}</span>
+                            <span><i class="fas fa-clock mr-1"></i>${video.duration}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function formatStepsResponse(steps) {
+    return `
+        <div class="steps-container">
+            ${steps.map(step => `
+                <div class="step-item">${step}</div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function formatListResponse(items) {
+    return `
+        <div class="list-group">
+            ${items.map(item => `
+                <div class="list-group-item">
+                    <i class="fas fa-check-circle text-green-600"></i>
+                    ${item}
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
       function updateNavVisibility() {
         if (window.innerWidth >= 768) { // 768px is the md breakpoint in Tailwind
           if (desktopNav) {
