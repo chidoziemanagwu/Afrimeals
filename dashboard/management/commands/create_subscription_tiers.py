@@ -1,58 +1,77 @@
+# management/commands/create_subscription_tiers.py
 from django.core.management.base import BaseCommand
 from dashboard.models import SubscriptionTier
+from django.utils import timezone
 
 class Command(BaseCommand):
     help = 'Create default subscription tiers'
 
     def handle(self, *args, **kwargs):
-        # Check if tiers already exist
-        if SubscriptionTier.objects.exists():
-            self.stdout.write(self.style.WARNING('Subscription tiers already exist.'))
-            return
+        # Delete all existing tiers
+        SubscriptionTier.objects.all().delete()
+        self.stdout.write(self.style.SUCCESS('Deleted existing subscription tiers'))
 
-        # Create Pay-As-You-Go plan
-        one_time = SubscriptionTier.objects.create(
-            name='Pay As You Go',
-            tier_type='one_time',
-            price=9.99,
-            description='Get a single meal plan without a subscription.',
-            features={
-                'Single meal plan generation': True,
-                'Basic recipe access': True,
-                'Downloadable shopping list': True,
-                'No recurring commitment': True
+        tiers = [
+            {
+                'name': 'Free Plan',
+                'tier_type': 'one_time',
+                'price': 0.00,
+                'description': 'Try basic Nigerian recipes at no cost.',
+                'features': {
+                    'Limited meal plan options': True,
+                    'Basic grocery lists': True,
+                    'Access to 5 popular recipes': True
+                },
+                'is_active': True,
+                'created_at': timezone.now(),
+                'updated_at': timezone.now()
+            },
+            {
+                'name': 'Pay Once',
+                'tier_type': 'one_time',
+                'price': 5.99,
+                'description': 'Full features for a single meal plan.',
+                'features': {
+                    'Single AI-generated meal plan': True,
+                    'Complete grocery list with UK prices': True,
+                    'Cooking instructions with videos': True,
+                    'Store location details': True
+                },
+                'is_active': True,
+                'created_at': timezone.now(),
+                'updated_at': timezone.now()
+            },
+            {
+                'name': 'Weekly Access',
+                'tier_type': 'weekly',
+                'price': 12.99,
+                'description': 'Full AI assistant access for a week.',
+                'features': {
+                    'Unlimited meal plans for 7 days': True,
+                    'Full AI cuisine assistant access': True,
+                    'Advanced ingredient location finder': True,
+                    'YouTube tutorial recommendations': True,
+                    'Full Google Maps integration': True
+                },
+                'is_active': True,
+                'created_at': timezone.now(),
+                'updated_at': timezone.now()
             }
-        )
+        ]
 
-        # Create Weekly plan
-        weekly = SubscriptionTier.objects.create(
-            name='Weekly Plan',
-            tier_type='weekly',
-            price=14.99,
-            description='Weekly access to all NaijaPlate features.',
-            features={
-                '7-day access': True,
-                'Up to 3 meal plan generations': True,
-                'Full recipe database access': True,
-                'Shopping list integration': True,
-                'Basic nutritional tracking': True
-            }
-        )
+        try:
+            for tier_data in tiers:
+                tier = SubscriptionTier.objects.create(**tier_data)
+                self.stdout.write(
+                    self.style.SUCCESS(f'Created tier: {tier.name} (£{tier.price})')
+                )
 
-        # Create Monthly plan
-        monthly = SubscriptionTier.objects.create(
-            name='Monthly Plan',
-            tier_type='monthly',
-            price=39.99,
-            description='Our best value with unlimited access to all premium features.',
-            features={
-                'Full 30-day access': True,
-                'Unlimited meal plan generations': True,
-                'Premium recipe collection access': True,
-                'Advanced nutritional analytics': True,
-                'Shopping list with store integration': True,
-                'Meal prep guides and substitutions': True
-            }
-        )
-
-        self.stdout.write(self.style.SUCCESS('Successfully created subscription tiers.'))
+            self.stdout.write(
+                self.style.SUCCESS('Successfully created all subscription tiers')
+            )
+            
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'Error creating subscription tiers: {str(e)}')
+            )
+            raise  # Re-raise the exception for proper error handling

@@ -444,7 +444,7 @@ class CheckoutView(View):
 
     def post(self, request, tier_id):
         try:
-            tier = SubscriptionTier.objects.get(id=tier_id)
+            tier = get_object_or_404(SubscriptionTier, id=tier_id)
 
             # Use stored Stripe price ID if available
             if tier.stripe_price_id:
@@ -452,18 +452,19 @@ class CheckoutView(View):
             else:
                 checkout_session = self._create_checkout_session_with_price_data(request, tier)
 
-            return JsonResponse({'sessionId': checkout_session.id})
+            return JsonResponse({
+                'sessionId': checkout_session.id  # Consistently use 'sessionId'
+            })
 
         except SubscriptionTier.DoesNotExist:
-            logger.error(f"Subscription tier {tier_id} not found during checkout")
             return JsonResponse({'error': 'Subscription tier not found'}, status=404)
         except stripe.error.StripeError as e:
-            logger.error(f"Stripe error during checkout: {str(e)}")
             return JsonResponse({'error': str(e)}, status=400)
         except Exception as e:
-            logger.error(f"Unexpected error during checkout: {str(e)}")
-            return JsonResponse({'error': 'An unexpected error occurred'}, status=500)
-
+            return JsonResponse({'error': 'An unexpected error occurred'}, status=500)   
+        
+         
+    
     def _create_checkout_session_with_price_id(self, request, tier):
         """Create checkout session using stored Stripe price ID"""
         return stripe.checkout.Session.create(

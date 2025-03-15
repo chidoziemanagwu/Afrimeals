@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
 
+
+{% block body_class %}home-page{% endblock %}
+
+
 {% block extra_head %}
 <style>
   body > nav {
@@ -172,14 +176,21 @@
 const stripe = Stripe('{{ stripe_public_key }}');
 
 // Handle checkout button clicks
-// Update the checkout button event listeners to use your URL pattern
-document.querySelectorAll('[href^="{% url 'checkout' tier_id=0 %}"]').forEach(button => {
+document.querySelectorAll('[href^="/checkout/"]').forEach(button => {
     button.addEventListener('click', async (e) => {
         e.preventDefault();
-        const tierId = e.target.href.split('tier_id=')[1];
-
+        
+        // Get the button element
+        const button = e.currentTarget;
+        const tierId = button.href.split('/checkout/')[1].split('/')[0];
+        
         try {
-            // Use your existing checkout URL pattern
+            // Show loading state
+            button.disabled = true;
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            
+            // Create checkout session
             const response = await fetch(`/checkout/${tierId}/`, {
                 method: 'POST',
                 headers: {
@@ -187,25 +198,36 @@ document.querySelectorAll('[href^="{% url 'checkout' tier_id=0 %}"]').forEach(bu
                     'X-CSRFToken': getCookie('csrftoken')
                 }
             });
-
-            const session = await response.json();
+            
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
             
             // Redirect to Stripe checkout
             const result = await stripe.redirectToCheckout({
-                sessionId: session.id
+                sessionId: data.sessionId  // Match the key from your backend
             });
-
+            
             if (result.error) {
-                alert(result.error.message);
+                throw new Error(result.error.message);
             }
         } catch (error) {
             console.error('Error:', error);
+            // Show error message
             alert('An error occurred. Please try again.');
+        } finally {
+            // Reset button state
+            button.disabled = false;
+            button.innerHTML = originalText;
         }
     });
 });
-
-
 
 // Helper function to get CSRF token
 function getCookie(name) {
@@ -222,5 +244,6 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
 </script>
 {% endblock %}

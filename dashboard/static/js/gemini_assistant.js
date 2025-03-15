@@ -32,22 +32,24 @@ class GeminiAssistant {
         const chatInput = document.getElementById('chat-input');
         const chatMessages = document.getElementById('chat-messages');
 
+        const chatToggleContainer = document.getElementById('chat-toggle-container');
+
         // Ensure elements exist before adding listeners
-        if (chatToggle) {
+
+        if (chatToggle && chatWindow && chatToggleContainer) {
             chatToggle.addEventListener('click', () => {
-                chatWindow.classList.toggle('hidden');
-                chatToggle.classList.toggle('hidden');
-                chatInput.focus();
+              chatWindow.classList.remove('hidden');
+              chatToggleContainer.classList.add('hidden');
+              this.scrollToBottom();
             });
-        }
-
-        if (closeChat) {
+          }
+        
+        if (closeChat && chatWindow && chatToggleContainer) {
             closeChat.addEventListener('click', () => {
-                chatWindow.classList.add('hidden');
-                chatToggle.classList.remove('hidden');
+              chatWindow.classList.add('hidden');
+              chatToggleContainer.classList.remove('hidden');
             });
-        }
-
+          }
         if (chatForm) {
             chatForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -171,47 +173,189 @@ class GeminiAssistant {
         this.scrollToBottom();
     }
 
-    // Add this new method to handle assistant message formatting
     formatAssistantMessage(content) {
-        // Split content into sections if it contains headers
-        const sections = content.split(/(?=Why it's great:|Smoking Techniques:|Tips:|Instructions:|Note:)/g);
+        // First, clean up any malformed HTML
+        content = content.replace(/(<\/?div[^>]*>|<\/?em>|<\/?a[^>]*>)/g, '');
+        
+        // Split content into sections
+        const sections = content.split(/(?=📍|•|\d+\.|NaijaPlate's Recipe Recommendations|I\.|II\.|III\.)/g);
         
         return sections.map(section => {
-            // Check if section starts with a known header
-            const isHeader = /^(Why it's great:|Smoking Techniques:|Tips:|Instructions:|Note:)/.test(section);
+            section = section.trim();
             
-            if (isHeader) {
-                // Extract header and content
-                const [header, ...contentParts] = section.split(':');
-                const sectionContent = contentParts.join(':').trim();
-                
+            // Handle recipe tutorial sections
+            if (section.match(/^(I\.|II\.|III\.)/)) {
+                return this.formatRecipeSection(section);
+            }
+            
+            // Handle main sections
+            if (section.startsWith('📍')) {
                 return `
-                    <div class="mb-3">
-                        <h4 class="text-green-600 font-semibold text-sm mb-1">${header}:</h4>
-                        <p class="text-gray-700 text-sm">${this.formatTextContent(sectionContent)}</p>
+                    <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+                        <p class="text-gray-700 text-sm">${section.substring(2).trim()}</p>
                     </div>
                 `;
-            } else {
-                // Regular content
-                return `<p class="text-gray-700 text-sm mb-2">${this.formatTextContent(section.trim())}</p>`;
             }
+            
+            // Handle ingredients or steps
+            if (section.includes('•')) {
+                return this.formatIngredientsList(section);
+            }
+            
+            // Regular content
+            return `<p class="text-gray-700 text-sm mb-3">${this.formatTextContent(section)}</p>`;
+        }).join('');
+    }
+    
+    formatRecipeSection(section) {
+        const lines = section.split('\n');
+        const title = lines[0].trim();
+        
+        return `
+            <div class="recipe-section bg-white rounded-lg shadow-sm p-4 mb-4">
+                <h3 class="text-green-800 font-semibold text-lg mb-3">
+                    <i class="fas fa-utensils mr-2"></i>${title}
+                </h3>
+                <div class="space-y-3">
+                    ${this.formatRecipeContent(lines.slice(1).join('\n'))}
+                </div>
+            </div>
+        `;
+    }
+    
+    formatIngredientsList(section) {
+        const items = section.split('•').filter(item => item.trim());
+        
+        return `
+            <div class="ingredients-list bg-white rounded-lg shadow-sm p-4 mb-4">
+                <div class="space-y-2">
+                    ${items.map(item => `
+                        <div class="flex items-start space-x-2">
+                            <i class="fas fa-check-circle text-green-600 mt-1"></i>
+                            <span class="text-gray-700 text-sm">${this.formatTextContent(item.trim())}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Add this method to your GeminiAssistant class
+    formatRecipeContent(content) {
+        // Split content into parts (video, ingredients, instructions, etc.)
+        const parts = content.split(/(?=• Cooking Video:|• Key Ingredients:|• Finding Ingredients)/g);
+        
+        return parts.map(part => {
+            part = part.trim();
+            
+            // Handle video links
+            if (part.startsWith('• Cooking Video:')) {
+                return this.formatVideoSection(part);
+            }
+            
+            // Handle ingredients section
+            if (part.startsWith('• Key Ingredients:')) {
+                return this.formatKeyIngredients(part);
+            }
+            
+            // Handle finding ingredients section
+            if (part.startsWith('• Finding Ingredients')) {
+                return this.formatSourceInfo(part);
+            }
+            
+            // Regular content
+            return `<p class="text-gray-700 text-sm">${this.formatTextContent(part)}</p>`;
         }).join('');
     }
 
-    // Add this helper method to format text content
+    // Add these helper methods as well
+    formatVideoSection(content) {
+        const videoMatch = content.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (videoMatch) {
+            return `
+                <div class="video-link mb-3">
+                    <h4 class="text-green-700 font-medium mb-2">
+                        <i class="fab fa-youtube text-red-600 mr-2"></i>Tutorial Video
+                    </h4>
+                    <a href="${videoMatch[2]}" target="_blank" 
+                    class="text-green-600 hover:text-green-800 flex items-center">
+                        <i class="fas fa-play-circle mr-2"></i>
+                        ${videoMatch[1]}
+                    </a>
+                </div>
+            `;
+        }
+        return '';
+    }
+
+    formatKeyIngredients(content) {
+        const items = content.split('\n')
+            .filter(line => line.trim().startsWith('•'))
+            .map(line => line.replace('•', '').trim());
+        
+        return `
+            <div class="ingredients mb-3">
+                <h4 class="text-green-700 font-medium mb-2">
+                    <i class="fas fa-mortar-pestle mr-2"></i>Key Ingredients
+                </h4>
+                <div class="grid gap-2">
+                    ${items.map(item => `
+                        <div class="flex items-start space-x-2">
+                            <i class="fas fa-check-circle text-green-600 mt-1"></i>
+                            <span class="text-gray-700 text-sm">${this.formatTextContent(item)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    formatSourceInfo(content) {
+        const items = content.split('\n')
+            .filter(line => line.trim().startsWith('•'))
+            .map(line => line.replace('•', '').trim());
+        
+        return `
+            <div class="sourcing-info mb-3">
+                <h4 class="text-green-700 font-medium mb-2">
+                    <i class="fas fa-shopping-basket mr-2"></i>Where to Find Ingredients
+                </h4>
+                <div class="space-y-2">
+                    ${items.map(item => `
+                        <div class="flex items-start space-x-2">
+                            <i class="fas fa-store text-green-600 mt-1"></i>
+                            <span class="text-gray-700 text-sm">${this.formatTextContent(item)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     formatTextContent(text) {
         return text
-            // Convert bullet points
-            .replace(/•\s+([^\n]+)/g, '<li class="ml-4">$1</li>')
-            // Convert numbered lists
-            .replace(/(\d+\.\s+[^\n]+)/g, '<li class="ml-4">$1</li>')
-            // Convert links
-            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-green-600 hover:underline">$1</a>')
-            // Convert bold text
-            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-            // Convert italic text
-            .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+            // Clean up URLs and make them clickable
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+                if (url.includes('youtube.com')) {
+                    return `<a href="${url}" target="_blank" class="text-green-600 hover:text-green-800">
+                        <i class="fab fa-youtube mr-1"></i>${text}
+                    </a>`;
+                }
+                return `<a href="${url}" target="_blank" class="text-green-600 hover:text-green-800">
+                    <i class="fas fa-external-link-alt mr-1"></i>${text}
+                </a>`;
+            })
+            // Format bold text
+            .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold">$1</strong>')
+            // Format italic text
+            .replace(/\*([^*]+)\*/g, '<em class="italic">$1</em>')
+            // Format location references
+            .replace(/Location Example:/g, '<i class="fas fa-map-marker-alt text-green-600 mr-1"></i>Location:')
+            // Format ingredient names
+            .replace(/(\w+)\s*\(([^)]+)\)/g, '<span class="font-medium">$1</span> <span class="text-gray-600">($2)</span>');
     }
+
+
     scrollToBottom() {
         const chatMessages = document.getElementById('chat-messages');
         chatMessages.scrollTop = chatMessages.scrollHeight;
