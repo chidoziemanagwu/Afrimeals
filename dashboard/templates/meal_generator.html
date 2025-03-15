@@ -5,6 +5,80 @@
 {% block body_class %}meal-generator-page{% endblock %}
 {% block title %}NaijaPlate - Meal Generator{% endblock %}
 
+{% block extra_head %}
+<style>
+    /* Existing styles */
+    .recipe-content {
+        max-height: calc(90vh - 200px);
+        overflow-y: auto;
+    }
+
+    .recipe-tab {
+        white-space: nowrap;
+    }
+
+    /* New styles */
+    /* Hide scrollbar for main modal */
+    .modal-container {
+        overflow: hidden !important;
+    }
+
+    /* Custom scrollbar styles */
+    .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: #CBD5E0 transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #CBD5E0;
+        border-radius: 3px;
+    }
+
+    /* Tab content container */
+    .tab-content-container {
+        height: calc(90vh - 160px);
+        overflow: hidden;
+    }
+
+    /* Individual tab content */
+    .recipe-content {
+        height: 100%;
+        overflow-y: auto;
+        padding-right: 12px; /* Compensate for scrollbar */
+    }
+
+    /* Tabs scrollbar */
+    .tabs-container {
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #CBD5E0 transparent;
+    }
+
+    .tabs-container::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .tabs-container::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .tabs-container::-webkit-scrollbar-thumb {
+        background-color: #CBD5E0;
+        border-radius: 2px;
+    }
+</style>
+{% endblock %}
+
+
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-green-50 via-emerald-100 to-teal-100">
 
@@ -104,7 +178,6 @@
                                         class="form-select w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300">
                                     <option value="2">2 meals per day</option>
                                     <option value="3" selected>3 meals per day</option>
-                                    <option value="4">4 meals per day</option>
                                 </select>
                             </div>
                             
@@ -305,13 +378,6 @@
                             <i class="fas fa-share-alt mr-2"></i>
                             Share Meal Plan
                         </button>
-                        {% if not has_subscription %}
-                        <a href="{% url 'pricing' %}" class="group inline-flex items-center bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-md hover:from-purple-700 hover:to-indigo-700 transition-all duration-300">
-                            <i class="fas fa-crown mr-2"></i>
-                            Upgrade for PDF Export
-                            <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform duration-300"></i>
-                        </a>
-                        {% endif %}
                     </div>
                 </div>
                 
@@ -367,9 +433,9 @@
             
             <!-- Recipe Details Modal (Initially Hidden) -->
             <div id="recipeModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
-                <div class="bg-white rounded-xl max-w-2xl w-full mx-4 my-8 md:my-16" style="max-height: 80vh;">
+                <div class="modal-container bg-white rounded-xl max-w-2xl w-full mx-4 flex flex-col" style="height: 90vh;">
                     <!-- Modal header -->
-                    <div class="flex justify-between items-center p-6 border-b border-gray-200">
+                    <div class="flex-shrink-0 flex justify-between items-center p-6 border-b border-gray-200">
                         <h3 class="text-xl font-bold text-gray-800" id="recipeTitle">Recipe Title</h3>
                         <button id="closeRecipeModal" class="text-gray-500 hover:text-gray-700">
                             <i class="fas fa-times text-xl"></i>
@@ -377,27 +443,29 @@
                     </div>
                     
                     <!-- Tabs navigation -->
-                    <div class="border-b border-gray-200">
-                        <nav class="flex -mb-px" aria-label="Tabs">
-                            <button id="tab-overview" class="recipe-tab active-tab px-4 py-3 text-sm font-medium border-b-2 border-green-500 text-green-600 flex items-center">
-                                <i class="fas fa-info-circle mr-2"></i>Overview
-                            </button>
-                            <button id="tab-ingredients" class="recipe-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
-                                <i class="fas fa-list mr-2"></i>Ingredients
-                            </button>
-                            <button id="tab-instructions" class="recipe-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
-                                <i class="fas fa-utensils mr-2"></i>Instructions
-                            </button>
-                            <button id="tab-nutrition" class="recipe-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
-                                <i class="fas fa-heartbeat mr-2"></i>Nutrition
-                            </button>
-                        </nav>
+                    <div class="flex-shrink-0 border-b border-gray-200">
+                        <div class="tabs-container">
+                            <nav class="flex flex-nowrap min-w-full px-6" aria-label="Tabs">
+                                <button id="tab-overview" class="recipe-tab active-tab px-4 py-3 text-sm font-medium border-b-2 border-green-500 text-green-600 flex items-center">
+                                    <i class="fas fa-info-circle mr-2"></i>Overview
+                                </button>
+                                <button id="tab-ingredients" class="recipe-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+                                    <i class="fas fa-list mr-2"></i>Ingredients
+                                </button>
+                                <button id="tab-instructions" class="recipe-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+                                    <i class="fas fa-utensils mr-2"></i>Instructions
+                                </button>
+                                <button id="tab-nutrition" class="recipe-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+                                    <i class="fas fa-heartbeat mr-2"></i>Nutrition
+                                </button>
+                            </nav>
+                        </div>
                     </div>
                     
                     <!-- Tab content - scrollable container -->
-                    <div class="overflow-y-auto p-6" style="max-height: calc(80vh - 140px);">
+                    <div class="tab-content-container flex-grow">
                         <!-- Overview Tab -->
-                        <div id="content-overview" class="recipe-content block">
+                        <div id="content-overview" class="recipe-content custom-scrollbar block px-2 py-2">
                             <div class="space-y-4">
                                 <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
                                     <i class="fas fa-info-circle text-green-500 mr-2"></i>About This Dish
@@ -429,7 +497,7 @@
                         </div>
                         
                         <!-- Ingredients Tab -->
-                        <div id="content-ingredients" class="recipe-content hidden">
+                        <div id="content-ingredients" class="recipe-content custom-scrollbar hidden px-2 py-2">
                             <div class="space-y-4">
                                 <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
                                     <i class="fas fa-list text-green-500 mr-2"></i>What You'll Need
@@ -439,18 +507,19 @@
                                 </ul>
                                 
                                 <div class="mt-6 flex flex-wrap gap-2">
-                                    <button class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium flex items-center">
-                                        <i class="fas fa-print mr-1"></i> Print List
-                                    </button>
-                                    <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium flex items-center">
-                                        <i class="fas fa-share-alt mr-1"></i> Share
-                                    </button>
+                                    <!-- In the recipe ingredients tab -->
+<div class="mt-6 flex flex-wrap gap-2">
+    <button onclick="shareRecipeIngredients()" 
+            class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium flex items-center">
+        <i class="fab fa-whatsapp mr-1"></i> Share via WhatsApp
+    </button>
+</div>
                                 </div>
                             </div>
                         </div>
                         
                         <!-- Instructions Tab -->
-                        <div id="content-instructions" class="recipe-content hidden">
+                        <div id="content-instructions" class="recipe-content custom-scrollbar hidden px-2 py-2">
                             <div class="space-y-4">
                                 <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
                                     <i class="fas fa-utensils text-green-500 mr-2"></i>Cooking Steps
@@ -462,7 +531,7 @@
                         </div>
                         
                         <!-- Nutrition Tab -->
-                        <div id="content-nutrition" class="recipe-content hidden">
+                        <div id="content-nutrition" class="recipe-content custom-scrollbar hidden px-2 py-2">
                             <div class="space-y-4">
                                 <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
                                     <i class="fas fa-heartbeat text-green-500 mr-2"></i>Nutritional Information
@@ -500,27 +569,32 @@
                 <!-- Ingredients List -->
                 <div class="bg-white rounded-xl shadow-xl p-6">
                     <!-- Update the shopping list header section -->
-<div class="flex justify-between items-center mb-4">
-    <h3 class="text-xl font-bold text-gray-800 flex items-center">
+<!-- Update the shopping list controls for better mobile layout -->
+<div class="flex flex-col sm:flex-row justify-between items-center mb-4">
+    <h3 class="text-xl font-bold text-gray-800 flex items-center mb-4 sm:mb-0">
         <i class="fas fa-shopping-basket text-green-500 mr-2"></i>Shopping List
     </h3>
-    <div class="flex items-center space-x-2">
+    
+    <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
         <!-- Share button -->
         <button onclick="shareShoppingList()" 
-                class="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors duration-200 flex items-center">
+                class="w-full sm:w-auto p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors duration-200 flex items-center justify-center">
             <i class="fas fa-share-alt mr-1"></i>
-            <span class="hidden sm:inline">Share List</span>
+            <span>Share List</span>
         </button>
-        <!-- Existing pagination controls -->
-        <button id="prevPage" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
-            <i class="fas fa-chevron-left"></i>
-        </button>
-        <span id="pageIndicator" class="flex items-center px-2">
-            Page <span class="mx-1" id="currentPage">1</span> of <span class="mx-1" id="totalPages">1</span>
-        </span>
-        <button id="nextPage" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
-            <i class="fas fa-chevron-right"></i>
-        </button>
+        
+        <!-- Pagination controls -->
+        <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-1">
+            <button id="prevPage" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <span id="pageIndicator" class="px-3 text-sm">
+                <span id="currentPage">1</span>/<span id="totalPages">1</span>
+            </span>
+            <button id="nextPage" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
     </div>
 </div>
                     <div id="ingredientsList" class="space-y-2">
@@ -528,59 +602,52 @@
                     </div>
                 </div>
                 
-                <!-- Premium Feature Card -->
-                <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-xl p-6 border border-yellow-200">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                        <i class="fas fa-star text-yellow-500 mr-2"></i>Premium Features
-                    </h3>
-                    
-                    <div class="space-y-4">
-                        <div class="flex items-start">
-                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                                <i class="fas fa-file-pdf text-yellow-600"></i>
-                            </div>
-                            <div class="ml-4">
-                                <h4 class="text-md font-semibold text-gray-800">PDF Export</h4>
-                                <p class="text-sm text-gray-600">Download your meal plan and shopping list as a PDF document.</p>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-start">
-                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                                <i class="fas fa-utensils text-yellow-600"></i>
-                            </div>
-                            <div class="ml-4">
-                                <h4 class="text-md font-semibold text-gray-800">Detailed Recipes</h4>
-                                <p class="text-sm text-gray-600">Access complete recipes with step-by-step instructions.</p>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-start">
-                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                                <i class="fas fa-heartbeat text-yellow-600"></i>
-                            </div>
-                            <div class="ml-4">
-                                <h4 class="text-md font-semibold text-gray-800">Nutritional Information</h4>
-                                <p class="text-sm text-gray-600">Get detailed nutritional breakdown for each meal.</p>
-                            </div>
-                        </div>
-                        
-                        <a href="{% url 'pricing' %}" class="block w-full mt-6 text-center bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-medium py-2 px-4 rounded-lg hover:from-yellow-600 hover:to-amber-600 transition-colors duration-300">
-                            Upgrade Your Account
-                        </a>
-                    </div>
-                </div>
+<!-- Premium Feature Card -->
+<div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-xl p-6 border border-yellow-200">
+    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+        <i class="fas fa-star text-yellow-500 mr-2"></i>Premium Features
+    </h3>
+    
+    <div class="space-y-4">
+        <div class="flex items-start">
+            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                <i class="fas fa-share-nodes text-yellow-600"></i>
+            </div>
+            <div class="ml-4">
+                <h4 class="text-md font-semibold text-gray-800">Advanced Sharing</h4>
+                <p class="text-sm text-gray-600">Share detailed meal plans and recipes with family and friends.</p>
+            </div>
+        </div>
+        
+        <div class="flex items-start">
+            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                <i class="fas fa-utensils text-yellow-600"></i>
+            </div>
+            <div class="ml-4">
+                <h4 class="text-md font-semibold text-gray-800">Detailed Recipes</h4>
+                <p class="text-sm text-gray-600">Access complete recipes with step-by-step instructions.</p>
+            </div>
+        </div>
+        
+        <div class="flex items-start">
+            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                <i class="fas fa-heartbeat text-yellow-600"></i>
+            </div>
+            <div class="ml-4">
+                <h4 class="text-md font-semibold text-gray-800">Nutritional Information</h4>
+                <p class="text-sm text-gray-600">Get detailed nutritional breakdown for each meal.</p>
+            </div>
+        </div>
+        
+        <a href="{% url 'pricing' %}" class="block w-full mt-6 text-center bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-medium py-2 px-4 rounded-lg hover:from-yellow-600 hover:to-amber-600 transition-colors duration-300">
+            Upgrade Your Account
+        </a>
+    </div>
+</div>
             </div>
             
             <!-- Download Buttons -->
             <div class="flex flex-wrap gap-4">
-                <button id="downloadMealPlan" class="flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg transition-colors duration-300 {% if not has_subscription %}opacity-50 cursor-not-allowed{% endif %}" {% if not has_subscription %}disabled{% endif %}>
-                    <i class="fas fa-download mr-2"></i>Download Meal Plan
-                </button>
-                
-                <button id="downloadIngredients" class="flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg transition-colors duration-300 {% if not has_subscription %}opacity-50 cursor-not-allowed{% endif %}" {% if not has_subscription %}disabled{% endif %}>
-                    <i class="fas fa-download mr-2"></i>Download Shopping List
-                </button>
                 
                 {% if not has_subscription %}
                 <div class="ml-auto">
@@ -591,6 +658,14 @@
                 {% endif %}
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="fixed bottom-4 right-4 transform translate-y-full opacity-0 transition-all duration-300 z-50">
+    <div class="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center">
+        <i class="fas fa-check-circle mr-2"></i>
+        <span id="toastMessage"></span>
     </div>
 </div>
 {% endblock %}
@@ -609,6 +684,20 @@ const recipeCache = new Map();
 window.groceryList = [];
 let currentPage = 1;
 const itemsPerPage = 10;
+
+function showToast(message, duration = 3000) {
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    toastMessage.textContent = message;
+    toast.classList.remove('translate-y-full', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+    
+    setTimeout(() => {
+        toast.classList.add('translate-y-full', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+    }, duration);
+}
 
 // Utility Functions
 function handleRecipeError(error) {
@@ -719,57 +808,25 @@ function preloadRecipe(dayIndex, mealType) {
 }
 
 
-
-function printDayMeals(dayIndex) {
+function shareDayMealPlan(dayIndex) {
     const day = window.currentMealPlan[dayIndex];
-    const printWindow = window.open('', '_blank');
     
-    printWindow.document.write(`
-        <html>
-            <head>
-                <title>Meal Plan - ${day.day}</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    h1 { color: #333; }
-                    .meal { margin-bottom: 20px; }
-                    .meal-title { color: #666; font-weight: bold; }
-                </style>
-            </head>
-            <body>
-                <h1>${day.day} Meal Plan</h1>
-                ${Object.entries(day.meals)
-                    .filter(([_, meal]) => meal !== null)
-                    .map(([type, meal]) => `
-                        <div class="meal">
-                            <div class="meal-title">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
-                            <div>${meal}</div>
-                        </div>
-                    `).join('')}
-            </body>
-        </html>
-    `);
-    
-    printWindow.document.close();
-    printWindow.print();
+    const text = `🍳 My NaijaPlate Meal Plan for ${day.day}:\n\n` +
+        Object.entries(day.meals)
+            .filter(([_, meal]) => meal !== null)
+            .map(([type, meal]) => {
+                const emoji = type === 'breakfast' ? '🌅' :
+                            type === 'lunch' ? '🍽️' :
+                            type === 'snack' ? '🥨' : '🌙';
+                return `${emoji} ${type.charAt(0).toUpperCase() + type.slice(1)}: ${meal}`;
+            })
+            .join('\n');
+
+    shareViaWhatsApp(text + '\n\n📱 Generated by NaijaPlate');
 }
 
-function exportDayMeals(dayIndex) {
-    const day = window.currentMealPlan[dayIndex];
-    const meals = Object.entries(day.meals)
-        .filter(([_, meal]) => meal !== null)
-        .map(([type, meal]) => `${type}: ${meal}`)
-        .join('\n');
-    
-    const blob = new Blob([`${day.day}\n\n${meals}`], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `meal-plan-${day.day.toLowerCase().replace(/\s+/g, '-')}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-}
+
+
 
 function shareShoppingList() {
     if (!window.groceryList || window.groceryList.length === 0) {
@@ -785,6 +842,18 @@ function shareShoppingList() {
 }
 
 
+function shareRecipeIngredients() {
+    const title = $('#recipeTitle').text();
+    const ingredients = $('#recipeIngredients li span')
+        .map(function() { return $(this).text(); })
+        .get();
+    
+    const text = `🥘 ${title}\n\nIngredients:\n` +
+        ingredients.map(ingredient => `📌 ${ingredient}`).join('\n') +
+        '\n\n📱 Generated by NaijaPlate';
+    
+    shareViaWhatsApp(text);
+}
 
 function updateRecipeModal(recipeData) {
     console.log('Recipe Data:', recipeData); // Debug log
@@ -898,6 +967,13 @@ function updateRecipeModal(recipeData) {
         $('#content-overview').append(tipsHtml);
     }
     
+
+    if (recipeData.isNewlyGenerated) {
+        const toastMessage = `Recipe "${recipeData.title}" has been automatically saved to your collection! 🎉`;
+        showToast(toastMessage);
+    }
+
+
     // Show overview tab and ensure loading animations are removed
     $('.recipe-content').addClass('hidden');
     $('#content-overview').removeClass('hidden');
@@ -912,78 +988,176 @@ function updateRecipeModal(recipeData) {
     $('.animate-pulse').remove();
 }
 
+// Add this to your JavaScript code
+function getUserLocation() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject('Geolocation is not supported by your browser');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            position => resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            }),
+            error => reject(error)
+        );
+    });
+}
+
 
 
 // Meal Plan Rendering Functions
+// Modify the renderDesktopMealPlan function
 function renderDesktopMealPlan(mealPlanData) {
-    let mealPlanHtml = '';
-    mealPlanData.forEach((day, index) => {
-        mealPlanHtml += `
-            <tr class="border-b border-gray-200 hover:bg-opacity-80 transition-colors duration-150">
-                <td class="py-3 px-4 font-medium bg-gray-100">${day.day}</td>
+    // First, check if snacks are included
+    const includeSnacks = $('#include_snacks').is(':checked');
+    const mealsPerDay = parseInt($('#meals_per_day').val());
+
+    // Update table headers first
+    let headerHtml = `
+        <tr>
+            <th class="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100 rounded-tl-lg">Day</th>
+            ${mealsPerDay >= 2 ? `
+                <th class="text-left py-3 px-4 font-semibold text-orange-800 bg-orange-100">
+                    <div class="flex items-center">
+                        <i class="fas fa-sun text-orange-500 mr-2"></i>
+                        <span>Breakfast</span>
+                    </div>
+                </th>
+            ` : ''}
+            <th class="text-left py-3 px-4 font-semibold text-green-800 bg-green-100">
+                <div class="flex items-center">
+                    <i class="fas fa-utensils text-green-500 mr-2"></i>
+                    <span>Lunch</span>
+                </div>
+            </th>
+            ${includeSnacks ? `
+                <th class="text-left py-3 px-4 font-semibold text-purple-800 bg-purple-100">
+                    <div class="flex items-center">
+                        <i class="fas fa-cookie text-purple-500 mr-2"></i>
+                        <span>Snack</span>
+                    </div>
+                </th>
+            ` : ''}
+            ${mealsPerDay >= 3 ? `
+                <th class="text-left py-3 px-4 font-semibold text-blue-800 bg-blue-100">
+                    <div class="flex items-center">
+                        <i class="fas fa-moon text-blue-500 mr-2"></i>
+                        <span>Dinner</span>
+                    </div>
+                </th>
+            ` : ''}
+            <th class="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100 rounded-tr-lg">Actions</th>
+        </tr>
+    `;
+
+    // Update meal rows
+    let mealPlanHtml = mealPlanData.map((day, index) => `
+        <tr class="border-b border-gray-200 hover:bg-opacity-80 transition-colors duration-150">
+            <td class="py-3 px-4 font-medium bg-gray-100">${day.day}</td>
+            ${mealsPerDay >= 2 ? `
                 <td class="py-3 px-4 bg-orange-100">
-                    <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-orange-200">${day.meals.breakfast}</div>
-                    <button onclick="viewRecipe(${index}, 'breakfast')" 
-                            class="text-xs bg-white hover:bg-orange-200 text-orange-800 px-2 py-1 rounded transition-colors duration-200 border border-orange-300">
-                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                    </button>
+                    <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-orange-200">
+                        ${day.meals.breakfast || 'No Meal'}
+                    </div>
+                    ${day.meals.breakfast ? `
+                        <button onclick="viewRecipe(${index}, 'breakfast')" 
+                                class="text-xs bg-white hover:bg-orange-200 text-orange-800 px-2 py-1 rounded transition-colors duration-200 border border-orange-300">
+                            <i class="fas fa-book-open mr-1"></i> View Recipe
+                        </button>
+                    ` : ''}
                 </td>
-                <td class="py-3 px-4 bg-green-100">
-                    <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-green-200">${day.meals.lunch}</div>
+            ` : ''}
+            <td class="py-3 px-4 bg-green-100">
+                <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-green-200">
+                    ${day.meals.lunch || 'No Meal'}
+                </div>
+                ${day.meals.lunch ? `
                     <button onclick="viewRecipe(${index}, 'lunch')" 
                             class="text-xs bg-white hover:bg-green-200 text-green-800 px-2 py-1 rounded transition-colors duration-200 border border-green-300">
                         <i class="fas fa-book-open mr-1"></i> View Recipe
                     </button>
-                </td>
-                ${day.meals.snack !== null ? `
-                    <td class="py-3 px-4 bg-purple-100">
-                        <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-purple-200">${day.meals.snack}</div>
+                ` : ''}
+            </td>
+            ${includeSnacks ? `
+                <td class="py-3 px-4 bg-purple-100">
+                    <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-purple-200">
+                        ${day.meals.snack || 'No Snack'}
+                    </div>
+                    ${day.meals.snack ? `
                         <button onclick="viewRecipe(${index}, 'snack')" 
                                 class="text-xs bg-white hover:bg-purple-200 text-purple-800 px-2 py-1 rounded transition-colors duration-200 border border-purple-300">
                             <i class="fas fa-book-open mr-1"></i> View Recipe
                         </button>
-                    </td>
-                ` : ''}
+                    ` : ''}
+                </td>
+            ` : ''}
+            ${mealsPerDay >= 3 ? `
                 <td class="py-3 px-4 bg-blue-100">
-                    <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-blue-200">${day.meals.dinner}</div>
-                    <button onclick="viewRecipe(${index}, 'dinner')" 
-                            class="text-xs bg-white hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors duration-200 border border-blue-300">
-                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                    </button>
+                    <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-blue-200">
+                        ${day.meals.dinner || 'No Meal'}
+                    </div>
+                    ${day.meals.dinner ? `
+                        <button onclick="viewRecipe(${index}, 'dinner')" 
+                                class="text-xs bg-white hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors duration-200 border border-blue-300">
+                            <i class="fas fa-book-open mr-1"></i> View Recipe
+                        </button>
+                    ` : ''}
                 </td>
-                <td class="py-3 px-4 bg-gray-100">
-                    <button onclick="printDayMeals(${index})" 
-                            class="text-xs bg-white hover:bg-gray-200 text-gray-800 px-3 py-1 rounded transition-colors duration-200 border border-gray-300 w-full mb-2">
-                        <i class="fas fa-print mr-1"></i> Print Day
-                    </button>
-                    <button onclick="exportDayMeals(${index})" 
-                            class="text-xs bg-white hover:bg-gray-200 text-gray-800 px-3 py-1 rounded transition-colors duration-200 border border-gray-300 w-full">
-                        <i class="fas fa-download mr-1"></i> Export
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
+            ` : ''}
+            <td class="py-3 px-4 bg-gray-100">
+<td class="py-3 px-4 bg-gray-100">
+    <button onclick="shareDayMealPlan(${index})" 
+            class="text-xs bg-white hover:bg-green-100 text-green-800 px-3 py-1 rounded transition-colors duration-200 border border-green-300 w-full mb-2">
+        <i class="fab fa-whatsapp mr-1"></i> Share Day
+    </button>
+</td>
+            </td>
+        </tr>
+    `).join('');
+
+    $('#mealPlanTable thead').html(headerHtml);
     $('#mealPlanBody').html(mealPlanHtml);
 }
 
+
 function renderMobileMealPlan(mealPlanData) {
+    // Get current settings
+    const includeSnacks = $('#include_snacks').is(':checked');
+    const mealsPerDay = parseInt($('#meals_per_day').val());
+    
     let html = '';
     mealPlanData.forEach((day, index) => {
         html += `
             <div class="mb-6 bg-white rounded-lg shadow-md overflow-hidden">
-                <div class="bg-gray-100 p-4 font-semibold">${day.day}</div>
+                <div class="bg-gray-100 p-4 flex justify-between items-center">
+                    <span class="font-semibold">${day.day}</span>
+                    <button onclick="shareDayMealPlan(${index})" 
+                            class="text-xs bg-white hover:bg-green-100 text-green-800 px-3 py-1 rounded-full transition-colors duration-200 border border-green-300">
+                        <i class="fab fa-whatsapp mr-1"></i> Share
+                    </button>
+                </div>
                 <div class="p-4 space-y-4">
                     ${Object.entries(day.meals)
-                        .filter(([type, meal]) => meal !== null)
+                        .filter(([type, meal]) => {
+                            // Filter meals based on settings
+                            if (type === 'snack' && !includeSnacks) return false;
+                            if (type === 'breakfast' && mealsPerDay < 2) return false;
+                            if (type === 'dinner' && mealsPerDay < 3) return false;
+                            return meal !== null;
+                        })
                         .map(([type, meal]) => `
                             <div class="bg-${type === 'breakfast' ? 'orange' : type === 'lunch' ? 'green' : type === 'snack' ? 'purple' : 'blue'}-50 p-3 rounded-lg">
                                 <div class="flex justify-between items-center mb-2">
                                     <h3 class="font-medium capitalize">${type}</h3>
-                                    <button onclick="viewRecipe(${index}, '${type}')"
-                                            class="text-xs bg-white hover:bg-opacity-90 px-2 py-1 rounded-full transition-colors duration-200">
-                                        View Recipe
-                                    </button>
+                                    <div class="flex items-center space-x-2">
+                                        <button onclick="viewRecipe(${index}, '${type}')"
+                                                class="text-xs bg-white hover:bg-opacity-90 px-2 py-1 rounded-full transition-colors duration-200">
+                                            <i class="fas fa-book-open mr-1"></i> Recipe
+                                        </button>
+                                    </div>
                                 </div>
                                 <p class="text-sm">${meal}</p>
                             </div>
@@ -1048,6 +1222,17 @@ function shareViaWhatsApp(text) {
 
 // Document Ready
 $(document).ready(function() {
+
+    // Add this to your document ready function
+$('#meals_per_day, #include_snacks').on('change', function() {
+    if (window.currentMealPlan) {
+        if (window.innerWidth < 768) {
+            renderMobileMealPlan(window.currentMealPlan);
+        } else {
+            renderDesktopMealPlan(window.currentMealPlan);
+        }
+    }
+});
     // Form submission handler
     $('#mealPlanForm').on('submit', function(e) {
         e.preventDefault();
@@ -1137,6 +1322,8 @@ $(document).ready(function() {
             }
         }
     });
+
+    
 
     // Premium feature handlers
     {% if not has_subscription %}

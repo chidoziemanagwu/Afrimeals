@@ -706,7 +706,8 @@ class RecipeDetailsView(LoginRequiredMixin, View):
                     'ingredients': existing_recipe.ingredients_list,
                     'instructions': existing_recipe.instructions_list,
                     'nutrition': existing_recipe.nutrition_info,
-                    'tips': existing_recipe.tips
+                    'tips': existing_recipe.tips,
+                    'isNewlyGenerated': False  # Add this flag
                 })
 
             # Construct the recipe generation prompt
@@ -757,26 +758,26 @@ class RecipeDetailsView(LoginRequiredMixin, View):
                 cleaned_response = self._clean_json_response(response.text)
                 recipe_data = json.loads(cleaned_response)
 
-                # Create the recipe
+                                # Create the recipe
                 recipe = Recipe.objects.create(
-                    user=request.user,
-                    meal_plan=meal_plan,
-                    meal_type=meal_type,
-                    day_index=day_index,
-                    title=recipe_data['title'],
-                    description=recipe_data['description'],
-                    ingredients=json.dumps(recipe_data['ingredients']),
-                    instructions=json.dumps(recipe_data['instructions']),
-                    prep_time=recipe_data['prep_time'],
-                    cook_time=recipe_data['cook_time'],
-                    servings=recipe_data['servings'],
-                    difficulty=recipe_data['difficulty'],
-                    nutrition_info=recipe_data['nutrition_info'],
-                    tips=recipe_data.get('tips', []),
-                    is_ai_generated=True
-                )
+                        user=request.user,
+                        meal_plan=meal_plan,
+                        meal_type=meal_type,
+                        day_index=day_index,
+                        title=recipe_data['title'],
+                        description=recipe_data['description'],
+                        ingredients=json.dumps(recipe_data['ingredients']),
+                        instructions=json.dumps(recipe_data['instructions']),
+                        prep_time=recipe_data['prep_time'],
+                        cook_time=recipe_data['cook_time'],
+                        servings=recipe_data['servings'],
+                        difficulty=recipe_data['difficulty'],
+                        nutrition_info=recipe_data['nutrition_info'],
+                        tips=recipe_data.get('tips', []),
+                        is_ai_generated=True
+                    )
 
-                # Format the response
+                    # Return response with isNewlyGenerated flag
                 return JsonResponse({
                     'title': recipe.title,
                     'description': self.gemini_assistant.format_response(recipe.description),
@@ -796,14 +797,14 @@ class RecipeDetailsView(LoginRequiredMixin, View):
                     'tips': [
                         self.gemini_assistant.format_response(tip)
                         for tip in recipe.tips
-                    ]
+                    ],
+                    'isNewlyGenerated': True  # Add this flag
                 })
 
-            except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in Gemini response: {response.text if 'response' in locals() else 'No response'}")
-                logger.error(f"JSON parse error: {str(e)}")
+            except Exception as e:
+                logger.error(f"Error in RecipeDetailsView: {str(e)}", exc_info=True)
                 return JsonResponse({
-                    'error': 'Invalid recipe data format from AI'
+                    'error': 'An error occurred while generating the recipe'
                 }, status=500)
 
         except Exception as e:
