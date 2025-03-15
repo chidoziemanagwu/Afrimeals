@@ -15,7 +15,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 from dashboard.api.gemini_views import chat
 from dashboard.webhooks import stripe_webhook
-from feedback.views import FeedbackCreateView
 from django.views.generic import TemplateView  
 from dashboard.admin import custom_admin_site  # Your custom admin site# Add this import
 
@@ -87,8 +86,6 @@ urlpatterns = [
     path('api-auth/', include('rest_framework.urls')),
     path('task-status/<str:task_id>/', check_task_status, name='check_task_status'),
 
-    path('feedback/', FeedbackCreateView.as_view(), name='feedback'),
-    path('feedback/thank-you/', TemplateView.as_view(template_name='feedback/thank_you.html'), name='feedback-thank-you'),
 ]
 
 
