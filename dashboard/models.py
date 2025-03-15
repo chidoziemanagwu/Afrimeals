@@ -341,7 +341,7 @@ class SubscriptionTier(models.Model, CacheModelMixin):
 class UserSubscription(models.Model, CacheModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     subscription_tier = models.ForeignKey(SubscriptionTier, on_delete=models.CASCADE)
-    start_date = models.DateTimeField(auto_now_add=True)
+    start_date = models.DateTimeField(default=timezone.now)  # Change from auto_now_add to default
     end_date = models.DateTimeField(db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
     payment_id = models.CharField(max_length=100, blank=True, null=True)
@@ -353,6 +353,17 @@ class UserSubscription(models.Model, CacheModelMixin):
 
     def __str__(self):
         return f"{self.user.email} - {self.subscription_tier.name}"
+
+    def save(self, *args, **kwargs):
+        # Ensure start_date is timezone-aware
+        if self.start_date and timezone.is_naive(self.start_date):
+            self.start_date = timezone.make_aware(self.start_date)
+        
+        # Ensure end_date is timezone-aware
+        if self.end_date and timezone.is_naive(self.end_date):
+            self.end_date = timezone.make_aware(self.end_date)
+            
+        super().save(*args, **kwargs)
 
     def is_valid(self):
         return self.is_active and self.end_date > timezone.now()

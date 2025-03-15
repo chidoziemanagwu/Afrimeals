@@ -6,7 +6,7 @@ from dashboard.views import (
     PricingView, CheckoutView, RecipeDetailsView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView,
     UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView, RecipeDeleteView,
     ExportMealPlanView, FeedbackView, check_task_status, export_activity_pdf, activity_detail_api, gemini_chat, 
-    checkout_success, checkout_cancel
+    checkout_success, checkout_cancel, mark_feedback_status
 )
 from rest_framework.routers import DefaultRouter
 from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
@@ -15,7 +15,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from dashboard.api.gemini_views import chat
 from dashboard.webhooks import stripe_webhook
-
+from feedback.views import FeedbackCreateView
+from django.views.generic import TemplateView  
+from dashboard.admin import custom_admin_site  # Your custom admin site# Add this import
 
 # Create a router and register our API viewsets
 router = DefaultRouter()
@@ -25,6 +27,12 @@ router.register(r'api/grocery-lists', GroceryListViewSet, basename='grocerylist-
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    path('dashboard-admin/mark-feedback/<int:feedback_id>/', mark_feedback_status, name='mark_feedback_status'),
+    path('dashboard-admin/', custom_admin_site.urls),  # Your custom admin
+    path('dashboard-admin/dashboard/', custom_admin_site.dashboard_view, name='admin_dashboard'),
+
+    
     path('', HomeView.as_view(), name='home'),
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
 
@@ -78,6 +86,9 @@ urlpatterns = [
 
     path('api-auth/', include('rest_framework.urls')),
     path('task-status/<str:task_id>/', check_task_status, name='check_task_status'),
+
+    path('feedback/', FeedbackCreateView.as_view(), name='feedback'),
+    path('feedback/thank-you/', TemplateView.as_view(template_name='feedback/thank_you.html'), name='feedback-thank-you'),
 ]
 
 

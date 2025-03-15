@@ -42,7 +42,8 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth.models import User
 from google import genai
 from .services.gemini_assistant import GeminiAssistant
-
+from django.views.decorators.http import require_POST
+from django.contrib.admin.views.decorators import staff_member_required
 # Set up logger
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,41 @@ def check_task_status(request, task_id):
             'error': result.get('error')
         })
     return JsonResponse({'status': 'processing'})
+
+
+
+# views.py
+
+@require_POST
+@staff_member_required
+def mark_feedback_status(request, feedback_id):
+    try:
+        feedback = UserFeedback.objects.get(id=feedback_id)
+        feedback.is_resolved = not feedback.is_resolved  # Toggle the resolved status
+        feedback.save()
+
+        # Calculate updated feedback statistics
+        total_feedback = UserFeedback.objects.count()
+        resolved_feedback = UserFeedback.objects.filter(is_resolved=True).count()
+        unresolved_feedback = total_feedback - resolved_feedback
+
+        feedback_stats = {
+            'total': total_feedback,
+            'resolved': resolved_feedback,
+            'unresolved': unresolved_feedback
+        }
+
+        return JsonResponse({
+            'success': True,
+            'is_resolved': feedback.is_resolved,
+            'feedback_stats': feedback_stats
+        })
+    except UserFeedback.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Feedback not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    
+
 
 class HomeView(TemplateView):
     template_name = 'home.html'
