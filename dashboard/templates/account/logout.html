@@ -1,20 +1,66 @@
+<!-- dashboard/templates/account/logout.html -->
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-md w-full space-y-8">
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign Out
-        </h2>
-        <p class="mt-2 text-center text-sm text-gray-600">
-            Are you sure you want to sign out?
-        </p>
-        <form method="post" action="{% url 'account_logout' %}">
-            {% csrf_token %}
-            <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                Sign Out
-            </button>
-        </form>
+<div class="logout-container">
+    <div class="logout-card">
+        <h2>Session Expired</h2>
+        <p>Your session has expired. Please log in again to continue.</p>
+        
+        <!-- Single Sign-On Button -->
+        <div class="sso-button-container">
+            <a href="{% url 'google_login' %}" class="google-signin-button">
+                <img src="{% static 'images/google-icon.png' %}" alt="Google Icon">
+                <span>Sign in with Google</span>
+            </a>
+        </div>
     </div>
 </div>
+
+<style>
+.logout-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f5f5f5;
+}
+
+.logout-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.google-signin-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px 20px;
+    margin: 20px auto;
+    text-decoration: none;
+    color: #757575;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.google-signin-button:hover {
+    background: #f8f8f8;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.google-signin-button img {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+}
+</style>
 {% endblock %}

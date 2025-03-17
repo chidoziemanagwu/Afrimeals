@@ -1,3 +1,4 @@
+from decimal import Decimal
 import os
 import re
 from django.urls import reverse
@@ -14,6 +15,9 @@ from django.core.cache import cache
 from django.contrib import messages
 from django.db.models import Q
 from django.core.exceptions import PermissionDenied
+import requests
+from .utils.currency import CurrencyManager
+
 
 from dashboard.decorators import rate_limit
 from .models import (
@@ -44,6 +48,7 @@ from google import genai
 from .services.gemini_assistant import GeminiAssistant
 from django.views.decorators.http import require_POST
 from django.contrib.admin.views.decorators import staff_member_required
+from django.views.decorators.http import require_GET
 # Set up logger
 logger = logging.getLogger(__name__)
 
@@ -94,6 +99,59 @@ def check_task_status(request, task_id):
 
 
 
+@login_required
+def meal_plan_history(request):
+    meal_plans = MealPlan.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'meal_plan_history.html', {'meal_plans': meal_plans})
+
+@login_required
+def get_meal_plan_details(request, meal_plan_id):
+    try:
+        # Get the meal plan
+        meal_plan = get_object_or_404(MealPlan, id=meal_plan_id, user=request.user)
+
+        # Parse the JSON data from the description field
+        meal_plan_data = json.loads(meal_plan.description)
+
+        # Get associated recipes if they exist
+        recipes = Recipe.objects.filter(
+            meal_plan=meal_plan
+        ).values('id', 'title', 'meal_type', 'day_index')
+
+        # Create a recipe lookup dictionary
+        recipe_lookup = {
+            f"{recipe['day_index']}-{recipe['meal_type']}": recipe
+            for recipe in recipes
+        }
+
+        # Add recipe information to meal plan data
+        for day_index, day in enumerate(meal_plan_data):
+            for meal_type in day['meals'].keys():
+                recipe_key = f"{day_index}-{meal_type}"
+                if recipe_key in recipe_lookup:
+                    day['meals'][f"{meal_type}_recipe"] = recipe_lookup[recipe_key]
+
+        return JsonResponse({
+            'success': True,
+            'meal_plan': meal_plan_data,
+            'name': meal_plan.name,
+            'created_at': meal_plan.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid meal plan data format'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error fetching meal plan details: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to load meal plan details'
+        }, status=500)
+
+
+        
 # views.py
 
 @require_POST
@@ -126,6 +184,31 @@ def mark_feedback_status(request, feedback_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
     
 
+@require_GET
+def update_currency(request):
+    """API endpoint for currency updates"""
+    currency = request.GET.get('currency', 'GBP')
+
+    # Update session
+    request.session['user_currency'] = currency
+
+    # Get and return updated price data
+    price_data = CurrencyManager.get_price_data(currency)
+    return JsonResponse(price_data)
+
+
+def google_login_redirect(request):
+    """Redirect all login attempts to Google OAuth"""
+    next_url = request.GET.get('next', '')
+    return redirect(f'/accounts/google/login/?next={next_url}')
+
+@require_http_methods(["GET"])
+def custom_logout(request):
+    logout(request)
+    return redirect('/')
+
+
+    
 
 class HomeView(TemplateView):
     template_name = 'home.html'
@@ -133,9 +216,30 @@ class HomeView(TemplateView):
     def get(self, request, *args, **kwargs):
         if request.user.is_authenticated:
             return redirect('dashboard')
+
+        # Get currency and pricing information
+        currency = CurrencyManager.get_user_currency(request)
+        price_data = CurrencyManager.get_price_data(currency)
+
+        # Add pricing context
+# Set context for template
+        self.extra_context = {
+            **price_data,  # Unpack all price data
+            'supported_currencies': CurrencyManager.get_supported_currencies(),
+            'page_title': 'Welcome to NaijaPlate',
+            'meta_description': 'AI-powered Nigerian meal planning for the UK diaspora'
+        }
+
         return super().get(request, *args, **kwargs)
 
-# dashboard/views.py (update the DashboardView)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Add any additional context data if needed
+        context['page_title'] = 'Welcome to NaijaPlate'
+        context['meta_description'] = 'AI-powered Nigerian meal planning for the UK diaspora'
+
+        return context
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
@@ -195,8 +299,35 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         return context
 
+# views.py
+
+
+
 class MealGeneratorView(LoginRequiredMixin, View):
+    # Configurable timeouts
+    API_TIMEOUT = 15  # seconds
+    CACHE_TIMEOUT = 3600  # 1 hour
+    MAX_RETRIES = 2
+    
+    def __init__(self):
+        super().__init__()
+        # Initialize OpenAI client
+        self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        # Initialize Gemini client
+        self.gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        self.base_context = """
+        You are a Nigerian cuisine expert specializing in creating detailed recipes
+        that blend traditional Nigerian cooking with modern techniques and UK ingredients.
+        Focus on:
+        1. Clear, step-by-step instructions
+        2. UK-available ingredients with substitutions
+        3. Precise measurements in UK units
+        4. Cultural context and significance
+        5. Health and nutrition information
+        """
+
     def get(self, request):
+        """Handle GET request - display meal generator form"""
         cache_key = f"meal_generator_data_{request.user.id}"
         view_data = cache.get(cache_key)
 
@@ -204,19 +335,40 @@ class MealGeneratorView(LoginRequiredMixin, View):
             subscription = UserSubscription.get_active_subscription(request.user.id)
             view_data = {
                 'has_subscription': subscription is not None,
-                'subscription_tier': subscription.subscription_tier if subscription else None
+                'subscription_tier': subscription.subscription_tier if subscription else None,
+                'dietary_preferences': settings.DIETARY_PREFERENCES,
+                'supported_currencies': settings.SUPPORTED_CURRENCIES,  # Make sure this is passed
+                'user_currency': self.get_user_currency(request)
             }
-            cache.set(cache_key, view_data, CACHE_TIMEOUTS['medium'])
+            cache.set(cache_key, view_data, settings.CACHE_TIMEOUTS['medium'])
 
         return render(request, 'meal_generator.html', view_data)
 
+    def get_user_currency(self, request):
+        """Detect user's currency based on IP location"""
+        try:
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            ip = x_forwarded_for.split(',')[0] if x_forwarded_for else request.META.get('REMOTE_ADDR')
+
+            response = requests.get(f'https://ipapi.co/{ip}/json/')
+            data = response.json()
+
+            currency_map = {
+                'NG': 'NGN', 'US': 'USD', 'GB': 'GBP',
+                'GH': 'GHS', 'KE': 'KES', 'ZA': 'ZAR'
+            }
+
+            return currency_map.get(data.get('country_code'), 'USD')
+        except Exception as e:
+            logger.warning(f"Currency detection failed: {str(e)}")
+            return 'USD'
+
     @rate_limit('meal_generator', max_requests=5, timeout=3600)
     def post(self, request):
+        """Handle POST request - generate meal plan"""
         try:
-            # Extract and validate form data
             form_data = self._extract_form_data(request.POST)
 
-            # Check subscription requirements
             if form_data['premium_features_requested'] and not self._has_active_subscription(request.user):
                 return JsonResponse({
                     'success': False,
@@ -224,27 +376,22 @@ class MealGeneratorView(LoginRequiredMixin, View):
                     'message': 'This feature requires a subscription. Please upgrade to access it.'
                 })
 
-            # Generate and process meal plan
             response_data = self._generate_meal_plan(request.user, form_data)
 
-            # Track activity
             UserActivity.objects.create(
                 user=request.user,
                 action='create_meal',
-                details={'meal_plan_type': form_data['dietary_preferences']}
+                details={
+                    'meal_plan_type': form_data['dietary_preferences'],
+                    'currency': form_data['budget']['currency']
+                }
             )
 
             return JsonResponse(response_data)
 
-        except OpenAIError as e:
-            error_message = "We couldn't generate your meal plan. Please try again with different preferences."
-
-            if isinstance(e, RateLimitError):
-                error_message = "We're experiencing high demand. Please try again in a few minutes."
-            elif isinstance(e, APIError):
-                error_message = "Our meal generation service is temporarily unavailable. Please try again later."
-
-            logger.error(f"OpenAI Error: {str(e)}", exc_info=True, extra={
+        except Exception as e:
+            error_message = self._get_error_message(e)
+            logger.error(f"Meal generation error: {str(e)}", exc_info=True, extra={
                 'user_id': request.user.id,
                 'form_data': form_data if 'form_data' in locals() else {}
             })
@@ -255,39 +402,143 @@ class MealGeneratorView(LoginRequiredMixin, View):
                 'details': str(e) if settings.DEBUG else ""
             }, status=500)
 
-        except ValueError as e:
-            logger.warning(f"Value Error in meal generator: {str(e)}", extra={
-                'user_id': request.user.id
-            })
+    def _generate_with_openai(self, prompt):
+        """Generate response using OpenAI API"""
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": self.base_context},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=2000
+            )
+            # Extract the text content from the response
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"OpenAI API error: {str(e)}")
+            raise
 
-            return JsonResponse({
-                'success': False,
-                'error': "Please check your meal preferences and try again.",
-                'details': str(e) if settings.DEBUG else ""
-            }, status=400)
+    def _generate_with_gemini(self, prompt):
+        """Generate response using Gemini API"""
+        try:
+            # Configure the model
+            model = self.gemini_client.get_model('gemini-1.0-pro')
+
+            # Generate content
+            response = model.generate_content(
+                self.base_context + "\n\n" + prompt,
+                generation_config={
+                    "temperature": 0.7,
+                    "max_output_tokens": 2000,
+                }
+            )
+
+            # Extract the text content from the response
+            return response.text
+        except Exception as e:
+            logger.error(f"Gemini API error: {str(e)}")
+            raise
+
+    def _generate_meal_plan(self, user, form_data):
+        """Generate meal plan using OpenAI API with Gemini fallback"""
+        prompt = self._construct_prompt(form_data)
+        cache_key = f"meal_plan_{hashlib.md5(prompt.encode()).hexdigest()}"
+
+        cached_response = cache.get(cache_key)
+        if cached_response:
+            return cached_response
+
+        try:
+            # Try OpenAI first
+            response_text = self._generate_with_openai(prompt)
+            if not response_text:
+                raise Exception('Empty response from OpenAI')
+
+            processed_data = self._process_response(response_text, form_data, user, 'openai')
 
         except Exception as e:
-            logger.critical(f"Unexpected error in meal generator: {str(e)}", exc_info=True, extra={
-                'user_id': request.user.id
-            })
+            logger.warning(f"OpenAI generation failed, falling back to Gemini: {str(e)}")
 
-        return JsonResponse({
-            'success': False,
-            'error': "Something went wrong. Our team has been notified and will fix this soon.",
-            'details': str(e) if settings.DEBUG else ""
-        }, status=500)
+            try:
+                # Use Gemini as fallback
+                response_text = self._generate_with_gemini(prompt)
 
-    def _extract_form_data(self, post_data):
-        """Extract and validate form data with defaults"""
+                if not response_text:
+                    raise ValueError("Empty response from Gemini API")
+
+                processed_data = self._process_response(response_text, form_data, user, 'gemini')
+
+            except Exception as gemini_error:
+                logger.error(f"Both OpenAI and Gemini failed: {str(gemini_error)}")
+                raise Exception("Failed to generate meal plan with both services")
+
+        cache.set(cache_key, processed_data, settings.CACHE_TIMEOUTS['very_long'])
+        return processed_data
+
+    def _process_response(self, response_text, form_data, user, source):
+        """Process AI response into structured data"""
+        parts = response_text.strip().split('GROCERY LIST:')
+
+        if len(parts) < 2:
+            raise ValueError(f'Invalid response format from {source}')
+
+        meal_plan_text = parts[0].replace('MEAL PLAN:', '').strip()
+        grocery_list_text = parts[1].strip()
+
+        structured_meal_plan = self._structure_meal_plan(meal_plan_text, form_data)
+        structured_grocery_list = [
+            item.strip('- ').strip()
+            for item in grocery_list_text.split('\n')
+            if item.strip()
+        ]
+
+        # Save to database
+        meal_plan = MealPlan.objects.create(
+            user=user,
+            name=f"Meal Plan for {form_data['dietary_preferences']}",
+            description=json.dumps(structured_meal_plan)
+        )
+
+        GroceryList.objects.create(
+            user=user,
+            items="\n".join(structured_grocery_list)
+        )
+
         return {
-            'dietary_preferences': post_data.get('dietary_preferences', 'balanced'),
+            'success': True,
+            'meal_plan_id': meal_plan.id,
+            'meal_plan': structured_meal_plan,
+            'grocery_list': structured_grocery_list,
+            'generated_by': source
+        }    
+    
+    
+    
+    def _extract_form_data(self, post_data):
+        """Extract and validate form data"""
+        try:
+            budget_amount = Decimal(post_data.get('budget', '0'))
+        except:
+            budget_amount = Decimal('0')
+
+        dietary_pref = post_data.get('dietary_preferences', 'balanced')
+        if dietary_pref not in settings.DIETARY_PREFERENCES:
+            dietary_pref = 'balanced'
+
+        return {
+            'dietary_preferences': dietary_pref,
             'preferred_cuisine': post_data.get('preferred_cuisine', 'Contemporary Nigerian'),
             'health_goals': post_data.get('health_goals', ''),
             'allergies': post_data.get('allergies', ''),
             'meals_per_day': post_data.get('meals_per_day', '3'),
             'include_snacks': post_data.get('include_snacks') == 'on',
             'plan_days': post_data.get('plan_days', '7'),
-            'budget': post_data.get('budget', 'moderate'),
+            'budget': {
+                'amount': budget_amount,
+                'currency': post_data.get('currency', 'USD')
+            },
             'skill_level': post_data.get('skill_level', 'Intermediate'),
             'family_size': post_data.get('family_size', '4'),
             'premium_features_requested': any(
@@ -296,85 +547,59 @@ class MealGeneratorView(LoginRequiredMixin, View):
             )
         }
 
-    def _has_active_subscription(self, user):
-        return UserSubscription.get_active_subscription(user.id) is not None
-
-    def _generate_meal_plan(self, user, form_data):
-        """Generate meal plan using OpenAI API"""
-        prompt = self._construct_prompt(form_data)
-        cache_key = f"meal_plan_{hashlib.md5(prompt.encode()).hexdigest()}"
-
-        # Check cache first
-        cached_response = cache.get(cache_key)
-        if cached_response:
-            return cached_response
-
-        # Generate new meal plan
-        response = client.completions.create(
-            model="gpt-3.5-turbo-instruct",
-            prompt=prompt,
-            max_tokens=2000,
-            temperature=0.7,
-        )
-
-        if not response:
-            raise Exception('Failed to generate meal plan')
-
-        # Process response
-        processed_data = self._process_response(response, form_data, user)
-
-        # Cache the response
-        cache.set(cache_key, processed_data, CACHE_TIMEOUTS['very_long'])
-
-        return processed_data
-
     def _construct_prompt(self, form_data):
-        """Construct the prompt for OpenAI API"""
+        """Construct the prompt for AI models"""
+        # Get currency symbol directly since it's a simple mapping
+        currency_symbol = settings.SUPPORTED_CURRENCIES.get(
+            form_data['budget']['currency'], '$'  # Default to $ if currency not found
+        )
+        budget_string = f"{currency_symbol}{form_data['budget']['amount']}"
+
         prompt = (
             f"Generate a meal plan for {form_data['plan_days']} days and grocery list "
             f"for a {form_data['dietary_preferences']} diet with {form_data['preferred_cuisine']} cuisine.\n"
+            f"Budget: {budget_string} in {form_data['budget']['currency']}.\n"
         )
 
         if form_data['health_goals']:
             prompt += f"Health goals: {form_data['health_goals']}.\n"
-
         if form_data['allergies']:
             prompt += f"Allergies and restrictions: {form_data['allergies']}.\n"
 
-        prompt += (
+        prompt += self._add_meal_structure(form_data)
+        return prompt
+
+
+    
+    def _add_meal_structure(self, form_data):
+        """Add meal structure to prompt"""
+        structure = (
             f"Include {form_data['meals_per_day']} meals per day.\n"
             f"{'Include a snack for each day.' if form_data['include_snacks'] else ''}\n"
-            f"Budget: {form_data['budget']}.\n"
             f"Skill level: {form_data['skill_level']}.\n"
             f"Family size: {form_data['family_size']}.\n\n"
-            "Please format the response exactly as follows:\n"
+            "Format the response as:\n"
             "MEAL PLAN:\n"
         )
 
-        # Add day-by-day format
         for day in range(1, int(form_data['plan_days']) + 1):
-            prompt += f"Day {day}:\n"
-            prompt += "Breakfast: [breakfast meal]\n"
-            prompt += "Lunch: [lunch meal]\n"
+            structure += f"Day {day}:\n"
+            if int(form_data['meals_per_day']) >= 2:
+                structure += "Breakfast: [meal]\n"
+            structure += "Lunch: [meal]\n"
             if form_data['include_snacks']:
-                prompt += "Snack: [snack food]\n"
-            prompt += "Dinner: [dinner meal]\n\n"
+                structure += "Snack: [snack]\n"
+            if int(form_data['meals_per_day']) >= 3:
+                structure += "Dinner: [meal]\n"
+            structure += "\n"
 
-        prompt += "GROCERY LIST:\n[List each ingredient on a new line with a - in front]"
+        structure += "GROCERY LIST:\n- [ingredient 1]\n- [ingredient 2]\n..."
+        return structure
 
-        return prompt
-    def _process_response(self, response, form_data, user):
-        """Process OpenAI response into structured data and save to database"""
-        full_response = response.choices[0].text.strip()
-        parts = full_response.split('GROCERY LIST:')
 
-        if len(parts) < 2:
-            raise ValueError('Invalid response format from OpenAI')
 
-        meal_plan_text = parts[0].replace('MEAL PLAN:', '').strip()
-        grocery_list_text = parts[1].strip()
-
-        # Process meal plan into structured data
+    def _structure_meal_plan(self, meal_plan_text, form_data):
+        """Convert meal plan text to structured data"""
         structured_meal_plan = []
         current_day = None
 
@@ -400,41 +625,23 @@ class MealGeneratorView(LoginRequiredMixin, View):
                 if meal_type_lower in current_day['meals']:
                     current_day['meals'][meal_type_lower] = meal
 
-        # Process grocery list into structured data
-        structured_grocery_list = [
-            item.strip('- ').strip()
-            for item in grocery_list_text.split('\n')
-            if item.strip()
-        ]
+        return structured_meal_plan
 
-        # Save to database
-        meal_plan = MealPlan.objects.create(
-            user=user,
-            name=f"Meal Plan for {form_data['dietary_preferences']}",
-            description=json.dumps(structured_meal_plan)  # Store as JSON string
-        )
+    def _get_error_message(self, error):
+        """Get appropriate error message based on error type"""
+        if isinstance(error, RateLimitError):
+            return "We're experiencing high demand. Please try again in a few minutes."
+        elif isinstance(error, APIError):
+            return "Our meal generation service is temporarily unavailable. Please try again later."
+        elif isinstance(error, ValueError):
+            return "Please check your meal preferences and try again."
+        return "We couldn't generate your meal plan. Please try again with different preferences."
+
+    def _has_active_subscription(self, user):
+        """Check if user has an active subscription"""
+        return UserSubscription.get_active_subscription(user.id) is not None
 
 
-        # Log the activity with the meal plan ID
-        UserActivity.log_meal_plan_activity(
-            user=user,
-            action='create_meal',
-            meal_plan=meal_plan
-        )
-
-        # Create grocery list
-        grocery_items = "\n".join(structured_grocery_list)
-        GroceryList.objects.create(
-            user=user,
-            items=grocery_items
-        )
-
-        return {
-            'success': True,
-            'meal_plan_id': meal_plan.id,  # Include the meal plan ID in response
-            'meal_plan': structured_meal_plan,
-            'grocery_list': structured_grocery_list
-        }
 
 
 

@@ -1,0 +1,548 @@
+<!-- dashboard/templates/meal_plan_history.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% csrf_token %}
+
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h2 class="text-2xl font-bold mb-6">Previously Generated Meal Plans</h2>
+    
+    <!-- Meal Plans List -->
+    <div class="space-y-6">
+        {% for plan in meal_plans %}
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <!-- Header -->
+            <div class="p-4 border-b">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg font-semibold">Plan #{{ plan.id }}</h3>
+                        <p class="text-sm text-gray-600 mt-1">
+                            {{ plan.days }} days | {{ plan.meals_per_day }} meals/day
+                            {% if plan.include_snacks %}+ snacks{% endif %}
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm text-gray-500">{{ plan.created_at|date:"M d, Y" }}</span>
+                        <button onclick="toggleMealPlanDetails('{{ plan.id }}')" 
+                                class="text-green-600 hover:text-green-700 flex items-center">
+                            <i class="fas fa-chevron-down mr-1 transition-transform duration-200" id="chevron-{{ plan.id }}"></i>
+                            View Details
+                        </button>
+                        <button onclick="shareMealPlan('{{ plan.id }}')"
+                                class="text-blue-600 hover:text-blue-700">
+                            <i class="fas fa-share-alt mr-1"></i>Share
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Collapsible Details Section -->
+            <div id="mealPlanDetails-{{ plan.id }}" class="hidden">
+                <!-- Loading State -->
+                <div id="loading-{{ plan.id }}" class="p-6 text-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+                    <p class="mt-2 text-gray-600">Loading meal plan details...</p>
+                </div>
+                
+                <!-- Content Container -->
+                <div id="content-{{ plan.id }}" class="hidden p-6">
+                    <!-- Meal Schedule Table -->
+                    <div class="mb-8">
+                        <h4 class="text-lg font-semibold mb-4">Meal Schedule</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr>
+                                        <th class="px-4 py-2 bg-gray-50 text-left">Day</th>
+                                        <th class="px-4 py-2 bg-gray-50 text-left">Breakfast</th>
+                                        <th class="px-4 py-2 bg-gray-50 text-left">Lunch</th>
+                                        <th class="px-4 py-2 bg-gray-50 text-left">Dinner</th>
+                                        {% if plan.include_snacks %}
+                                        <th class="px-4 py-2 bg-gray-50 text-left">Snacks</th>
+                                        {% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Will be populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+<!-- Shopping List Section -->
+<div class="bg-white rounded-xl shadow-lg p-6">
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+        <h3 class="text-xl font-bold text-gray-800 flex items-center mb-4 sm:mb-0">
+            <i class="fas fa-shopping-basket text-green-500 mr-2"></i>
+            Shopping List
+        </h3>
+        
+        <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
+            <!-- Share button -->
+            <button onclick="shareShoppingList('{{ plan.id }}')" 
+                    class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors duration-200">
+                <i class="fas fa-share-alt mr-2"></i>
+                Share List
+            </button>
+            
+            <!-- Pagination controls -->
+            <div id="pagination-{{ plan.id }}" class="flex items-center space-x-2 bg-gray-50 rounded-lg p-1">
+                <button onclick="changePage('{{ plan.id }}', 'prev')" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="px-3 text-sm">
+                    Page <span id="currentPage-{{ plan.id }}">1</span> of <span id="totalPages-{{ plan.id }}">1</span>
+                </span>
+                <button onclick="changePage('{{ plan.id }}', 'next')" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shopping List Items -->
+    <div id="shoppingList-{{ plan.id }}" class="space-y-3">
+        <!-- Items will be populated by JavaScript -->
+    </div>
+</div>
+
+
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-8">
+            <p class="text-gray-500">No meal plans generated yet.</p>
+            <a href="{% url 'generate_meal_plan' %}" 
+               class="mt-4 inline-block bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                Generate Your First Meal Plan
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Add these at the top of your script
+let currentPage = 1;
+const itemsPerPage = 10;
+let loadedPlans = new Set();
+window.groceryList = [];
+let groceryLists = {};
+let currentPages = {};
+
+// Update the updateShoppingList function
+function updateShoppingList(planId) {
+    const shoppingListContainer = document.getElementById(`shoppingList-${planId}`);
+    const paginationContainer = document.getElementById(`pagination-${planId}`);
+    const groceryList = groceryLists[planId];
+    
+    if (!shoppingListContainer) {
+        console.error(`Shopping list container not found for plan ${planId}`);
+        return;
+    }
+
+    if (!groceryList) {
+        console.error(`Grocery list not initialized for plan ${planId}`);
+        shoppingListContainer.innerHTML = `
+            <div class="text-center text-gray-500 py-4">
+                <i class="fas fa-shopping-basket mb-2"></i>
+                <p>No grocery list available.</p>
+            </div>
+        `;
+        return;
+    }
+
+    try {
+        // Initialize current page for this plan if not exists
+        if (!currentPages[planId]) {
+            currentPages[planId] = 1;
+        }
+
+        // Calculate pagination
+        const totalItems = groceryList.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        const startIndex = (currentPages[planId] - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+        const currentItems = groceryList.slice(startIndex, endIndex);
+
+        // Update shopping list container
+        if (currentItems.length > 0) {
+            shoppingListContainer.innerHTML = currentItems.map(item => `
+                <div class="flex items-center p-2 hover:bg-gray-50 rounded-lg transition-colors duration-150">
+                    <i class="fas fa-shopping-basket text-green-500 mr-3"></i>
+                    <span class="flex-grow">${item}</span>
+                    <button class="text-gray-400 hover:text-green-500 transition-colors duration-150" 
+                            onclick="toggleItemComplete(this)">
+                        <i class="fas fa-check"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            // Update page indicators
+            document.getElementById(`currentPage-${planId}`).textContent = currentPages[planId];
+            document.getElementById(`totalPages-${planId}`).textContent = totalPages;
+        } else {
+            shoppingListContainer.innerHTML = `
+                <div class="text-center text-gray-500 py-4">
+                    <i class="fas fa-shopping-basket mb-2"></i>
+                    <p>No items in the shopping list.</p>
+                </div>
+            `;
+        }
+
+    } catch (error) {
+        console.error('Error updating shopping list:', error);
+        shoppingListContainer.innerHTML = `
+            <div class="text-center text-red-500 py-4">
+                <i class="fas fa-exclamation-circle mb-2"></i>
+                <p>Error updating shopping list. Please try again.</p>
+            </div>
+        `;
+    }
+}
+
+// Update the changePage function
+function changePage(planId, direction) {
+    if (!currentPages[planId]) {
+        currentPages[planId] = 1;
+    }
+
+    const totalPages = Math.ceil(groceryLists[planId].length / itemsPerPage);
+
+    if (direction === 'prev' && currentPages[planId] > 1) {
+        currentPages[planId]--;
+    } else if (direction === 'next' && currentPages[planId] < totalPages) {
+        currentPages[planId]++;
+    }
+    
+    updateShoppingList(planId);
+}
+
+
+
+// Function to toggle item completion
+function toggleItemComplete(button) {
+    const itemElement = button.closest('div');
+    itemElement.classList.toggle('line-through');
+    button.classList.toggle('text-green-500');
+    button.classList.toggle('text-gray-400');
+}
+
+
+
+// Add this function to handle meal type icons
+function getMealIcon(mealType) {
+    const icons = {
+        breakfast: 'fa-sun',
+        lunch: 'fa-utensils',
+        dinner: 'fa-moon',
+        snack: 'fa-cookie'
+    };
+    return icons[mealType] || 'fa-utensils';
+}
+
+function displayMealPlanDetails(planId, mealPlanData) {
+    const content = document.getElementById(`content-${planId}`);
+    if (!content) {
+        console.error('Content element not found');
+        return;
+    }
+
+    try {
+        // Determine which meal types are present in the data
+        const availableMealTypes = new Set();
+        mealPlanData.days.forEach(day => {
+            if (day.meals) {
+                Object.keys(day.meals).forEach(mealType => {
+                    // Only add basic meal types, not recipe objects
+                    if (day.meals[mealType] && !mealType.endsWith('_recipe')) {
+                        availableMealTypes.add(mealType);
+                    }
+                });
+            }
+        });
+
+        // Create table structure with only available meal types
+        const tableHTML = `
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-2 bg-gray-50 text-left">
+                                <div class="flex items-center">
+                                    <i class="fas fa-calendar-day text-gray-500 mr-2"></i>
+                                    Day
+                                </div>
+                            </th>
+                            ${Array.from(availableMealTypes).map(mealType => `
+                                <th class="px-4 py-2 bg-gray-50 text-left">
+                                    <div class="flex items-center">
+                                        <i class="fas ${getMealIcon(mealType)} text-gray-500 mr-2"></i>
+                                        ${mealType.charAt(0).toUpperCase() + mealType.slice(1)}
+                                    </div>
+                                </th>
+                            `).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${mealPlanData.days.map(day => `
+                            <tr>
+                                <td class="px-4 py-3 border-b">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-calendar-day text-gray-500 mr-2"></i>
+                                        ${day.day}
+                                    </div>
+                                </td>
+                                ${Array.from(availableMealTypes).map(mealType => {
+                                    const meal = day.meals?.[mealType];
+                                    const recipe = day.meals?.[`${mealType}_recipe`];
+                                    
+                                    return `
+                                        <td class="px-4 py-3 border-b">
+                                            <div class="flex items-center">
+                                                <i class="fas ${getMealIcon(mealType)} text-gray-500 mr-2"></i>
+                                                <span>${meal || '<span class="text-gray-400">Not planned</span>'}</span>
+
+                                            </div>
+                                        </td>
+                                    `;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        // Update the content
+        const tableContainer = content.querySelector('.overflow-x-auto');
+        if (tableContainer) {
+            tableContainer.outerHTML = tableHTML;
+        } else {
+            console.error('Table container not found');
+        }
+
+    } catch (error) {
+        console.error('Error displaying meal plan:', error);
+        content.innerHTML = `
+            <div class="p-6 text-center text-red-600">
+                <i class="fas fa-exclamation-circle text-3xl mb-2"></i>
+                <p>Error displaying meal plan details. Please try again later.</p>
+                <p class="text-sm mt-2">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+
+// Helper function to create meal cells
+function createMealCell(day, mealType) {
+    if (day.meals && mealType in day.meals) {
+        return `
+            <td class="px-4 py-3 border-b">
+                <div class="flex items-center">
+                    <i class="fas ${getMealIcon(mealType)} text-gray-500 mr-2"></i>
+                    <span>${day.meals[mealType]}</span>
+                </div>
+            </td>
+        `;
+    } else {
+        return `
+            <td class="px-4 py-3 border-b">
+                <div class="flex items-center text-gray-400">
+                    <i class="fas ${getMealIcon(mealType)} mr-2"></i>
+                    <span>Not planned</span>
+                </div>
+            </td>
+        `;
+    }
+}
+
+// Add this function to handle recipe details viewing
+function viewRecipeDetails(planId, dayIndex, mealType) {
+    window.location.href = `api/recipe-details/${planId}/${dayIndex}/${mealType}/`;
+}
+
+// Updated toggleMealPlanDetails function with correct grocery list endpoint
+function toggleMealPlanDetails(planId) {
+    const detailsSection = document.getElementById(`mealPlanDetails-${planId}`);
+    const content = document.getElementById(`content-${planId}`);
+    const loading = document.getElementById(`loading-${planId}`);
+    const chevron = document.getElementById(`chevron-${planId}`);
+
+    if (!detailsSection || !content || !loading) {
+        console.error('Required elements not found');
+        return;
+    }
+
+    if (detailsSection.classList.contains('hidden')) {
+        detailsSection.classList.remove('hidden');
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+        
+        if (!loadedPlans.has(planId)) {
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+            
+            // Fetch meal plan details
+            fetch(`/api/meal-plans/${planId}/`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.meal_plan) {
+                    displayMealPlanDetails(planId, data.meal_plan);
+                    loadedPlans.add(planId);
+                    
+                    // Updated grocery list endpoint
+                    return fetch(`/api/grocery-lists/retrieve_by_meal_plan/?meal_plan_id=${planId}`, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    });
+                } else {
+                    throw new Error(data.error || 'Failed to load meal plan details');
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            })
+            
+            .then(data => {
+    if (data.success) {
+        const items = data.items ? data.items.split('\n').filter(item => item.trim()) : [];
+        groceryLists[planId] = items;
+        updateShoppingList(planId);
+    }
+})
+            
+            .catch(error => {
+                console.error('Error:', error);
+                content.innerHTML = `
+                    <div class="p-6 text-center text-red-600">
+                        <i class="fas fa-exclamation-circle text-3xl mb-2"></i>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            })
+            .finally(() => {
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+            });
+        } else {
+            content.classList.remove('hidden');
+        }
+    } else {
+        detailsSection.classList.add('hidden');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+
+
+
+// Update the shareShoppingList function
+function shareShoppingList(planId) {
+    const groceryList = groceryLists[planId];
+    if (!groceryList || groceryList.length === 0) {
+        alert('No items in the shopping list to share.');
+        return;
+    }
+
+    const items = groceryList.join('\n');
+    const shareText = encodeURIComponent(`Shopping List:\n${items}`);
+    window.open(`https://wa.me/?text=${shareText}`, '_blank');
+}
+
+
+// Initialize event listeners when the document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize pagination controls
+    const prevButton = document.getElementById('prevPage');
+    const nextButton = document.getElementById('nextPage');
+    
+    if (prevButton) {
+        prevButton.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                updateShoppingList();
+            }
+        });
+    }
+    
+    if (nextButton) {
+        nextButton.addEventListener('click', () => {
+            if (currentPage < Math.ceil(window.groceryList.length / itemsPerPage)) {
+                currentPage++;
+                updateShoppingList();
+            }
+        });
+    }
+});
+
+// Add this function to your JavaScript code
+function shareMealPlan(planId) {
+    // Get the meal plan details
+    fetch(`/api/meal-plans/${planId}/`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return response.json();
+    })
+    .then(data => {
+        if (data.success && data.meal_plan) {
+            // Format the meal plan data for sharing
+            let shareText = `Meal Plan #${planId}\n\n`;
+            
+            // Add each day's meals
+            data.meal_plan.days.forEach(day => {
+                shareText += `${day.day}:\n`;
+                if (day.meals) {
+                    if (day.meals.breakfast) shareText += `Breakfast: ${day.meals.breakfast}\n`;
+                    if (day.meals.lunch) shareText += `Lunch: ${day.meals.lunch}\n`;
+                    if (day.meals.dinner) shareText += `Dinner: ${day.meals.dinner}\n`;
+                    if (day.meals.snack) shareText += `Snack: ${day.meals.snack}\n`;
+                }
+                shareText += '\n';
+            });
+
+            // Get the grocery list if available
+            if (groceryLists[planId]) {
+                shareText += '\nGrocery List:\n';
+                shareText += groceryLists[planId].join('\n');
+            }
+
+            // Share via WhatsApp
+            const encodedText = encodeURIComponent(shareText);
+            window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+        } else {
+            throw new Error(data.error || 'Failed to load meal plan details');
+        }
+    })
+    .catch(error => {
+        console.error('Error sharing meal plan:', error);
+        alert('Sorry, there was an error sharing the meal plan. Please try again.');
+    });
+}
+</script>
+{% endblock %}

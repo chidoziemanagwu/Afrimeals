@@ -172,7 +172,8 @@ AUTHENTICATION_BACKENDS = [
 ]  
 
 SITE_ID = 1  
-LOGIN_REDIRECT_URL = '/'  
+# LOGIN_REDIRECT_URL = '/'  
+LOGIN_REDIRECT_URL = '/dashboard/'  # or whatever your dashboard URL is
 LOGOUT_REDIRECT_URL = '/'  
 
 SOCIALACCOUNT_PROVIDERS = {  
@@ -196,8 +197,8 @@ ACCOUNT_LOGOUT_ON_GET = True  # Set to True if you want to logout immediately wi
 ACCOUNT_LOGOUT_REDIRECT_URL = '/'  # Redirect to home page after logout
 # In settings.py
 ACCOUNT_ADAPTER = 'dashboard.adapters.CustomAccountAdapter'
-
-
+SOCIALACCOUNT_ADAPTER = 'dashboard.adapters.CustomSocialAccountAdapter'
+LOGIN_URL = '/accounts/google/login/'
 # Allauth settings  
 ACCOUNT_EMAIL_REQUIRED = True  
 ACCOUNT_USERNAME_REQUIRED = False  
@@ -257,3 +258,36 @@ CELERY_TIMEZONE = TIME_ZONE
 # Celery task settings
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+
+
+# Dietary Preferences Configuration
+DIETARY_PREFERENCES = {
+    'vegetarian': 'No meat or fish, but may include dairy and eggs',
+    'vegan': 'No animal products whatsoever',
+    'pescatarian': 'Vegetarian diet that includes fish',
+    'halal': 'Food permitted under Islamic dietary laws',
+    'kosher': 'Food prepared according to Jewish dietary laws',
+    'gluten_free': 'No wheat, barley, rye or their derivatives',
+    'dairy_free': 'No milk or dairy products',
+    'keto': 'Low-carb, high-fat diet',
+    'paleo': 'Based on foods presumed eaten during the Paleolithic era',
+    'low_carb': 'Reduced carbohydrate intake',
+    'mediterranean': 'Based on traditional Mediterranean cuisine',
+    'nigerian': 'Traditional Nigerian cuisine',
+    'west_african': 'West African dishes and ingredients',
+    'east_african': 'East African dishes and ingredients',
+    'south_african': 'South African dishes and ingredients',
+    'north_african': 'North African dishes and ingredients',
+    'central_african': 'Central African dishes and ingredients'
+}
+
+# Currency Configuration (you already have this)
+SUPPORTED_CURRENCIES = {
+    'NGN': '₦',  # Nigerian Naira
+    'USD': '$',  # US Dollar
+    'GBP': '£',  # British Pound
+    'EUR': '€',  # Euro
+    'GHS': '₵',  # Ghanaian Cedi
+    'KES': 'KSh', # Kenyan Shilling
+    'ZAR': 'R',  # South African Rand
+}

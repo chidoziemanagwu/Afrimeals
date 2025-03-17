@@ -1,12 +1,13 @@
 from django.contrib import admin
+from django.shortcuts import redirect
 from django.urls import path, include
 from django.views.generic import RedirectView
 from dashboard.views import (
     ExportMealPlanPDF, HomeView, DashboardView, MealGeneratorView,
     PricingView, CheckoutView, RecipeDetailsView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView,
     UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView, RecipeDeleteView,
-    ExportMealPlanView, FeedbackView, check_task_status, export_activity_pdf, activity_detail_api, gemini_chat, 
-    checkout_success, checkout_cancel, mark_feedback_status
+    ExportMealPlanView, FeedbackView, check_task_status, custom_logout, export_activity_pdf, activity_detail_api, gemini_chat, 
+    checkout_success, checkout_cancel, mark_feedback_status, meal_plan_history, get_meal_plan_details, update_currency, google_login_redirect
 )
 from rest_framework.routers import DefaultRouter
 from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
@@ -18,11 +19,17 @@ from dashboard.webhooks import stripe_webhook
 from django.views.generic import TemplateView  
 from dashboard.admin import custom_admin_site  # Your custom admin site# Add this import
 
+
+def google_login_redirect(request):
+    """Redirect all login attempts to Google OAuth"""
+    next_url = request.GET.get('next', '')
+    return redirect(f'/accounts/google/login/?next={next_url}')
+
 # Create a router and register our API viewsets
 router = DefaultRouter()
-router.register(r'api/recipes', RecipeViewSet, basename='recipe-api')
-router.register(r'api/meal-plans', MealPlanViewSet, basename='mealplan-api')
-router.register(r'api/grocery-lists', GroceryListViewSet, basename='grocerylist-api')
+router.register(r'meal-plans', MealPlanViewSet, basename='mealplan')  # Remove 'api/' prefix
+router.register(r'recipes', RecipeViewSet, basename='recipe')
+router.register(r'grocery-lists', GroceryListViewSet, basename='grocerylist')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -35,7 +42,7 @@ urlpatterns = [
     path('', HomeView.as_view(), name='home'),
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
 
-
+    path('accounts/login/', google_login_redirect, name='account_login'),
     path('accounts/', include('allauth.urls')),
 
     path('meal-generator/', MealGeneratorView.as_view(), name='meal_generator'),
@@ -85,6 +92,14 @@ urlpatterns = [
 
     path('api-auth/', include('rest_framework.urls')),
     path('task-status/<str:task_id>/', check_task_status, name='check_task_status'),
+    path('meal-plans/history/', meal_plan_history, name='meal_plan_history'),
+    # path('api/meal-plans/<int:meal_plan_id>/', get_meal_plan_details, name='get_meal_plan_details'),
+    # In urls.py, add this to your urlpatterns
+    path('api/grocery-list/<int:meal_plan_id>/',
+        GroceryListViewSet.as_view({'get': 'retrieve_by_meal_plan'}),
+        name='grocery-list-detail'),
+
+    path('api/update-currency/', update_currency, name='update_currency'),
 
 ]
 

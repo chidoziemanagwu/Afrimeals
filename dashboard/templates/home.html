@@ -568,4 +568,68 @@
         });
     });
 </script>
+
+<!-- Add this before closing </body> tag in home.html -->
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const currencySelector = document.getElementById('currency-selector');
+        
+        function updatePriceDisplays(data) {
+            // Update pay once price display
+            const payOnceElement = document.getElementById('pay-once-price');
+            if (payOnceElement) {
+                payOnceElement.textContent = data.formatted_pay_once;
+            }
+            
+            // Update weekly price display
+            const weeklyElement = document.getElementById('weekly-price');
+            if (weeklyElement) {
+                weeklyElement.textContent = data.formatted_weekly;
+            }
+            
+            // Update all currency symbols
+            document.querySelectorAll('.currency-symbol').forEach(el => {
+                el.textContent = data.symbol;
+            });
+        }
+    
+        if (currencySelector) {
+            currencySelector.addEventListener('change', async function(e) {
+                try {
+                    const response = await fetch(`/api/update-currency/?currency=${e.target.value}`, {
+                        method: 'GET',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        credentials: 'same-origin'
+                    });
+    
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    
+                    const data = await response.json();
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    updatePriceDisplays(data);
+                    localStorage.setItem('preferred_currency', e.target.value);
+                    
+                } catch (error) {
+                    console.error('Error updating currency:', error);
+                    alert('Failed to update currency. Please try again.');
+                }
+            });
+    
+            // Load preferred currency if stored
+            const storedCurrency = localStorage.getItem('preferred_currency');
+            if (storedCurrency && storedCurrency !== currencySelector.value) {
+                currencySelector.value = storedCurrency;
+                currencySelector.dispatchEvent(new Event('change'));
+            }
+        }
+    });
+    </script>
 {% endblock %}

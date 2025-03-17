@@ -218,12 +218,14 @@ class Recipe(models.Model, CacheModelMixin):
 
 class GroceryList(models.Model, CacheModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
+    meal_plan = models.ForeignKey(MealPlan, on_delete=models.CASCADE, null=True, blank=True)  # Add this line
     items = models.TextField()
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
         indexes = [
             models.Index(fields=['user', 'created_at'], name='grocery_user_created_idx'),
+            models.Index(fields=['meal_plan'], name='grocery_meal_plan_idx'),  # Add this index
         ]
 
     def __str__(self):

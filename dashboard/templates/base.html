@@ -352,7 +352,7 @@ body {
   {% csrf_token %}
   <!-- Navigation Bar -->
   <nav class="bg-white shadow-lg">
-    <div class="max-w-6xl mx-auto px-4">
+    <div class="max-w-8xl mx-auto px-4">
       <div class="flex justify-between items-center py-4">
         <div class="flex items-center">
           <a href="{% url 'dashboard' %}" class="text-2xl font-bold text-green-500 flex items-center">
@@ -370,6 +370,10 @@ body {
           </a>
           <a href="{% url 'recipe_list' %}" class="text-green-500 font-medium hover:text-green-500 transition-colors duration-300">
             <i class="fas fa-book-open mr-2"></i>Recipes
+          </a>
+          <a href="{% url 'meal_plan_history' %}" class="text-green-500 font-medium hover:text-green-500 transition-colors duration-300">
+            <i class="fas fa-history mr-2"></i>
+            Meal Plan History
           </a>
           <a href="{% url 'user_profile' %}" class="text-green-500 font-medium hover:text-green-500 transition-colors duration-300">
             <i class="fas fa-user-circle mr-2"></i>My Account
@@ -415,6 +419,10 @@ body {
           </a>
           <a href="{% url 'recipe_list' %}" class="text-green-500 font-medium hover:text-green-200 transition-colors duration-300">
             <i class="fas fa-book-open mr-2"></i>Recipes
+          </a>
+          <a href="{% url 'meal_plan_history' %}" class="text-green-500 font-medium hover:text-green-500 transition-colors duration-300">
+            <i class="fas fa-history mr-2"></i>
+            Meal Plan History
           </a>
           <a href="{% url 'user_profile' %}" class="text-green-500 font-medium hover:text-green-200 transition-colors duration-300">
             <i class="fas fa-user-circle mr-2"></i>My Account
