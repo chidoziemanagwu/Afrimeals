@@ -6,8 +6,8 @@ from dashboard.views import (
     ExportMealPlanPDF, HomeView, DashboardView, MealGeneratorView,
     PricingView, CheckoutView, RecipeDetailsView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView,
     UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView, RecipeDeleteView,
-    ExportMealPlanView, FeedbackView, check_task_status, custom_logout, export_activity_pdf, activity_detail_api, gemini_chat, 
-    checkout_success, checkout_cancel, mark_feedback_status, meal_plan_history, get_meal_plan_details, update_currency, google_login_redirect
+    ExportMealPlanView, FeedbackView, check_task_status, custom_logout, detect_user_currency, export_activity_pdf, activity_detail_api, find_stores, gemini_chat, 
+    checkout_success, checkout_cancel, get_exchange_rates, mark_feedback_status, meal_plan_history, get_meal_plan_details, update_currency, google_login_redirect
 )
 from rest_framework.routers import DefaultRouter
 from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
@@ -100,6 +100,9 @@ urlpatterns = [
         name='grocery-list-detail'),
 
     path('api/update-currency/', update_currency, name='update_currency'),
+    path('api/find-stores/', find_stores, name='find_stores'),
+    path('api/exchange-rates/', get_exchange_rates, name='exchange_rates'),
+    path('api/detect-currency/', detect_user_currency, name='detect_currency'),
 
 ]
 

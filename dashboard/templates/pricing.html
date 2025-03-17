@@ -7,9 +7,20 @@
 
 {% block extra_head %}
 <style>
-  body > nav {
-    display: none !important;
-  }
+    body > nav {
+        display: none !important;
+    }
+    
+    .currency-notification {
+        transform: translateY(100%);
+        opacity: 0;
+        transition: all 0.3s ease-in-out;
+    }
+    
+    .currency-notification.show {
+        transform: translateY(0);
+        opacity: 1;
+    }
 </style>
 <script src="https://js.stripe.com/v3/"></script>
 {% endblock %}
@@ -82,7 +93,7 @@
                         <h3 class="text-xl font-medium text-gray-900">Pay Once</h3>
                         <p class="mt-4 text-gray-500">Full features for a single meal plan.</p>
                         <p class="mt-8">
-                            <span class="text-4xl font-extrabold text-gray-900">£5.99</span>
+                            <span class="text-4xl font-extrabold text-gray-900 pay-once-price">£5.99</span>
                             <span class="text-base font-medium text-gray-500">/meal plan</span>
                         </p>
                         <a href="{% url 'checkout' tier_id=2 %}" class="mt-8 block w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
@@ -123,7 +134,7 @@
                         <h3 class="text-xl font-medium text-gray-900">Weekly Access</h3>
                         <p class="mt-4 text-gray-500">Full AI assistant access for a week.</p>
                         <p class="mt-8">
-                            <span class="text-4xl font-extrabold text-gray-900">£12.99</span>
+                            <span class="text-4xl font-extrabold text-gray-900 weekly-price">£12.99</span>
                             <span class="text-base font-medium text-gray-500">/week</span>
                         </p>
                         <a href="{% url 'checkout' tier_id=3 %}" class="mt-8 block w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
@@ -169,6 +180,31 @@
             <span>30-day money-back guarantee</span>
         </div>
     </div>
+
+    <!-- Currency Notification -->
+<div id="currencyNotification" class="currency-notification fixed bottom-4 right-4 bg-white rounded-lg shadow-lg border border-green-100 z-50 p-4">
+    <div class="flex items-center">
+        <div class="flex-shrink-0">
+            <i class="fas fa-globe text-green-500"></i>
+        </div>
+        <div class="ml-3">
+            <p class="text-sm font-medium text-gray-900" id="currencyMessage"></p>
+        </div>
+        <button class="ml-4 text-gray-400 hover:text-gray-500" onclick="document.getElementById('currencyNotification').classList.remove('show')">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Currency Selector -->
+<div class="fixed top-4 right-4 z-50">
+    <select id="currencySelect" 
+            class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-lg shadow-sm">
+        {% for code, symbol in supported_currencies.items %}
+            <option value="{{ code }}">{{ symbol }} {{ code }}</option>
+        {% endfor %}
+    </select>
+</div>
 </div>
 
 <script>
@@ -246,4 +282,217 @@ function getCookie(name) {
 }
 
 </script>
+
+<script>
+class PricingManager {
+    constructor() {
+        this.basePrices = {
+            payOnce: 5.99,
+            weekly: 12.99
+        };
+        
+        this.currencyFormats = {
+            'GBP': { symbol: '£', code: 'GBP', locale: 'en-GB', name: 'British Pound' },
+            'USD': { symbol: '$', code: 'USD', locale: 'en-US', name: 'US Dollar' },
+            'EUR': { symbol: '€', code: 'EUR', locale: 'de-DE', name: 'Euro' }
+        };
+        
+        this.currentCurrency = 'GBP';
+        this.rates = null;
+        this.stripe = Stripe('{{ stripe_public_key }}');
+        
+        // UI Elements
+        this.notification = document.getElementById('currencyNotification');
+        this.notificationMessage = document.getElementById('currencyMessage');
+        this.currencySelect = document.getElementById('currencySelect');
+        
+        // Loading state elements
+        this.loadingOverlay = document.getElementById('loadingOverlay');
+    }
+
+    async initialize() {
+        try {
+            this.showLoading();
+            
+            // First try to get saved preference
+            const savedCurrency = localStorage.getItem('preferred_currency');
+            
+            if (savedCurrency && this.currencyFormats[savedCurrency]) {
+                await this.updatePricing(savedCurrency, false);
+                this.currencySelect.value = savedCurrency;
+            } else {
+                // If no saved preference, detect user's currency
+                const response = await fetch('/api/detect-currency/');
+                const data = await response.json();
+                
+                if (data.success && this.currencyFormats[data.currency]) {
+                    await this.updatePricing(data.currency, true);
+                    this.currencySelect.value = data.currency;
+                }
+            }
+            
+            this.setupEventListeners();
+        } catch (error) {
+            console.error('Initialization error:', error);
+            this.showNotification('Could not load currency data. Using default currency.', true);
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async updatePricing(currency, showNotification = true) {
+        try {
+            if (!this.currencyFormats[currency]) {
+                throw new Error('Invalid currency');
+            }
+
+            const response = await fetch(`/api/exchange-rates/?base_currency=GBP`);
+            if (!response.ok) throw new Error('Failed to fetch exchange rates');
+            
+            const data = await response.json();
+            const rate = data.data[currency] || 1;
+            const format = this.currencyFormats[currency];
+
+            // Update Pay Once price
+            document.querySelectorAll('.pay-once-price').forEach(element => {
+                const convertedPrice = this.basePrices.payOnce * rate;
+                element.textContent = this.formatPrice(convertedPrice, format);
+            });
+
+            // Update Weekly price
+            document.querySelectorAll('.weekly-price').forEach(element => {
+                const convertedPrice = this.basePrices.weekly * rate;
+                element.textContent = this.formatPrice(convertedPrice, format);
+            });
+
+            this.currentCurrency = currency;
+            localStorage.setItem('preferred_currency', currency);
+
+            if (showNotification) {
+                this.showNotification(`Prices updated to ${format.name}`);
+            }
+        } catch (error) {
+            console.error('Price update error:', error);
+            this.showNotification('Could not update prices', true);
+        }
+    }
+
+    formatPrice(amount, format) {
+        return new Intl.NumberFormat(format.locale, {
+            style: 'currency',
+            currency: format.code,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(amount);
+    }
+
+    showNotification(message, isError = false) {
+        this.notificationMessage.textContent = message;
+        this.notification.classList.toggle('border-red-100', isError);
+        this.notification.classList.toggle('bg-red-50', isError);
+        this.notificationMessage.classList.toggle('text-red-800', isError);
+        
+        this.notification.classList.add('show');
+        
+        setTimeout(() => {
+            this.notification.classList.remove('show');
+        }, 3000);
+    }
+
+    showLoading() {
+        if (this.loadingOverlay) {
+            this.loadingOverlay.classList.remove('hidden');
+        }
+    }
+
+    hideLoading() {
+        if (this.loadingOverlay) {
+            this.loadingOverlay.classList.add('hidden');
+        }
+    }
+
+    setupEventListeners() {
+        // Currency selector change
+        this.currencySelect.addEventListener('change', (e) => {
+            this.updatePricing(e.target.value, true);
+        });
+
+        // Handle checkout button clicks
+        document.querySelectorAll('[href^="/checkout/"]').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                e.preventDefault();
+                await this.handleCheckout(e.currentTarget);
+            });
+        });
+    }
+
+    async handleCheckout(button) {
+        const tierId = button.href.split('/checkout/')[1].split('/')[0];
+        const originalText = button.innerHTML;
+
+        try {
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+            const response = await fetch(`/checkout/${tierId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCookie('csrftoken'),
+                    'X-Currency': this.currentCurrency
+                }
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+
+            const result = await this.stripe.redirectToCheckout({
+                sessionId: data.sessionId
+            });
+
+            if (result.error) throw new Error(result.error.message);
+
+        } catch (error) {
+            console.error('Checkout error:', error);
+            this.showNotification('An error occurred during checkout', true);
+        } finally {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    }
+
+    getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+}
+
+// Add loading overlay to the template
+document.body.insertAdjacentHTML('beforeend', `
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white p-4 rounded-lg shadow-lg">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+            <p class="mt-2 text-sm text-gray-600">Loading...</p>
+        </div>
+    </div>
+`);
+
+// Initialize pricing manager
+document.addEventListener('DOMContentLoaded', async () => {
+    const pricingManager = new PricingManager();
+    await pricingManager.initialize();
+});
+    </script>
 {% endblock %}

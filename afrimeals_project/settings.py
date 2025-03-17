@@ -17,6 +17,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-for-dev')  # P
 
 # Add to your existing settings
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+CURRENCY_API_KEY = os.getenv('CURRENCY_API_KEY')
 
 # In settings.py
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
@@ -51,6 +52,7 @@ INSTALLED_APPS = [
     'dashboard',
     'sslserver',
     'rest_framework',
+    'django.contrib.humanize',
 ]  
 
 MIDDLEWARE = [  

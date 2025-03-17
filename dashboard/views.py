@@ -49,6 +49,9 @@ from .services.gemini_assistant import GeminiAssistant
 from django.views.decorators.http import require_POST
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_GET
+from math import radians, sin, cos, sqrt, atan2
+from .services.store_finder import StoreFinder
+
 # Set up logger
 logger = logging.getLogger(__name__)
 
@@ -67,6 +70,144 @@ CACHE_TIMEOUTS = {
     'very_long': 86400,  # 24 hours
 }
 
+# views.py
+
+def detect_user_currency(request):
+    try:
+        # Get user's IP
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+
+        # Try to get from cache first
+        cache_key = f'user_currency_{ip}'
+        currency = cache.get(cache_key)
+
+        if not currency:
+            response = requests.get(
+                f'https://ipapi.co/{ip}/json/',
+                timeout=5,
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                currency = data.get('currency', 'GBP')
+                # Cache for 24 hours
+                cache.set(cache_key, currency, 86400)
+            else:
+                currency = 'GBP'
+
+        return JsonResponse({
+            'success': True,
+            'currency': currency
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'currency': 'GBP',
+            'error': str(e)
+        })
+
+
+@require_http_methods(["GET"])
+def get_exchange_rates(request):
+    try:
+        base_currency = request.GET.get('base_currency', 'GBP')
+
+        # Try to get from cache first
+        cache_key = f'exchange_rates_{base_currency}'
+        rates = cache.get(cache_key)
+
+        if not rates:
+            response = requests.get(
+                'https://api.freecurrencyapi.com/v1/latest',
+                headers={'apikey': settings.CURRENCY_API_KEY},
+                params={
+                    'base_currency': 'GBP',
+                    'currencies': 'USD,EUR'
+                },
+            )
+
+            if response.status_code == 200:
+                rates = response.json()
+                # Cache for 1 hour
+                cache.set(cache_key, rates, 3600)
+            else:
+                return JsonResponse({
+                    'error': 'Failed to fetch exchange rates'
+                }, status=400)
+
+        return JsonResponse(rates)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+
+def find_stores(request):
+    try:
+        lat = float(request.GET.get('lat', 0))
+        lng = float(request.GET.get('lng', 0))
+        ingredient = request.GET.get('ingredient', '')
+
+        if not all([lat, lng, ingredient]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Missing required parameters',
+                'stores': []
+            })
+
+        store_finder = StoreFinder()
+        result = store_finder.find_stores_for_ingredient(lat, lng, ingredient)
+
+        # Ensure we always return a valid response
+        return JsonResponse({
+            'success': True,
+            'stores': result.get('stores', []),
+            'recommendations': result.get('recommendations', [])
+        })
+
+    except Exception as e:
+        print(f"Store finder error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'An error occurred while searching for stores',
+            'stores': []
+        })    
+
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """Calculate distance between two points using Haversine formula"""
+    R = 6371  # Earth's radius in kilometers
+
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    distance = R * c
+
+    return distance
+
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    R = 6371  # Earth's radius in kilometers
+
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    distance = R * c
+
+    return distance
 
 
 @require_http_methods(["POST"])
@@ -645,58 +786,79 @@ class MealGeneratorView(LoginRequiredMixin, View):
 
 
 
+# views.py
+
 class PricingView(TemplateView):
     template_name = 'pricing.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        cache_key = 'active_subscription_tiers'
 
+        # Get subscription tiers from cache or database
+        cache_key = 'active_subscription_tiers'
         subscription_tiers = cache.get(cache_key)
+
         if not subscription_tiers:
             subscription_tiers = SubscriptionTier.objects.filter(
                 is_active=True
             ).order_by('price')
             cache.set(cache_key, subscription_tiers, CACHE_TIMEOUTS['long'])
 
-        context['subscription_tiers'] = subscription_tiers
-        context['stripe_public_key'] = settings.STRIPE_PUBLISHABLE_KEY
+        # Add currency-related context
+        context.update({
+            'subscription_tiers': subscription_tiers,
+            'stripe_public_key': settings.STRIPE_PUBLISHABLE_KEY,
+            'currency_api_key': settings.CURRENCY_API_KEY,
+            'base_currency': 'GBP',
+            'supported_currencies': {
+                'GBP': '£',
+                'USD': '$',
+                'EUR': '€',
+                'NGN': '₦'
+            }
+        })
         return context
 
-
 class CheckoutView(View):
-    def get(self, request, tier_id):
-        try:
-            tier = SubscriptionTier.objects.get(id=tier_id)
-
-            # Check if user already has an active subscription
-            if hasattr(request.user, 'subscription') and request.user.subscription.is_active:
-                return render(request, 'checkout_error.html', {
-                    'error': 'You already have an active subscription'
-                })
-
-            return render(request, 'checkout.html', {
-                'tier': tier,
-                'STRIPE_PUBLIC_KEY': settings.STRIPE_PUBLIC_KEY
-            })
-        except SubscriptionTier.DoesNotExist:
-            logger.error(f"Subscription tier {tier_id} not found")
-            return render(request, 'checkout_error.html', {
-                'error': 'Selected subscription plan not found'
-            })
-
     def post(self, request, tier_id):
         try:
             tier = get_object_or_404(SubscriptionTier, id=tier_id)
+            currency = request.headers.get('X-Currency', 'GBP')
 
-            # Use stored Stripe price ID if available
-            if tier.stripe_price_id:
-                checkout_session = self._create_checkout_session_with_price_id(request, tier)
-            else:
-                checkout_session = self._create_checkout_session_with_price_data(request, tier)
+            # Get exchange rate
+            exchange_rate = self._get_exchange_rate(currency)
+
+            # Calculate price in target currency
+            converted_price = float(tier.price) * exchange_rate
+
+            # Create Stripe session with converted price
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': currency.lower(),
+                        'unit_amount': int(converted_price * 100),  # Convert to cents/pence
+                        'product_data': {
+                            'name': tier.name,
+                            'description': tier.description,
+                        },
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment' if tier.tier_type == 'one_time' else 'subscription',
+                success_url=request.build_absolute_uri(reverse('checkout_success')),
+                cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
+                metadata={
+                    'user_id': str(request.user.id),
+                    'tier_id': str(tier.id),
+                    'original_currency': 'GBP',
+                    'payment_currency': currency,
+                    'exchange_rate': str(exchange_rate)
+                }
+            )
 
             return JsonResponse({
-                'sessionId': checkout_session.id  # Consistently use 'sessionId'
+                'sessionId': checkout_session.id
             })
 
         except SubscriptionTier.DoesNotExist:
@@ -704,98 +866,26 @@ class CheckoutView(View):
         except stripe.error.StripeError as e:
             return JsonResponse({'error': str(e)}, status=400)
         except Exception as e:
-            return JsonResponse({'error': 'An unexpected error occurred'}, status=500)   
-        
-         
-    
-    def _create_checkout_session_with_price_id(self, request, tier):
-        """Create checkout session using stored Stripe price ID"""
-        return stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price': tier.stripe_price_id,
-                'quantity': 1,
-            }],
-            mode='payment' if tier.tier_type == 'one_time' else 'subscription',
-            success_url=request.build_absolute_uri(reverse('checkout_success')),
-            cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
-            metadata=self._get_metadata(request, tier),
-            customer_email=request.user.email
-        )
+            return JsonResponse({'error': 'An unexpected error occurred'}, status=500)
 
-    def _create_checkout_session_with_price_data(self, request, tier):
-        """Create checkout session using price data"""
-        price_data = self._get_price_data(tier)
-        return stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': price_data,
-                'quantity': 1,
-            }],
-            mode='payment' if tier.tier_type == 'one_time' else 'subscription',
-            success_url=request.build_absolute_uri(reverse('checkout_success')),
-            cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
-            metadata=self._get_metadata(request, tier),
-            customer_email=request.user.email
-        )
-
-    def _get_price_data(self, tier):
-        """Generate price data based on tier type"""
-        base_price_data = {
-            'currency': 'gbp',
-            'unit_amount': int(float(tier.price) * 100),
-            'product_data': {
-                'name': tier.name,
-                'description': f'{tier.tier_type.capitalize()} plan - {tier.name}',
-            }
-        }
-
-        if tier.tier_type != 'one_time':
-            base_price_data['recurring'] = {
-                'interval': 'week' if tier.tier_type == 'weekly' else 'month',
-                'interval_count': 1
-            }
-
-        return base_price_data
-
-    def _get_metadata(self, request, tier):
-        """Generate metadata for the checkout session"""
-        return {
-            'user_id': str(request.user.id),
-            'tier_id': str(tier.id),
-            'tier_type': tier.tier_type,
-            'email': request.user.email
-        }
-
-    @staticmethod
-    def handle_successful_payment(session):
-        """Handle successful payment webhook"""
+    def _get_exchange_rate(self, target_currency):
+        """Get exchange rate from GBP to target currency"""
         try:
-            user_id = session.metadata.get('user_id')
-            tier_id = session.metadata.get('tier_id')
-
-            user = User.objects.get(id=user_id)
-            tier = SubscriptionTier.objects.get(id=tier_id)
-
-            # Update or create subscription
-            subscription, created = SubscriptionTier.objects.update_or_create(
-                user=user,
-                defaults={
-                    'tier': tier,
-                    'is_active': True,
-                    'stripe_subscription_id': session.subscription,
-                    'stripe_customer_id': session.customer,
-                    'current_period_end': None  # Set this based on webhook data
-                }
+            response = requests.get(
+                'https://api.freecurrencyapi.com/v1/latest',
+                headers={'apikey': settings.CURRENCY_API_KEY},
+                params={'base_currency': 'GBP'}
             )
 
-            logger.info(f"Successfully processed payment for user {user_id}")
-            return subscription
-
+            if response.ok:
+                rates = response.json().get('data', {})
+                return rates.get(target_currency, 1.0)
+            return 1.0
         except Exception as e:
-            logger.error(f"Error processing successful payment: {str(e)}")
-            raise
-        
+            logger.error(f"Error fetching exchange rate: {str(e)}")
+            return 1.0
+
+
 class SubscriptionSuccessView(LoginRequiredMixin, TemplateView):
     template_name = 'subscription_success.html'
 
