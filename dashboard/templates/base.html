@@ -47,7 +47,7 @@ body {
     right: 1rem;
     width: auto;
     max-width: 400px;
-    z-index: 50;
+    z-index: 60;
 }
 
 /* Chat Window */
@@ -177,23 +177,14 @@ body {
     box-shadow: 0 0 0 2px rgba(15, 81, 50, 0.1);
 }
 
-/* Chat Toggle Button */
-#chat-toggle {
-    background-color: #0F5132;
-    color: white;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+#chat-toggle-container {
+  transition: opacity 0.3s ease;
+  z-index: 60; /* Ensure it's above other elements */
 }
 
+
 #chat-toggle:hover {
-    transform: scale(1.1);
     background-color: #134E4A;
 }
 
@@ -284,6 +275,7 @@ body {
 
 #chat-toggle-container {
   transition: opacity 0.3s ease;
+  z-index: 60; /* Ensure it's above other elements */
 }
 
 /* Recipe Section Styles */
@@ -482,8 +474,10 @@ body {
 <div id="gemini-chat-widget" class="fixed bottom-4 right-4 z-50">
 <!-- Chat Toggle Button -->
 <div id="chat-toggle-container" class="chat-toggle-container flex justify-end">
-  <button id="chat-toggle" class="bg-green-800 text-white p-4 rounded-full shadow-lg hover:bg-green-700 transition-all duration-300 ml-auto">
-    <i class="fas fa-comments text-xl"></i>
+  <button id="chat-toggle" type="button" class="w-14 h-14 bg-green-800 rounded-full shadow-lg hover:bg-green-700 transition-all duration-300 focus:outline-none">
+      <span class="flex items-center justify-center w-full h-full">
+          <i class="fas fa-comments text-xl text-white"></i>
+      </span>
   </button>
 </div>
 
@@ -553,29 +547,46 @@ body {
   <script>
     document.addEventListener('DOMContentLoaded', function() {
 // Chat Widget Functionality
-// Chat Widget Functionality
-const chatToggleBtn = document.querySelector('#chat-toggle');
-const chatWindow = document.querySelector('#chat-window');
-const closeChatBtn = document.querySelector('#close-chat');
-const chatToggleContainer = document.querySelector('#chat-toggle').parentElement;
+const chatToggle = document.getElementById('chat-toggle');
+    const chatWindow = document.getElementById('chat-window');
+    const chatToggleContainer = document.getElementById('chat-toggle-container');
+    const closeChatBtn = document.getElementById('close-chat');
 
-if (chatToggleBtn) {
-    chatToggleBtn.addEventListener('click', function() {
-        if (chatWindow) {
+    // Debug click areas
+    console.log("Adding event listener to chat toggle button");
+    
+    // Function to toggle chat window
+    function openChatWindow() {
+        console.log("Toggle button clicked");
+        if (chatWindow.classList.contains('hidden')) {
             chatWindow.classList.remove('hidden');
-            chatToggleContainer.classList.add('hidden');
+            chatToggleContainer.style.display = 'none';
         }
-    });
-}
-if (closeChatBtn) {
-    closeChatBtn.addEventListener('click', function() {
-        if (chatWindow) {
-            chatWindow.classList.add('hidden');
-            chatToggleContainer.classList.remove('hidden');
-        }
-    });
-}
+    }
 
+    // Add click listener directly to the button
+    if (chatToggle) {
+        chatToggle.onclick = openChatWindow;
+        
+        // Also add event listeners to children for redundancy
+        const iconSpan = chatToggle.querySelector('span');
+        if (iconSpan) {
+            iconSpan.onclick = openChatWindow;
+        }
+        
+        const icon = chatToggle.querySelector('i');
+        if (icon) {
+            icon.onclick = openChatWindow;
+        }
+    }
+
+    // Close button functionality
+    if (closeChatBtn) {
+        closeChatBtn.addEventListener('click', () => {
+            chatWindow.classList.add('hidden');
+            chatToggleContainer.style.display = 'flex';
+        });
+    }
       const mobileMenuButton = document.getElementById('mobile-menu-button');
       const mobileMenu = document.getElementById('mobile-menu');
       
