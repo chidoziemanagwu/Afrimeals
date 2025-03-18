@@ -211,10 +211,10 @@ body > nav {
     <!-- Currency Selector -->
     <div class="bg-white rounded-lg shadow-lg">
         <select id="currency-select" 
-                class="block w-20 pl-2 pr-6 py-1.5 text-sm text-gray-900 border-0 rounded-lg focus:ring-1 focus:ring-green-500 focus:outline-none cursor-pointer">
-            <option value="GBP">£ GBP</option>
-            <option value="USD">$ USD</option>
-            <option value="EUR">€ EUR</option>
+                class="block w-32 pl-3 pr-6 py-2 text-sm text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none cursor-pointer">
+            {% for code, symbol in supported_currencies.items %}
+                <option value="{{ code }}">{{ symbol }} {{ code }}</option>
+            {% endfor %}
         </select>
     </div>
 
@@ -236,30 +236,7 @@ body > nav {
         </div>
     </div>
 
-    <!-- Currency Notification -->
-<div id="currencyNotification" class="currency-notification fixed bottom-4 right-4 bg-white rounded-lg shadow-lg border border-green-100 z-50 p-4">
-    <div class="flex items-center">
-        <div class="flex-shrink-0">
-            <i class="fas fa-globe text-green-500"></i>
-        </div>
-        <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900" id="currencyMessage"></p>
-        </div>
-        <button class="ml-4 text-gray-400 hover:text-gray-500" onclick="document.getElementById('currencyNotification').classList.remove('show')">
-            <i class="fas fa-times"></i>
-        </button>
-    </div>
-</div>
 
-<!-- Currency Selector -->
-<div class="fixed top-4 right-4 z-50">
-    <select id="currencySelect" 
-            class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-lg shadow-sm">
-        {% for code, symbol in supported_currencies.items %}
-            <option value="{{ code }}">{{ symbol }} {{ code }}</option>
-        {% endfor %}
-    </select>
-</div>
 </div>
 
 <script>
@@ -267,56 +244,62 @@ body > nav {
 const stripe = Stripe('{{ stripe_public_key }}');
 
 // Handle checkout button clicks
-document.querySelectorAll('[href^="/checkout/"]').forEach(button => {
-    button.addEventListener('click', async (e) => {
-        e.preventDefault();
-        
-        // Get the button element
-        const button = e.currentTarget;
-        const tierId = button.href.split('/checkout/')[1].split('/')[0];
-        
-        try {
-            // Show loading state
-            button.disabled = true;
-            const originalText = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+document.addEventListener('DOMContentLoaded', () => {
+    const stripe = Stripe('{{ stripe_public_key }}');
+    const priceManager = new PriceManager();
+
+    // Handle checkout button clicks
+    document.querySelectorAll('[href^="/checkout/"]').forEach(button => {
+        button.addEventListener('click', async (e) => {
+            e.preventDefault();
             
-            // Create checkout session
-            const response = await fetch(`/checkout/${tierId}/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
+            // Store original button content
+            const originalText = e.currentTarget.innerHTML;
+            const selectedCurrency = document.getElementById('currency-select').value;
+            const tierId = e.currentTarget.href.split('/checkout/')[1].split('/')[0];
+            
+            try {
+                // Show loading state
+                e.currentTarget.disabled = true;
+                e.currentTarget.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                
+                // Create checkout session
+                const response = await fetch(`/checkout/${tierId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Currency': selectedCurrency
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
                 }
-            });
-            
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Redirect to Stripe checkout
+                const result = await stripe.redirectToCheckout({
+                    sessionId: data.sessionId
+                });
+                
+                if (result.error) {
+                    throw new Error(result.error.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            } finally {
+                // Reset button state
+                e.currentTarget.disabled = false;
+                e.currentTarget.innerHTML = originalText;
             }
-            
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            
-            // Redirect to Stripe checkout
-            const result = await stripe.redirectToCheckout({
-                sessionId: data.sessionId  // Match the key from your backend
-            });
-            
-            if (result.error) {
-                throw new Error(result.error.message);
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            // Show error message
-            alert('An error occurred. Please try again.');
-        } finally {
-            // Reset button state
-            button.disabled = false;
-            button.innerHTML = originalText;
-        }
+        });
     });
 });
 
@@ -335,85 +318,107 @@ function getCookie(name) {
     }
     return cookieValue;
 }
-
 </script>
 
 <script>
 // pricing.js
 class PriceManager {
     constructor() {
-        // Configuration
-        this.config = {
-            currencies: {
-                GBP: { symbol: '£', rate: 1, name: 'British Pound' },
-                USD: { symbol: '$', rate: 1.27, name: 'US Dollar' },
-                EUR: { symbol: '€', rate: 1.17, name: 'Euro' }
-            },
-            toastDuration: 3000
-        };
-
-        // Elements
-        this.elements = {
-            select: document.getElementById('currency-select'),
-            prices: document.querySelectorAll('[data-price]'),
-            toast: document.getElementById('toast'),
-            toastIcon: document.getElementById('toast-icon'),
-            toastMessage: document.getElementById('toast-message')
-        };
-
-        // State
-        this.currentCurrency = 'GBP';
-
-        // Initialize
         this.init();
     }
 
-    init() {
-        // Load saved preference
-        const saved = localStorage.getItem('currency');
-        if (saved && this.config.currencies[saved]) {
-            this.currentCurrency = saved;
-            this.elements.select.value = saved;
-            this.updatePrices(false);
-        }
+    async init() {
+        // Elements
+        this.currencySelect = document.getElementById('currency-select');
+        this.priceElements = document.querySelectorAll('[data-price]');
+        this.toast = document.getElementById('toast');
 
-        // Set up listeners
-        this.elements.select.addEventListener('change', (e) => {
-            this.updateCurrency(e.target.value);
-        });
-    }
+        // Set up event listeners
+        this.currencySelect.addEventListener('change', (e) => this.handleCurrencyChange(e));
 
-    updateCurrency(currency) {
-        if (!this.config.currencies[currency]) return;
+        // Load initial exchange rates
+        await this.loadExchangeRates();
 
-        this.currentCurrency = currency;
-        localStorage.setItem('currency', currency);
-        this.updatePrices(true);
-    }
-
-    updatePrices(showToast = true) {
-        const currency = this.config.currencies[this.currentCurrency];
-
-        this.elements.prices.forEach(el => {
-            const basePrice = parseFloat(el.dataset.basePrice);
-            const converted = basePrice * currency.rate;
-            el.textContent = this.formatPrice(converted);
-        });
-
-        if (showToast) {
-            this.showToast('success', `Prices updated to ${currency.name}`);
+        // Load saved currency preference
+        const savedCurrency = localStorage.getItem('preferred_currency');
+        if (savedCurrency) {
+            this.currencySelect.value = savedCurrency;
+            await this.handleCurrencyChange({ target: this.currencySelect });
         }
     }
 
-    formatPrice(amount) {
-        const currency = this.config.currencies[this.currentCurrency];
-        return `${currency.symbol}${amount.toFixed(2)}`;
+    async loadExchangeRates() {
+        try {
+            const response = await fetch('/api/exchange-rates/');
+            if (!response.ok) throw new Error('Failed to fetch exchange rates');
+            this.exchangeRates = await response.json();
+        } catch (error) {
+            console.error('Error loading exchange rates:', error);
+            this.showToast('error', 'Failed to load exchange rates');
+        }
+    }
+
+    async handleCurrencyChange(event) {
+        const newCurrency = event.target.value;
+        
+        try {
+            // Update prices
+            await this.updatePrices(newCurrency);
+            
+            // Save preference
+            localStorage.setItem('preferred_currency', newCurrency);
+            
+            // Show success message
+            this.showToast('success', `Prices updated to ${newCurrency}`);
+            
+            // Update checkout buttons with new currency
+            this.updateCheckoutButtons(newCurrency);
+        } catch (error) {
+            console.error('Error updating currency:', error);
+            this.showToast('error', 'Failed to update currency');
+        }
+    }
+
+    async updatePrices(currency) {
+        if (!this.exchangeRates) await this.loadExchangeRates();
+        
+        const rate = this.exchangeRates.data[currency] || 1;
+        
+        this.priceElements.forEach(element => {
+            const basePrice = parseFloat(element.dataset.basePrice);
+            const convertedPrice = (basePrice * rate).toFixed(2);
+            const symbol = this.getCurrencySymbol(currency);
+            element.textContent = `${symbol}${convertedPrice}`;
+        });
+    }
+
+    getCurrencySymbol(currency) {
+        const symbols = {
+            'GBP': '£',
+            'USD': '$',
+            'EUR': '€',
+            'NGN': '₦',
+            'GHS': '₵',
+            'KES': 'KSh',
+            'ZAR': 'R'
+        };
+        return symbols[currency] || currency;
+    }
+
+    updateCheckoutButtons(currency) {
+        document.querySelectorAll('[href^="/checkout/"]').forEach(button => {
+            const href = new URL(button.href);
+            href.searchParams.set('currency', currency);
+            button.href = href.toString();
+        });
     }
 
     showToast(type, message) {
-        const { toast, toastIcon, toastMessage } = this.elements;
+        const toast = document.getElementById('toast');
+        const toastIcon = document.getElementById('toast-icon');
+        const toastMessage = document.getElementById('toast-message');
 
-        // Set icon based on type
+        // Set icon
         toastIcon.innerHTML = type === 'success' 
             ? '<i class="fas fa-check-circle text-green-500"></i>'
             : '<i class="fas fa-exclamation-circle text-red-500"></i>';
@@ -423,92 +428,22 @@ class PriceManager {
 
         // Show toast
         toast.classList.remove('hidden');
-        toast.classList.add('translate-y-0', 'opacity-100');
+        toast.classList.add('show');
 
-        // Hide after delay
+        // Hide after 3 seconds
         setTimeout(() => {
+            toast.classList.remove('show');
             toast.classList.add('hidden');
-            toast.classList.remove('translate-y-0', 'opacity-100');
-        }, this.config.toastDuration);
+        }, 3000);
     }
 }
 
-class CheckoutManager {
-    constructor() {
-        this.buttons = document.querySelectorAll('[data-checkout]');
-        this.setupButtons();
-    }
 
-    setupButtons() {
-        this.buttons.forEach(button => {
-            button.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await this.handleCheckout(button);
-            });
-        });
-    }
-
-    async handleCheckout(button) {
-        const planId = button.dataset.checkout;
-        const originalContent = button.innerHTML;
-
-        try {
-            // Disable button and show loading
-            button.disabled = true;
-            button.innerHTML = `
-                <div class="flex items-center justify-center">
-                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing...
-                </div>`;
-
-            // Make API call
-            const response = await fetch(`/checkout/${planId}/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': this.getCsrfToken()
-                }
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Checkout failed');
-            }
-
-            // Redirect to checkout
-            window.location.href = data.checkout_url;
-
-        } catch (error) {
-            console.error('Checkout error:', error);
-            
-            // Show error state
-            button.innerHTML = `
-                <div class="flex items-center justify-center text-white">
-                    <i class="fas fa-exclamation-circle mr-2"></i>
-                    Error - Try Again
-                </div>`;
-
-            // Reset after delay
-            setTimeout(() => {
-                button.innerHTML = originalContent;
-                button.disabled = false;
-            }, 3000);
-        }
-    }
-
-    getCsrfToken() {
-        return document.querySelector('[name=csrfmiddlewaretoken]').value;
-    }
-}
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     window.priceManager = new PriceManager();
-    window.checkoutManager = new CheckoutManager();
+    // window.checkoutManager = new CheckoutManager();
 });
     </script>
 {% endblock %}

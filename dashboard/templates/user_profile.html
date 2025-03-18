@@ -17,33 +17,6 @@
         <p><span class="font-medium">Joined:</span> {{ user.date_joined|date:"F j, Y" }}</p>
       </div>
       
-      <!-- Add this to your template where appropriate -->
-<div class="bg-white rounded-lg shadow-md p-6 mb-6">
-  <h2 class="text-lg font-semibold text-gray-700 mb-3">Subscription Overview</h2>
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="bg-gray-50 p-4 rounded-lg text-center">
-          <p class="text-sm text-gray-500">Total Spent</p>
-          <p class="text-xl font-bold text-gray-900">£{{ subscription_stats.total_spent|floatformat:2 }}</p>
-      </div>
-      <div class="bg-gray-50 p-4 rounded-lg text-center">
-          <p class="text-sm text-gray-500">Active Plans</p>
-          <p class="text-xl font-bold text-gray-900">{{ subscription_stats.active_plans }}</p>
-      </div>
-      <div class="bg-gray-50 p-4 rounded-lg text-center">
-          <p class="text-sm text-gray-500">Total Purchases</p>
-          <p class="text-xl font-bold text-gray-900">{{ subscription_stats.total_purchases }}</p>
-      </div>
-      <div class="bg-gray-50 p-4 rounded-lg">
-          <p class="text-sm text-gray-500 mb-2">Plan Types</p>
-          {% for type, count in subscription_stats.subscription_types.items %}
-          <div class="flex justify-between text-sm">
-              <span>{{ type }}</span>
-              <span class="font-medium">{{ count }}</span>
-          </div>
-          {% endfor %}
-      </div>
-  </div>
-</div>
 
       <!-- Subscription Information -->
       <div class="bg-gray-50 p-4 rounded-lg">
@@ -72,6 +45,34 @@
     </div>
   </div>
   
+        <!-- Add this to your template where appropriate -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+  <h2 class="text-lg font-semibold text-gray-700 mb-3">Subscription Overview</h2>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-gray-50 p-4 rounded-lg text-center">
+          <p class="text-sm text-gray-500">Total Spent</p>
+          <p class="text-xl font-bold text-gray-900">£{{ subscription_stats.total_spent|floatformat:2 }}</p>
+      </div>
+      <div class="bg-gray-50 p-4 rounded-lg text-center">
+          <p class="text-sm text-gray-500">Active Plans</p>
+          <p class="text-xl font-bold text-gray-900">{{ subscription_stats.active_plans }}</p>
+      </div>
+      <div class="bg-gray-50 p-4 rounded-lg text-center">
+          <p class="text-sm text-gray-500">Total Purchases</p>
+          <p class="text-xl font-bold text-gray-900">{{ subscription_stats.total_purchases }}</p>
+      </div>
+      <div class="bg-gray-50 p-4 rounded-lg">
+          <p class="text-sm text-gray-500 mb-2">Plan Types</p>
+          {% for type, count in subscription_stats.subscription_types.items %}
+          <div class="flex justify-between text-sm">
+              <span>{{ type }}</span>
+              <span class="font-medium">{{ count }}</span>
+          </div>
+          {% endfor %}
+      </div>
+  </div>
+</div>
+
   <!-- All Purchases Table -->
   <div class="bg-white rounded-lg shadow-md p-6">
     <h2 class="text-xl font-bold text-gray-800 mb-4">My Purchases</h2>
@@ -139,7 +140,6 @@ function viewActivityDetails(activityId) {
                 <p><strong>Details:</strong></p>
                 <pre class="bg-gray-100 p-2 rounded mt-2">${JSON.stringify(data.details, null, 2)}</pre>
             `;
-            document.getElementById('activityModal').classList.remove('hidden');
         })
         .catch(error => {
             console.error('Error:', error);
@@ -147,15 +147,6 @@ function viewActivityDetails(activityId) {
         });
 }
 
-function closeModal() {
-    document.getElementById('activityModal').classList.add('hidden');
-}
 
-// Close modal when clicking outside
-document.getElementById('activityModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
-});
 </script>
 {% endblock %}

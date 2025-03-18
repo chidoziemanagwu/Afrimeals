@@ -51,6 +51,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_GET
 from math import radians, sin, cos, sqrt, atan2
 from .services.store_finder import StoreFinder
+from mailjet_rest import Client
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -349,6 +350,8 @@ def custom_logout(request):
     return redirect('/')
 
 
+
+
     
 
 class HomeView(TemplateView):
@@ -405,7 +408,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             ).select_related('user').order_by('-created_at')[:5]
 
             # Get subscription
-            subscription = UserSubscription.get_active_subscription(user.id)
+            # subscription = UserSubscription.get_active_subscription(user.id)
 
             # Process activities to include related objects
             processed_activities = []
@@ -422,7 +425,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context.update({
                 'recent_meal_plans': recent_meal_plans,
                 'recent_recipes': recent_recipes,
-                'subscription': subscription,
+                # 'subscription': subscription,
                 'recent_activities': processed_activities,
             })
 
@@ -476,7 +479,7 @@ class MealGeneratorView(LoginRequiredMixin, View):
             subscription = UserSubscription.get_active_subscription(request.user.id)
             view_data = {
                 'has_subscription': subscription is not None,
-                'subscription_tier': subscription.subscription_tier if subscription else None,
+                # 'subscription_tier': subscription.subscription_tier if subscription else None,
                 'dietary_preferences': settings.DIETARY_PREFERENCES,
                 'supported_currencies': settings.SUPPORTED_CURRENCIES,  # Make sure this is passed
                 'user_currency': self.get_user_currency(request)
@@ -810,12 +813,7 @@ class PricingView(TemplateView):
             'stripe_public_key': settings.STRIPE_PUBLISHABLE_KEY,
             'currency_api_key': settings.CURRENCY_API_KEY,
             'base_currency': 'GBP',
-            'supported_currencies': {
-                'GBP': '£',
-                'USD': '$',
-                'EUR': '€',
-                'NGN': '₦'
-            }
+            'supported_currencies': settings.SUPPORTED_CURRENCIES
         })
         return context
 
@@ -824,66 +822,264 @@ class CheckoutView(View):
         try:
             tier = get_object_or_404(SubscriptionTier, id=tier_id)
             currency = request.headers.get('X-Currency', 'GBP')
-
-            # Get exchange rate
-            exchange_rate = self._get_exchange_rate(currency)
-
-            # Calculate price in target currency
+            exchange_rate = self.get_exchange_rate(currency)
             converted_price = float(tier.price) * exchange_rate
 
-            # Create Stripe session with converted price
-            checkout_session = stripe.checkout.Session.create(
-                payment_method_types=['card'],
-                line_items=[{
-                    'price_data': {
-                        'currency': currency.lower(),
-                        'unit_amount': int(converted_price * 100),  # Convert to cents/pence
-                        'product_data': {
-                            'name': tier.name,
-                            'description': tier.description,
-                        },
-                    },
-                    'quantity': 1,
-                }],
-                mode='payment' if tier.tier_type == 'one_time' else 'subscription',
-                success_url=request.build_absolute_uri(reverse('checkout_success')),
-                cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
-                metadata={
-                    'user_id': str(request.user.id),
-                    'tier_id': str(tier.id),
-                    'original_currency': 'GBP',
-                    'payment_currency': currency,
-                    'exchange_rate': str(exchange_rate)
-                }
+            # Deactivate existing subscriptions
+            UserSubscription.objects.filter(
+                user=request.user,
+                is_active=True
+            ).update(
+                is_active=False,
+                status='expired',
+                end_date=timezone.now()
             )
+
+            # Calculate end date based on tier type
+            end_date = timezone.now() + {
+                'weekly': timedelta(days=7),
+                'monthly': timedelta(days=30),
+                'one_time': timedelta(days=365),
+            }.get(tier.tier_type, timedelta(days=30))
+
+            # Map our tier types to Stripe's accepted intervals
+            stripe_intervals = {
+                'weekly': 'week',
+                'monthly': 'month'
+            }
+
+            # Set up common metadata
+            metadata = {
+                'user_id': str(request.user.id),
+                'tier_id': str(tier.id),
+                'tier_type': tier.tier_type,
+                'payment_currency': currency,
+                'exchange_rate': str(exchange_rate),
+                'end_date': end_date.isoformat()
+            }
+
+            if tier.tier_type in ['weekly', 'monthly']:
+                # For subscription plans
+                checkout_session = stripe.checkout.Session.create(
+                    payment_method_types=['card'],
+                    line_items=[{
+                        'price_data': {
+                            'currency': currency.lower(),
+                            'unit_amount': int(converted_price * 100),
+                            'product_data': {
+                                'name': f"{tier.name} - {tier.get_tier_type_display()}",
+                                'description': tier.description,
+                            },
+                            'recurring': {
+                                'interval': stripe_intervals[tier.tier_type],  # Use mapped interval
+                                'interval_count': 1
+                            }
+                        },
+                        'quantity': 1,
+                    }],
+                    mode='subscription',
+                    success_url=request.build_absolute_uri(reverse('checkout_success')),
+                    cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
+                    metadata=metadata
+                )
+            else:
+                # For one-time payment
+                checkout_session = stripe.checkout.Session.create(
+                    payment_method_types=['card'],
+                    line_items=[{
+                        'price_data': {
+                            'currency': currency.lower(),
+                            'unit_amount': int(converted_price * 100),
+                            'product_data': {
+                                'name': f"{tier.name} - One-time Payment",
+                                'description': tier.description,
+                            },
+                        },
+                        'quantity': 1,
+                    }],
+                    mode='payment',
+                    success_url=request.build_absolute_uri(reverse('checkout_success')),
+                    cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
+                    metadata=metadata
+                )
+
+            # Create subscription record
+            subscription = UserSubscription.objects.create(
+                user=request.user,
+                subscription_tier=tier,
+                start_date=timezone.now(),
+                end_date=end_date,
+                is_active=True,
+                status='active',
+                payment_status='pending',
+                stripe_subscription_id=checkout_session.id
+            )
+
+            # Create payment history record
+            PaymentHistory.objects.create(
+                user=request.user,
+                subscription=subscription,
+                amount=converted_price,
+                currency=currency.upper(),
+                payment_method='card',
+                transaction_id=checkout_session.id,
+                status='pending'
+            )
+
+            self.send_confirmation_email(request.user, tier, end_date)
 
             return JsonResponse({
                 'sessionId': checkout_session.id
             })
 
-        except SubscriptionTier.DoesNotExist:
-            return JsonResponse({'error': 'Subscription tier not found'}, status=404)
-        except stripe.error.StripeError as e:
-            return JsonResponse({'error': str(e)}, status=400)
         except Exception as e:
-            return JsonResponse({'error': 'An unexpected error occurred'}, status=500)
-
-    def _get_exchange_rate(self, target_currency):
+            logger.error(f"Checkout error: {str(e)}")
+            return JsonResponse({'error': str(e)}, status=500)
+    def get_exchange_rate(self, target_currency):
         """Get exchange rate from GBP to target currency"""
         try:
-            response = requests.get(
-                'https://api.freecurrencyapi.com/v1/latest',
-                headers={'apikey': settings.CURRENCY_API_KEY},
-                params={'base_currency': 'GBP'}
-            )
+            cache_key = f'exchange_rate_GBP_{target_currency}'
+            rate = cache.get(cache_key)
 
-            if response.ok:
-                rates = response.json().get('data', {})
-                return rates.get(target_currency, 1.0)
-            return 1.0
+            if rate is None:
+                response = requests.get(
+                    'https://api.freecurrencyapi.com/v1/latest',
+                    headers={'apikey': settings.CURRENCY_API_KEY},
+                    params={'base_currency': 'GBP'}
+                )
+
+                if response.ok:
+                    rates = response.json().get('data', {})
+                    rate = rates.get(target_currency, 1.0)
+                    cache.set(cache_key, rate, 3600)
+                else:
+                    logger.error(f"Failed to fetch exchange rate: {response.status_code}")
+                    rate = 1.0
+
+            return float(rate)
+
         except Exception as e:
             logger.error(f"Error fetching exchange rate: {str(e)}")
             return 1.0
+
+    def send_confirmation_email(self, user, tier, end_date):
+        try:
+            # Initialize Mailjet client
+            mailjet = Client(
+                auth=(settings.MAILJET_API_KEY, settings.MAILJET_API_SECRET),
+                version='v3.1'
+            )
+
+            # Prepare email content
+            end_date_str = end_date.strftime('%Y-%m-%d')
+            text_content = (
+                f"Dear {user.username},\n\n"
+                f"Thank you for subscribing to {tier.name}! "
+                f"Your subscription is active until {end_date_str}."
+            )
+            html_content = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Subscription Confirmation</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        background-color: #f4f4f4;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                        background-color: #ffffff;
+                        border-radius: 8px;
+                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                    }}
+                    .header {{
+                        background-color: #4CAF50;
+                        color: white;
+                        text-align: center;
+                        padding: 20px;
+                        border-radius: 8px 8px 0 0;
+                    }}
+                    .content {{
+                        padding: 20px;
+                    }}
+                    .footer {{
+                        background-color: #f4f4f4;
+                        text-align: center;
+                        padding: 10px;
+                        border-radius: 0 0 8px 8px;
+                        font-size: 0.8em;
+                    }}
+                    .icon {{
+                        font-size: 24px;
+                        color: #4CAF50;
+                        margin-right: 10px;
+                    }}
+                    h1 {{
+                        color: #fffff;
+                    }}
+                    h3 {{
+                        color: #333;
+                    }}
+                    p {{
+                        margin-bottom: 20px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>Subscription Confirmation</h1>
+                    </div>
+                    <div class="content">
+                        <h3><span class="icon">✨</span> Dear {user.username},</h3>
+                        <p>Thank you for subscribing to <strong>{tier.name}</strong>! Your subscription is now active and will remain so until <strong>{end_date_str}</strong>.</p>
+                        <p>We're excited to have you on board and can't wait for you to enjoy all the benefits of your new plan. If you have any questions or need assistance, feel free to reach out to our support team.</p>
+                        <p>Happy meal planning!</p>
+                        <p>The NaijaPlate Team</p>
+                    </div>
+                    <div class="footer">
+                        <p>&copy; 2025 NaijaPlate. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+
+            # Build Mailjet API payload
+            data = {
+                'Messages': [{
+                    "From": {
+                        "Email": settings.DEFAULT_FROM_EMAIL,
+                        "Name": "NaijaPlate"
+                    },
+                    "To": [{
+                        "Email": user.email,
+                        "Name": user.get_full_name() or user.username
+                    }],
+                    "Subject": "Subscription Confirmation",
+                    "TextPart": text_content,
+                    "HTMLPart": html_content
+                }]
+            }
+
+            # Send email and handle response
+            response = mailjet.send.create(data=data)
+            if response.status_code != 200:
+                logger.error(f"Mailjet API error: {response.status_code} - {response.json()}")
+            else:
+                logger.info(f"Confirmation email sent successfully to {user.email}")
+
+        except Exception as email_err:
+            logger.error(f"Failed to send confirmation email: {str(email_err)}")
 
 
 class SubscriptionSuccessView(LoginRequiredMixin, TemplateView):
@@ -983,12 +1179,12 @@ class RecipeDetailView(LoginRequiredMixin, DetailView):
 
         return recipe
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['has_subscription'] = UserSubscription.get_active_subscription(
-            self.request.user.id
-        ) is not None
-        return context
+    # def get_context_data(self, **kwargs):
+    #     context = super().get_context_data(**kwargs)
+    #     context['has_subscription'] = UserSubscription.get_active_subscription(
+    #         self.request.user.id
+    #     ) is not None
+    #     return context
 
 
 class RecipeDetailsView(LoginRequiredMixin, View):
@@ -1154,7 +1350,7 @@ class UserProfileView(LoginRequiredMixin, View):
         # Get all user data with efficient queries
         user_data = {
             'activities': UserActivity.objects.filter(user=request.user),
-            'active_subscription': UserSubscription.get_active_subscription(request.user.id),
+            # 'active_subscription': UserSubscription.get_active_subscription(request.user.id),
             'purchases': UserSubscription.objects.filter(
                 user=request.user
             ).select_related('subscription_tier').order_by('-start_date')
@@ -1171,7 +1367,7 @@ class UserProfileView(LoginRequiredMixin, View):
 
         context = {
             'user': request.user,
-            'subscription': user_data['active_subscription'],
+            # 'subscription': user_data['active_subscription'],
             'purchases': user_data['purchases'],
             'recent_activity': activities_page,
             'is_paginated': True,
@@ -1267,7 +1463,7 @@ class UserProfileView(LoginRequiredMixin, View):
         return stats
 
 
-        
+
 # dashboard/views.py
 class RecipeCreateView(LoginRequiredMixin, View):
     def get(self, request):
@@ -1663,9 +1859,18 @@ class ExportMealPlanPDF(LoginRequiredMixin, View):
 @login_required
 def checkout_success(request):
     """Handle successful checkout"""
+    # Get latest subscription
+    subscription = UserSubscription.objects.filter(
+        user=request.user,
+        is_active=True
+    ).select_related('subscription_tier').first()
+
     return render(request, 'checkout_success.html', {
         'title': 'Payment Successful',
+        # 'subscription': subscription
     })
+
+
 
 @login_required
 def checkout_cancel(request):

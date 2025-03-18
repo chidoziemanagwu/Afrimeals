@@ -17,6 +17,14 @@ class MealPlanAdmin(admin.ModelAdmin):
     search_fields = ('name', 'user__username')
     list_filter = ('created_at',)
 
+@admin.register(SubscriptionTier)
+class SubscriptionTierAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'tier_type', 'price', 'created_at')
+    search_fields = ('name', 'created_at')
+    list_filter = ('created_at',)
+
+
+
 @admin.register(PaymentHistory)
 class PaymentHistoryAdmin(admin.ModelAdmin):
     list_display = ('user', 'subscription', 'amount', 'payment_date')
@@ -148,3 +156,4 @@ custom_admin_site.register(UserSubscription, UserSubscriptionAdmin)
 custom_admin_site.register(UserActivity, UserActivityAdmin)
 custom_admin_site.register(User)
 custom_admin_site.register(PaymentHistory, PaymentHistoryAdmin)
+custom_admin_site.register(SubscriptionTier, SubscriptionTierAdmin)

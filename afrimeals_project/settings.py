@@ -25,6 +25,9 @@ STRIPE_TEST_MODE = os.getenv('STRIPE_TEST_MODE', 'True').lower() == 'true'
 STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '')
+MAILJET_API_KEY = os.getenv('MAILJET_API_KEY')
+MAILJET_API_SECRET = os.getenv('MAILJET_API_SECRET')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 
 # Stripe Currency
 STRIPE_CURRENCY = 'gbp'  # or your preferred currency
@@ -81,6 +84,7 @@ TEMPLATES = [
                 'django.template.context_processors.media',  
                 'django.contrib.auth.context_processors.auth',  
                 'django.contrib.messages.context_processors.messages',  
+                'dashboard.context_processors.subscription_status',
             ],  
         },  
     },  

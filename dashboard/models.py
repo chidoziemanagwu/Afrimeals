@@ -340,6 +340,8 @@ class SubscriptionTier(models.Model, CacheModelMixin):
         """Return human-readable interval"""
         return dict(self.TIER_CHOICES).get(self.tier_type, '')
 
+
+
 class UserSubscription(models.Model, CacheModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     subscription_tier = models.ForeignKey(SubscriptionTier, on_delete=models.CASCADE)
@@ -414,7 +416,7 @@ class PaymentHistory(models.Model):
         ordering = ['-payment_date']
 
 
-        
+
 class UserActivity(models.Model, CacheModelMixin):
     ACTION_CHOICES = (
         ('create_meal', 'Created Meal Plan'),
