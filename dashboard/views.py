@@ -21,7 +21,7 @@ from .utils.currency import CurrencyManager
 
 from dashboard.decorators import rate_limit
 from .models import (
-    MealPlan, Recipe, GroceryList, SubscriptionTier,
+    MealPlan, PaymentHistory, Recipe, GroceryList, SubscriptionTier,
     UserSubscription, UserActivity, UserFeedback
 )
 
@@ -1151,39 +1151,89 @@ class RecipeDetailsView(LoginRequiredMixin, View):
 
 class UserProfileView(LoginRequiredMixin, View):
     def get(self, request):
-        # Get base queryset
-        activities = UserActivity.objects.filter(user=request.user)
+        # Get all user data with efficient queries
+        user_data = {
+            'activities': UserActivity.objects.filter(user=request.user),
+            'active_subscription': UserSubscription.get_active_subscription(request.user.id),
+            'purchases': UserSubscription.objects.filter(
+                user=request.user
+            ).select_related('subscription_tier').order_by('-start_date')
+        }
 
-        # Handle search
-        search_query = request.GET.get('search', '')
-        if search_query:
-            activities = activities.filter(
-                Q(action__icontains=search_query) |
-                Q(details__icontains=search_query)
-            )
-
-        # Handle action type filter
-        action_type = request.GET.get('action_type', '')
-        if action_type and action_type != 'all':
-            activities = activities.filter(action=action_type)
-
-        # Handle date filter
-        date_filter = request.GET.get('date_filter', '')
-        if date_filter:
-            today = timezone.now()
-            if date_filter == 'today':
-                activities = activities.filter(timestamp__date=today.date())
-            elif date_filter == 'week':
-                activities = activities.filter(timestamp__gte=today - timedelta(days=7))
-            elif date_filter == 'month':
-                activities = activities.filter(timestamp__gte=today - timedelta(days=30))
-
-        # Sort activities
-        activities = activities.order_by('-timestamp')
+        # Handle activity filters
+        filters = self._handle_filters(request, user_data['activities'])
 
         # Paginate activities
-        paginator = Paginator(activities, 10)  # 10 items per page
+        activities_page = self._paginate_activities(
+            request,
+            filters['filtered_activities']
+        )
+
+        context = {
+            'user': request.user,
+            'subscription': user_data['active_subscription'],
+            'purchases': user_data['purchases'],
+            'recent_activity': activities_page,
+            'is_paginated': True,
+            'action_types': UserActivity.ACTION_CHOICES,
+            'current_filters': filters['current_filters'],
+            # Add subscription stats
+            'subscription_stats': self._get_subscription_stats(user_data['purchases'])
+        }
+
+        return render(request, 'user_profile.html', context)
+
+    def _handle_filters(self, request, activities):
+        """Handle activity filtering"""
+        current_filters = {
+            'search': request.GET.get('search', ''),
+            'action_type': request.GET.get('action_type', ''),
+            'date_filter': request.GET.get('date_filter', '')
+        }
+
+        filtered_activities = activities
+
+        # Search filter
+        if current_filters['search']:
+            filtered_activities = filtered_activities.filter(
+                Q(action__icontains=current_filters['search']) |
+                Q(details__icontains=current_filters['search'])
+            )
+
+        # Action type filter
+        if current_filters['action_type'] and current_filters['action_type'] != 'all':
+            filtered_activities = filtered_activities.filter(
+                action=current_filters['action_type']
+            )
+
+        # Date filter
+        if current_filters['date_filter']:
+            today = timezone.now()
+            date_filters = {
+                'today': today.date(),
+                'week': today - timedelta(days=7),
+                'month': today - timedelta(days=30)
+            }
+
+            if current_filters['date_filter'] == 'today':
+                filtered_activities = filtered_activities.filter(
+                    timestamp__date=date_filters['today']
+                )
+            else:
+                filtered_activities = filtered_activities.filter(
+                    timestamp__gte=date_filters[current_filters['date_filter']]
+                )
+
+        return {
+            'filtered_activities': filtered_activities.order_by('-timestamp'),
+            'current_filters': current_filters
+        }
+
+    def _paginate_activities(self, request, activities, per_page=10):
+        """Handle activity pagination"""
+        paginator = Paginator(activities, per_page)
         page = request.GET.get('page', 1)
+
         try:
             activities_page = paginator.page(page)
         except PageNotAnInteger:
@@ -1191,25 +1241,33 @@ class UserProfileView(LoginRequiredMixin, View):
         except EmptyPage:
             activities_page = paginator.page(paginator.num_pages)
 
-        # Get other context data
-        subscription = UserSubscription.get_active_subscription(request.user.id)
+        return activities_page
 
-        context = {
-            'user': request.user,
-            'subscription': subscription,
-            'recent_activity': activities_page,
-            'is_paginated': True,
-            'action_types': UserActivity.ACTION_CHOICES,
-            'current_filters': {
-                'search': search_query,
-                'action_type': action_type,
-                'date_filter': date_filter,
-            }
+    def _get_subscription_stats(self, purchases):
+        """Calculate subscription statistics"""
+        stats = {
+            'total_spent': 0,
+            'active_plans': 0,
+            'total_purchases': len(purchases),
+            'subscription_types': {}
         }
 
-        return render(request, 'user_profile.html', context)   
+        for purchase in purchases:
+            # Calculate total spent
+            stats['total_spent'] += float(purchase.subscription_tier.price)
+
+            # Count active plans
+            if purchase.status == 'active':
+                stats['active_plans'] += 1
+
+            # Count subscription types
+            plan_type = purchase.subscription_tier.get_tier_type_display()
+            stats['subscription_types'][plan_type] = stats['subscription_types'].get(plan_type, 0) + 1
+
+        return stats
 
 
+        
 # dashboard/views.py
 class RecipeCreateView(LoginRequiredMixin, View):
     def get(self, request):

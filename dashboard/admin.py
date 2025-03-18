@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import MealPlan, Recipe, GroceryList, SubscriptionTier, UserSubscription, UserActivity, UserFeedback, User
+from .models import MealPlan, PaymentHistory, Recipe, GroceryList, SubscriptionTier, UserSubscription, UserActivity, UserFeedback, User
 from django.urls import path
 from django.template.response import TemplateResponse
 from django.contrib.admin import AdminSite
@@ -16,6 +16,13 @@ class MealPlanAdmin(admin.ModelAdmin):
     list_display = ('name', 'user', 'created_at')
     search_fields = ('name', 'user__username')
     list_filter = ('created_at',)
+
+@admin.register(PaymentHistory)
+class PaymentHistoryAdmin(admin.ModelAdmin):
+    list_display = ('user', 'subscription', 'amount', 'payment_date')
+    search_fields = ('transaction_id', 'user__username', 'subscription', 'payment_date')
+    list_filter = ('payment_date',)
+
 
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
@@ -140,3 +147,4 @@ custom_admin_site.register(UserFeedback, UserFeedbackAdmin)
 custom_admin_site.register(UserSubscription, UserSubscriptionAdmin)
 custom_admin_site.register(UserActivity, UserActivityAdmin)
 custom_admin_site.register(User)
+custom_admin_site.register(PaymentHistory, PaymentHistoryAdmin)

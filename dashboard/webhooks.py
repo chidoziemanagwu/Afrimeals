@@ -1,16 +1,24 @@
 from django.http import HttpResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
-from django.contrib.auth import get_user_model
+from django.utils import timezone
+from datetime import timedelta
 
-from afrimeals_project import settings
-from .models import SubscriptionTier
-from .views import CheckoutView
+
+from .models import (
+    PaymentHistory, SubscriptionTier,
+    UserSubscription, UserActivity
+)
+
 import stripe
+from django.conf import settings
 import logging
+from django.contrib.auth.models import User
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 
+# Set up logger
 logger = logging.getLogger(__name__)
-User = get_user_model()
+
+
 
 @csrf_exempt
 @require_POST
@@ -23,26 +31,70 @@ def stripe_webhook(request):
             payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
         )
 
-        if event.type in ['checkout.session.completed', 'payment_intent.succeeded']:
+        # Handle the event
+        if event.type == 'checkout.session.completed':
             session = event.data.object
-            logger.info(f"Processing successful payment for session: {session.id}")
+            logger.info(f"Processing successful checkout for session: {session.id}")
 
             # Get user and tier from metadata
             user_id = session.metadata.get('user_id')
             tier_id = session.metadata.get('tier_id')
 
-            user = User.objects.get(id=user_id)
-            tier = SubscriptionTier.objects.get(id=tier_id)
+            if not all([user_id, tier_id]):
+                logger.error("Missing user_id or tier_id in session metadata")
+                return HttpResponse(status=400)
 
-            view = CheckoutView()
-            view._handle_successful_payment(
-                user=user,
-                tier=tier,
-                payment_id=session.payment_intent or session.subscription
-            )
-            logger.info(f"Successfully processed payment for user {user_id}")
+            try:
+                user = User.objects.get(id=user_id)
+                tier = SubscriptionTier.objects.get(id=tier_id)
+
+                # Create or update subscription
+                subscription = UserSubscription.objects.create(
+                    user=user,
+                    subscription_tier=tier,
+                    start_date=timezone.now(),
+                    end_date=timezone.now() + {
+                        'weekly': timedelta(days=7),
+                        'monthly': timedelta(days=30),
+                        'one_time': timedelta(days=1),
+                    }.get(tier.tier_type, timedelta(days=30)),
+                    status='active',
+                    payment_status='paid',
+                    stripe_subscription_id=session.subscription,
+                    payment_id=session.payment_intent
+                )
+
+                # Create payment history record
+                PaymentHistory.objects.create(
+                    user=user,
+                    subscription=subscription,
+                    amount=session.amount_total / 100,  # Convert from cents
+                    currency=session.currency.upper(),
+                    payment_method=session.payment_method_types[0],
+                    transaction_id=session.payment_intent,
+                    status='succeeded'
+                )
+
+                # Log activity
+                UserActivity.objects.create(
+                    user=user,
+                    action='subscription',
+                    details={
+                        'tier_name': tier.name,
+                        'amount': session.amount_total / 100,
+                        'currency': session.currency.upper(),
+                        'subscription_id': subscription.id
+                    }
+                )
+
+                logger.info(f"Successfully processed subscription for user {user_id}")
+
+            except (User.DoesNotExist, SubscriptionTier.DoesNotExist) as e:
+                logger.error(f"Error processing subscription: {str(e)}")
+                return HttpResponse(status=400)
 
         return HttpResponse(status=200)
+
     except stripe.error.SignatureVerificationError:
         logger.error("Invalid signature in Stripe webhook")
         return HttpResponse(status=400)

@@ -347,6 +347,18 @@ class UserSubscription(models.Model, CacheModelMixin):
     end_date = models.DateTimeField(db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
     payment_id = models.CharField(max_length=100, blank=True, null=True)
+    stripe_subscription_id = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=20, default='active', choices=(
+        ('active', 'Active'),
+        ('canceled', 'Canceled'),
+        ('expired', 'Expired'),
+        ('past_due', 'Past Due')
+    ))
+    payment_status = models.CharField(max_length=20, default='paid', choices=(
+        ('paid', 'Paid'),
+        ('pending', 'Pending'),
+        ('failed', 'Failed')
+    ))
 
     class Meta:
         indexes = [
@@ -387,6 +399,22 @@ class UserSubscription(models.Model, CacheModelMixin):
 
         return subscription
 
+
+class PaymentHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    subscription = models.ForeignKey(UserSubscription, on_delete=models.SET_NULL, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default='GBP')
+    payment_date = models.DateTimeField(auto_now_add=True)
+    payment_method = models.CharField(max_length=50)
+    transaction_id = models.CharField(max_length=100)
+    status = models.CharField(max_length=20)
+
+    class Meta:
+        ordering = ['-payment_date']
+
+
+        
 class UserActivity(models.Model, CacheModelMixin):
     ACTION_CHOICES = (
         ('create_meal', 'Created Meal Plan'),
