@@ -473,21 +473,28 @@ class MealGeneratorView(LoginRequiredMixin, View):
 
     def get(self, request):
         """Handle GET request - display meal generator form"""
-        cache_key = f"meal_generator_data_{request.user.id}"
-        view_data = cache.get(cache_key)
+        try:
+            # Get active subscription
+            subscription = UserSubscription.objects.filter(
+                user=request.user,
+                is_active=True,
+                end_date__gt=timezone.now()
+            ).select_related('subscription_tier').first()
 
-        if not view_data:
-            subscription = UserSubscription.get_active_subscription(request.user.id)
-            view_data = {
+            context = {
                 'has_subscription': subscription is not None,
-                # 'subscription_tier': subscription.subscription_tier if subscription else None,
+                'subscription': subscription,
                 'dietary_preferences': settings.DIETARY_PREFERENCES,
-                'supported_currencies': settings.SUPPORTED_CURRENCIES,  # Make sure this is passed
+                'supported_currencies': settings.SUPPORTED_CURRENCIES,
                 'user_currency': self.get_user_currency(request)
             }
-            cache.set(cache_key, view_data, settings.CACHE_TIMEOUTS['medium'])
 
-        return render(request, 'meal_generator.html', view_data)
+            return render(request, 'meal_generator.html', context)
+
+        except Exception as e:
+            logger.error(f"Error in meal generator view: {str(e)}")
+            messages.error(request, "An error occurred. Please try again.")
+            return redirect('dashboard')
 
     def get_user_currency(self, request):
         """Detect user's currency based on IP location"""
@@ -629,88 +636,44 @@ class MealGeneratorView(LoginRequiredMixin, View):
 
     
     def _generate_with_openai(self, prompt):
-        """Generate response using OpenAI API with enhanced randomization"""
+        """Generate response using OpenAI API with enhanced reliability"""
         try:
-            # Random context elements
-            random_contexts = [
-                "You are a creative Nigerian-British fusion chef.",
-                "You are a health-conscious Nigerian cuisine expert.",
-                "You are a modern Nigerian food innovator.",
-                "You are a traditional Nigerian cooking master.",
-                "You are a Nigerian meal prep specialist."
-            ]
-
-            # Random style elements
-            random_styles = [
-                "Focus on quick and easy methods.",
-                "Emphasize authentic techniques.",
-                "Prioritize healthy adaptations.",
-                "Create budget-friendly versions.",
-                "Design meal-prep friendly recipes."
-            ]
-
-            # Random dietary elements
-            random_dietary = [
-                "Consider balanced nutrition.",
-                "Include vegetarian options.",
-                "Focus on protein-rich meals.",
-                "Emphasize whole ingredients.",
-                "Add low-carb alternatives."
-            ]
-
-            # Random system messages
-            system_messages = [
-                {"role": "system", "content": random.choice(random_contexts)},
-                {"role": "system", "content": random.choice(random_styles)},
-                {"role": "system", "content": random.choice(random_dietary)}
-            ]
-
-            # Randomize API parameters
-            api_params = {
-                "model": random.choice(["gpt-4", "gpt-4-turbo-preview"]),
-                "temperature": random.uniform(0.7, 0.9),
-                "presence_penalty": random.uniform(0.0, 0.5),
-                "frequency_penalty": random.uniform(0.0, 0.5),
-                "top_p": random.uniform(0.9, 1.0),
-                "max_tokens": random.randint(1800, 2000)
-            }
-
-            # Create message array with random elements
+            # Create message array with clear formatting instructions
             messages = [
-                random.choice(system_messages),
+                {
+                    "role": "system",
+                    "content": """You are a Nigerian cuisine expert. Generate meal plans in this exact format:
+                    MEAL PLAN:
+                    Day 1:
+                    Breakfast: [meal name]
+                    Lunch: [meal name]
+                    Snack: [meal name]
+                    Dinner: [meal name]
+
+                    Continue for all days...
+
+                    GROCERY LIST:
+                    - [ingredient 1]
+                    - [ingredient 2]
+                    etc."""
+                },
                 {"role": "user", "content": prompt}
             ]
 
-            # Randomly add follow-up guidance
-            if random.random() > 0.5:
-                messages.append(random.choice([
-                    {"role": "system", "content": "Add practical cooking tips."},
-                    {"role": "system", "content": "Include seasonal variations."},
-                    {"role": "system", "content": "Suggest ingredient substitutions."},
-                    {"role": "system", "content": "Add cultural context."}
-                ]))
-
             response = self.openai_client.chat.completions.create(
+                model="gpt-4",
                 messages=messages,
-                **api_params
+                temperature=0.7,
+                max_tokens=2000
             )
 
-            response_text = response.choices[0].message.content
-
-            # Post-process with random additions
-            if random.random() > 0.6:
-                additional_content = random.choice([
-                    self._generate_random_tips(),
-                    self._generate_random_variations(),
-                    self._generate_random_cultural_notes()
-                ])
-                response_text += "\n\n" + additional_content
-
-            return response_text
+            return response.choices[0].message.content
 
         except Exception as e:
             logger.error(f"OpenAI API error: {str(e)}")
             raise
+
+
 
     def _generate_random_tips(self):
         """Generate random cooking tips"""
@@ -750,62 +713,155 @@ class MealGeneratorView(LoginRequiredMixin, View):
         ], 2)
         return "Cultural Notes:\n- " + "\n- ".join(notes)
 
+
+    def _ensure_sequential_days(self, meal_plan):
+        """Ensure days are sequential while keeping meals random"""
+        # Create a pool of meals for each meal type
+        meal_pools = {
+            'breakfast': [],
+            'lunch': [],
+            'snack': [],
+            'dinner': []
+        }
+
+        # Collect all meals into their respective pools
+        for day in meal_plan:
+            for meal_type, meal in day['meals'].items():
+                if meal and meal_type in meal_pools:
+                    meal_pools[meal_type].append(meal)
+
+        # Shuffle each meal pool
+        for meal_type in meal_pools:
+            random.shuffle(meal_pools[meal_type])
+
+        # Create new sequential days with randomized meals
+        sequential_meal_plan = []
+        for i in range(len(meal_plan)):
+            day_plan = {
+                'day': f'Day {i + 1}',
+                'meals': {
+                    'breakfast': meal_pools['breakfast'][i] if meal_pools['breakfast'] else None,
+                    'lunch': meal_pools['lunch'][i] if meal_pools['lunch'] else None,
+                    'snack': meal_pools['snack'][i] if meal_pools['snack'] else None,
+                    'dinner': meal_pools['dinner'][i] if meal_pools['dinner'] else None
+                }
+            }
+            sequential_meal_plan.append(day_plan)
+
+        return sequential_meal_plan
+
     def _generate_meal_plan(self, user, form_data):
-        """Generate meal plan using OpenAI"""
-        prompt = self._construct_prompt(form_data)
-        cache_key = f"meal_plan_{hashlib.md5(prompt.encode()).hexdigest()}"
-
-        cached_response = cache.get(cache_key)
-        if cached_response:
-            return cached_response
-
-        # Add randomization to the prompt
-        random_elements = [
-            "Be creative and surprise me with unique combinations.",
-            "Include some fusion elements in the recipes.",
-            "Mix traditional and modern cooking methods.",
-            "Focus on seasonal ingredients available in the UK.",
-            "Include some lesser-known Nigerian dishes.",
-        ]
-        prompt += f"\n{random.choice(random_elements)}"
-
+        """Generate meal plan using OpenAI with enhanced reliability"""
         try:
+            # Construct base prompt
+            prompt = self._construct_prompt(form_data)
+
             # Generate with OpenAI
             response_text = self._generate_with_openai(prompt)
 
             if not response_text:
                 raise ValueError("Empty response from OpenAI API")
 
-            processed_data = self._process_response(response_text, form_data, user, 'openai')
+            # Process and structure the response
+            processed_data = self._process_response(response_text, form_data, user, source='openai')
 
-            # Add randomization to the response
-            if processed_data['success']:
-                # Randomly shuffle the days in the meal plan
-                random.shuffle(processed_data['meal_plan'])
+            # Ensure days are sequential but meals are random
+            processed_data['meal_plan'] = self._ensure_sequential_days(processed_data['meal_plan'])
 
-                # Randomly shuffle the grocery list
-                random.shuffle(processed_data['grocery_list'])
-
-                # Add random cooking tips
-                tips = [
-                    "Remember to adjust seasoning to taste",
-                    "Prep ingredients before starting to cook",
-                    "Store leftover ingredients properly",
-                    "Consider batch cooking for efficiency",
-                    "Use fresh ingredients when possible"
-                ]
-                processed_data['cooking_tips'] = random.sample(tips, 2)
-
-            cache.set(cache_key, processed_data, settings.CACHE_TIMEOUTS['very_long'])
             return processed_data
 
         except Exception as e:
-            logger.error(f"OpenAI generation failed: {str(e)}")
-            raise Exception("Failed to generate meal plan")
+            logger.error(f"Meal plan generation failed: {str(e)}")
+            # Generate a fallback meal plan
+            return self._generate_fallback_meal_plan(form_data)
 
 
+    def _generate_fallback_meal_plan(self, form_data):
+        """Generate a reliable fallback meal plan"""
+        # Default meal options
+        default_meals = {
+            'breakfast': [
+                "Nigerian Breakfast Pap with Akara",
+                "Yam and Egg Sauce",
+                "Nigerian Pancakes (Masa)",
+                "Custard with Moi Moi",
+                "Jollof Rice with Fried Eggs",
+                "Yam Porridge",
+                "Plantain and Egg Sauce"
+            ],
+            'lunch': [
+                "Jollof Rice with Chicken",
+                "Rice and Vegetable Stew",
+                "Egusi Soup with Pounded Yam",
+                "Ofada Rice with Ayamase Sauce",
+                "Nigerian Fried Rice",
+                "Beans and Plantain",
+                "Pepper Soup with Rice"
+            ],
+            'snack': [
+                "Plantain Chips",
+                "Chin Chin",
+                "Puff Puff",
+                "Roasted Plantain",
+                "Nigerian Meat Pie",
+                "Boli (Roasted Plantain)",
+                "Coconut Chips"
+            ],
+            'dinner': [
+                "Amala with Ewedu Soup",
+                "Semolina with Okra Soup",
+                "Eba with Egusi Soup",
+                "Pounded Yam with Vegetable Soup",
+                "Rice and Bean Porridge",
+                "Wheat with Ogbono Soup",
+                "Fufu with Bitterleaf Soup"
+            ]
+        }
 
-    def _process_response(self, response_text, form_data, user, source):
+        days = int(form_data['plan_days'])
+        meals_per_day = int(form_data['meals_per_day'])
+        include_snacks = form_data['include_snacks']
+
+        # Generate meal plan
+        meal_plan = []
+        for day in range(1, days + 1):
+            day_meals = {'breakfast': None, 'lunch': None, 'snack': None, 'dinner': None}
+
+            if meals_per_day >= 2:
+                day_meals['breakfast'] = random.choice(default_meals['breakfast'])
+
+            day_meals['lunch'] = random.choice(default_meals['lunch'])
+
+            if include_snacks:
+                day_meals['snack'] = random.choice(default_meals['snack'])
+
+            if meals_per_day >= 3:
+                day_meals['dinner'] = random.choice(default_meals['dinner'])
+
+            meal_plan.append({
+                'day': f'Day {day}',
+                'meals': day_meals
+            })
+
+        # Generate grocery list
+        grocery_list = [
+            "Rice", "Yam", "Plantain", "Tomatoes", "Onions", "Peppers",
+            "Chicken", "Fish", "Beef", "Eggs", "Beans", "Palm Oil",
+            "Vegetable Oil", "Garri", "Semolina", "Stock Cubes",
+            "Salt", "Curry Powder", "Thyme", "Ginger", "Garlic"
+        ]
+        random.shuffle(grocery_list)
+
+        return {
+            'success': True,
+            'meal_plan_id': None,  # Will be set when saved to database
+            'meal_plan': meal_plan,
+            'grocery_list': grocery_list,
+            'generated_by': 'fallback'
+        }
+
+
+    def _process_response(self, response_text, form_data, user, source='openai'):
         """Process AI response into structured data"""
         parts = response_text.strip().split('GROCERY LIST:')
 
@@ -840,7 +896,7 @@ class MealGeneratorView(LoginRequiredMixin, View):
             'meal_plan': structured_meal_plan,
             'grocery_list': structured_grocery_list,
             'generated_by': source
-        }    
+        }
     
     
     
