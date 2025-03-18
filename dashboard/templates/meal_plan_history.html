@@ -70,42 +70,7 @@
                         </div>
                     </div>
 
-<!-- Shopping List Section -->
-<div class="bg-white rounded-xl shadow-lg p-6">
-    <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
-        <h3 class="text-xl font-bold text-gray-800 flex items-center mb-4 sm:mb-0">
-            <i class="fas fa-shopping-basket text-green-500 mr-2"></i>
-            Shopping List
-        </h3>
-        
-        <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
-            <!-- Share button -->
-            <button onclick="shareShoppingList('{{ plan.id }}')" 
-                    class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors duration-200">
-                <i class="fas fa-share-alt mr-2"></i>
-                Share List
-            </button>
-            
-            <!-- Pagination controls -->
-            <div id="pagination-{{ plan.id }}" class="flex items-center space-x-2 bg-gray-50 rounded-lg p-1">
-                <button onclick="changePage('{{ plan.id }}', 'prev')" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                <span class="px-3 text-sm">
-                    Page <span id="currentPage-{{ plan.id }}">1</span> of <span id="totalPages-{{ plan.id }}">1</span>
-                </span>
-                <button onclick="changePage('{{ plan.id }}', 'next')" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">
-                    <i class="fas fa-chevron-right"></i>
-                </button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Shopping List Items -->
-    <div id="shoppingList-{{ plan.id }}" class="space-y-3">
-        <!-- Items will be populated by JavaScript -->
-    </div>
-</div>
 
 
                 </div>
