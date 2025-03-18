@@ -142,6 +142,16 @@ select[multiple]:disabled {
     ring: 2px;
     ring-color: #10B981;
 }
+@media (max-width: 768px) {
+    #toast {
+        bottom: 20px;
+    }
+    
+    #toast .bg-red-500 {
+        font-size: 14px;
+        line-height: 1.4;
+    }
+}
 </style>
 {% endblock %}
 
@@ -170,7 +180,7 @@ select[multiple]:disabled {
             </div>
             {% endif %}
 
-            <form id="mealPlanForm" class="space-y-6" method="POST" action="{% url 'meal_generator' %}">
+            <form id="mealPlanForm" class="space-y-6" method="POST" action="{% url 'meal_generator' %}" novalidate>
                 {% csrf_token %}
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -887,10 +897,10 @@ select[multiple]:disabled {
 </div>
 
 <!-- Toast Notification -->
-<div id="toast" class="fixed bottom-4 right-4 transform translate-y-full opacity-0 transition-all duration-300 z-50">
-    <div class="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center">
-        <i class="fas fa-check-circle mr-2"></i>
-        <span id="toastMessage"></span>
+<div id="toast" class="fixed bottom-4 left-4 right-4 transform translate-y-full opacity-0 transition-all duration-300 z-50">
+    <div class="bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg flex items-center mx-auto max-w-md">
+        <i class="fas fa-exclamation-circle mr-2 text-xl"></i>
+        <span id="toastMessage" class="text-sm font-medium flex-1"></span>
     </div>
 </div>
 {% endblock %}
@@ -914,11 +924,18 @@ function showToast(message, duration = 3000) {
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toastMessage');
     
+    // Clear any existing timeout
+    if (window.toastTimeout) {
+        clearTimeout(window.toastTimeout);
+    }
+    
+    // Update message and show toast
     toastMessage.textContent = message;
     toast.classList.remove('translate-y-full', 'opacity-0');
     toast.classList.add('translate-y-0', 'opacity-100');
     
-    setTimeout(() => {
+    // Set new timeout
+    window.toastTimeout = setTimeout(() => {
         toast.classList.add('translate-y-full', 'opacity-0');
         toast.classList.remove('translate-y-0', 'opacity-100');
     }, duration);
@@ -1494,33 +1511,73 @@ $('#meals_per_day, #include_snacks').on('change', function() {
 });
     // Form submission handler
     $('#mealPlanForm').on('submit', function(e) {
-        e.preventDefault();
-        
+    e.preventDefault();
 
-        // Basic validation
-    const requiredFields = ['dietary_preferences', 'preferred_cuisine', 'family_size', 'plan_days', 'meals_per_day'];
+    // Define required fields with their display names
+    const requiredFields = [
+        { id: 'dietary_preferences', name: 'Dietary Preferences' },
+        { id: 'preferred_cuisine', name: 'Nigerian Cuisine Type' },
+        { id: 'family_size', name: 'Number of People' },
+        { id: 'plan_days', name: 'Number of Days' },
+        { id: 'meals_per_day', name: 'Meals Per Day' }
+    ];
+    
     let isValid = true;
+    let firstInvalidField = null;
+    let missingFields = [];
+
+    $('.form-input, .form-select').removeClass('border-red-500');
     
     requiredFields.forEach(field => {
-        const value = $(`#${field}`).val();
+        const element = $(`#${field.id}`);
+        const value = element.val();
+        
         if (!value || value.trim() === '') {
             isValid = false;
-            $(`#${field}`).addClass('border-red-500');
+            element.addClass('border-red-500');
+            missingFields.push(field.name);
+            
+            if (!firstInvalidField) {
+                firstInvalidField = element;
+            }
         } else {
-            $(`#${field}`).removeClass('border-red-500');
+            element.removeClass('border-red-500');
         }
     });
     
     if (!isValid) {
-        showToast('Please fill in all required fields');
+        // Show toast with specific missing fields
+        const errorMessage = `Please fill in: ${missingFields.join(', ')}`;
+        showToast(errorMessage, 5000); // Show for 5 seconds
+
+        // Scroll to the first invalid field with smooth behavior
+        if (firstInvalidField) {
+            const offset = firstInvalidField.offset().top - 100;
+            $('html, body').animate({
+                scrollTop: offset
+            }, {
+                duration: 500,
+                complete: function() {
+                    // Add a temporary highlight effect
+                    firstInvalidField
+                        .addClass('ring-2 ring-red-500')
+                        .delay(2000)
+                        .queue(function(next) {
+                            $(this).removeClass('ring-2 ring-red-500');
+                            next();
+                        });
+                }
+            });
+        }
+        
         return;
     }
 
-
-        $('#mealPlanForm').addClass('hidden');
-        $('#loading').removeClass('hidden');
-        
-        const formData = new FormData(this);
+    // Rest of your form submission code...
+    $('#mealPlanForm').addClass('hidden');
+    $('#loading').removeClass('hidden');
+    
+    const formData = new FormData(this);
         
         $.ajax({
             url: '{% url "meal_generator" %}',
