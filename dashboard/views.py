@@ -1,5 +1,6 @@
 from decimal import Decimal
 import os
+import random
 import re
 from django.urls import reverse
 from openai import OpenAI
@@ -546,47 +547,211 @@ class MealGeneratorView(LoginRequiredMixin, View):
                 'details': str(e) if settings.DEBUG else ""
             }, status=500)
 
-    def _generate_with_openai(self, prompt):
-        """Generate response using OpenAI API"""
-        try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": self.base_context},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=2000
-            )
-            # Extract the text content from the response
-            return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"OpenAI API error: {str(e)}")
-            raise
-
     def _generate_with_gemini(self, prompt):
-        """Generate response using Gemini API"""
+        """Generate response using Gemini API with enhanced randomization"""
         try:
-            # Configure the model
-            model = self.gemini_client.get_model('gemini-1.0-pro')
+            # Random context elements
+            random_contexts = [
+                "Create innovative Nigerian-British fusion recipes.",
+                "Focus on traditional Nigerian flavors with modern British twists.",
+                "Emphasize healthy adaptations of classic Nigerian dishes.",
+                "Design weekday-friendly quick Nigerian meals.",
+                "Create budget-conscious Nigerian recipes with UK ingredients."
+            ]
 
-            # Generate content
-            response = model.generate_content(
-                self.base_context + "\n\n" + prompt,
-                generation_config={
-                    "temperature": 0.7,
-                    "max_output_tokens": 2000,
-                }
+            # Combine random elements with base context
+            enhanced_prompt = (
+                self.base_context + "\n" +
+                random.choice(random_contexts) + "\n\n" +
+                "Generate a Nigerian meal plan with grocery list. Format the response exactly as follows:\n\n" +
+                "MEAL PLAN:\n" +
+                "Day 1:\n" +
+                "Breakfast: [meal]\n" +
+                "Lunch: [meal]\n" +
+                "Dinner: [meal]\n" +
+                "[Continue for all days]\n\n" +
+                "GROCERY LIST:\n" +
+                "- [ingredient 1]\n" +
+                "- [ingredient 2]\n" +
+                "[Continue for all ingredients]\n\n" +
+                prompt
             )
 
-            # Extract the text content from the response
-            return response.text
+            # Generate content using gemini-2.0-flash model
+            response = self.gemini_client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=enhanced_prompt
+            )
+
+            if not response or not response.text:
+                raise ValueError("Empty response from Gemini API")
+
+            # Get the response text as string
+            response_text = str(response.text)
+
+            # Split the response into sections
+            sections = response_text.split("GROCERY LIST:")
+            
+            if len(sections) < 2:
+                raise ValueError("Invalid response format from Gemini")
+
+            meal_plan_text = sections[0].replace("MEAL PLAN:", "").strip()
+            grocery_list_text = sections[1].strip()
+
+            # Process grocery list
+            grocery_list = [
+                item.strip("- ").strip()
+                for item in grocery_list_text.split("\n")
+                if item.strip() and not item.strip().startswith("COOKING TIPS:")
+            ]
+
+            # Add random cooking tips
+            cooking_tips = random.sample([
+                "Use fresh ingredients when possible",
+                "Remember to adjust seasoning to taste",
+                "Prep ingredients before starting to cook",
+                "Store leftover ingredients properly",
+                "Consider batch cooking for efficiency"
+            ], 2)
+
+            return {
+                'success': True,
+                'meal_plan': meal_plan_text,
+                'grocery_list': grocery_list,
+                'cooking_tips': cooking_tips,
+                'generated_by': 'gemini'
+            }
+
         except Exception as e:
             logger.error(f"Gemini API error: {str(e)}")
             raise
 
+
+    
+    def _generate_with_openai(self, prompt):
+        """Generate response using OpenAI API with enhanced randomization"""
+        try:
+            # Random context elements
+            random_contexts = [
+                "You are a creative Nigerian-British fusion chef.",
+                "You are a health-conscious Nigerian cuisine expert.",
+                "You are a modern Nigerian food innovator.",
+                "You are a traditional Nigerian cooking master.",
+                "You are a Nigerian meal prep specialist."
+            ]
+
+            # Random style elements
+            random_styles = [
+                "Focus on quick and easy methods.",
+                "Emphasize authentic techniques.",
+                "Prioritize healthy adaptations.",
+                "Create budget-friendly versions.",
+                "Design meal-prep friendly recipes."
+            ]
+
+            # Random dietary elements
+            random_dietary = [
+                "Consider balanced nutrition.",
+                "Include vegetarian options.",
+                "Focus on protein-rich meals.",
+                "Emphasize whole ingredients.",
+                "Add low-carb alternatives."
+            ]
+
+            # Random system messages
+            system_messages = [
+                {"role": "system", "content": random.choice(random_contexts)},
+                {"role": "system", "content": random.choice(random_styles)},
+                {"role": "system", "content": random.choice(random_dietary)}
+            ]
+
+            # Randomize API parameters
+            api_params = {
+                "model": random.choice(["gpt-4", "gpt-4-turbo-preview"]),
+                "temperature": random.uniform(0.7, 0.9),
+                "presence_penalty": random.uniform(0.0, 0.5),
+                "frequency_penalty": random.uniform(0.0, 0.5),
+                "top_p": random.uniform(0.9, 1.0),
+                "max_tokens": random.randint(1800, 2000)
+            }
+
+            # Create message array with random elements
+            messages = [
+                random.choice(system_messages),
+                {"role": "user", "content": prompt}
+            ]
+
+            # Randomly add follow-up guidance
+            if random.random() > 0.5:
+                messages.append(random.choice([
+                    {"role": "system", "content": "Add practical cooking tips."},
+                    {"role": "system", "content": "Include seasonal variations."},
+                    {"role": "system", "content": "Suggest ingredient substitutions."},
+                    {"role": "system", "content": "Add cultural context."}
+                ]))
+
+            response = self.openai_client.chat.completions.create(
+                messages=messages,
+                **api_params
+            )
+
+            response_text = response.choices[0].message.content
+
+            # Post-process with random additions
+            if random.random() > 0.6:
+                additional_content = random.choice([
+                    self._generate_random_tips(),
+                    self._generate_random_variations(),
+                    self._generate_random_cultural_notes()
+                ])
+                response_text += "\n\n" + additional_content
+
+            return response_text
+
+        except Exception as e:
+            logger.error(f"OpenAI API error: {str(e)}")
+            raise
+
+    def _generate_random_tips(self):
+        """Generate random cooking tips"""
+        tips = random.sample([
+            "For best results, marinate overnight",
+            "Toast spices before grinding",
+            "Use fresh herbs when possible",
+            "Adjust heat levels to taste",
+            "Let stews simmer for deeper flavor",
+            "Store leftovers properly sealed",
+            "Prep ingredients before starting",
+            "Monitor cooking temperatures carefully"
+        ], 3)
+        return "Additional Tips:\n- " + "\n- ".join(tips)
+
+    def _generate_random_variations(self):
+        """Generate random recipe variations"""
+        variations = random.sample([
+            "Make it vegetarian by substituting mushrooms",
+            "Add extra spice with scotch bonnets",
+            "Create a fusion version with British ingredients",
+            "Make it kid-friendly by reducing spices",
+            "Prepare a batch-cooking version",
+            "Create a quick weeknight version"
+        ], 2)
+        return "Recipe Variations:\n- " + "\n- ".join(variations)
+
+    def _generate_random_cultural_notes(self):
+        """Generate random cultural context"""
+        notes = random.sample([
+            "Traditionally served during festivals",
+            "Common street food in Lagos",
+            "Popular for Sunday family gatherings",
+            "Modern adaptation of a classic dish",
+            "Fusion of Nigerian and British tastes",
+            "Regional variation from Northern Nigeria"
+        ], 2)
+        return "Cultural Notes:\n- " + "\n- ".join(notes)
+
     def _generate_meal_plan(self, user, form_data):
-        """Generate meal plan using OpenAI API with Gemini fallback"""
+        """Generate meal plan using OpenAI"""
         prompt = self._construct_prompt(form_data)
         cache_key = f"meal_plan_{hashlib.md5(prompt.encode()).hexdigest()}"
 
@@ -594,32 +759,51 @@ class MealGeneratorView(LoginRequiredMixin, View):
         if cached_response:
             return cached_response
 
+        # Add randomization to the prompt
+        random_elements = [
+            "Be creative and surprise me with unique combinations.",
+            "Include some fusion elements in the recipes.",
+            "Mix traditional and modern cooking methods.",
+            "Focus on seasonal ingredients available in the UK.",
+            "Include some lesser-known Nigerian dishes.",
+        ]
+        prompt += f"\n{random.choice(random_elements)}"
+
         try:
-            # Try OpenAI first
+            # Generate with OpenAI
             response_text = self._generate_with_openai(prompt)
+
             if not response_text:
-                raise Exception('Empty response from OpenAI')
+                raise ValueError("Empty response from OpenAI API")
 
             processed_data = self._process_response(response_text, form_data, user, 'openai')
 
+            # Add randomization to the response
+            if processed_data['success']:
+                # Randomly shuffle the days in the meal plan
+                random.shuffle(processed_data['meal_plan'])
+
+                # Randomly shuffle the grocery list
+                random.shuffle(processed_data['grocery_list'])
+
+                # Add random cooking tips
+                tips = [
+                    "Remember to adjust seasoning to taste",
+                    "Prep ingredients before starting to cook",
+                    "Store leftover ingredients properly",
+                    "Consider batch cooking for efficiency",
+                    "Use fresh ingredients when possible"
+                ]
+                processed_data['cooking_tips'] = random.sample(tips, 2)
+
+            cache.set(cache_key, processed_data, settings.CACHE_TIMEOUTS['very_long'])
+            return processed_data
+
         except Exception as e:
-            logger.warning(f"OpenAI generation failed, falling back to Gemini: {str(e)}")
+            logger.error(f"OpenAI generation failed: {str(e)}")
+            raise Exception("Failed to generate meal plan")
 
-            try:
-                # Use Gemini as fallback
-                response_text = self._generate_with_gemini(prompt)
 
-                if not response_text:
-                    raise ValueError("Empty response from Gemini API")
-
-                processed_data = self._process_response(response_text, form_data, user, 'gemini')
-
-            except Exception as gemini_error:
-                logger.error(f"Both OpenAI and Gemini failed: {str(gemini_error)}")
-                raise Exception("Failed to generate meal plan with both services")
-
-        cache.set(cache_key, processed_data, settings.CACHE_TIMEOUTS['very_long'])
-        return processed_data
 
     def _process_response(self, response_text, form_data, user, source):
         """Process AI response into structured data"""

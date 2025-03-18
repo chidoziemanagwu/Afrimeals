@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.contrib import messages
 
-def rate_limit(key_prefix, max_requests, timeout):
+def rate_limit(key_prefix, max_requests=5, timeout=3600):
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(self, request, *args, **kwargs):
@@ -15,16 +15,17 @@ def rate_limit(key_prefix, max_requests, timeout):
 
             # Check if rate limit is exceeded
             if request_count >= max_requests:
-                if request.is_ajax() or request.content_type == 'application/json':
+                # Check if request is AJAX
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({
                         'success': False,
                         'error': 'Rate limit exceeded. Please try again later.'
                     }, status=429)
                 else:
                     messages.error(request, 'Too many attempts. Please try again later.')
-                    return render(request, 'rate_limit_exceeded.html', status=429)
+                    return redirect('home')
 
-            # Increment the counter
+            # Increment the request count
             cache.set(cache_key, request_count + 1, timeout)
 
             return view_func(self, request, *args, **kwargs)
