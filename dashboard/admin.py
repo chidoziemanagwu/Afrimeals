@@ -1,15 +1,17 @@
 # admin.py
 
 from django.contrib import admin
-from django.utils.html import format_html
-from .models import MealPlan, PaymentHistory, Recipe, GroceryList, SubscriptionTier, UserSubscription, UserActivity, UserFeedback, User
+from .models import MealPlan, PaymentHistory, Recipe, SubscriptionTier, UserSubscription, UserActivity, UserFeedback, User
 from django.urls import path
 from django.template.response import TemplateResponse
 from django.contrib.admin import AdminSite
 from django.db.models import Count
-from django.db.models.functions import TruncMonth
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.utils import timezone
+from django.db.models.functions import TruncDay
+
+from django.core.cache import cache
+
 
 @admin.register(MealPlan)
 class MealPlanAdmin(admin.ModelAdmin):
@@ -80,69 +82,75 @@ class CustomAdminSite(AdminSite):
         now = timezone.now()
         month_ago = now - timedelta(days=30)
         week_ago = now - timedelta(days=7)
-        six_months_ago = now - timedelta(days=180)
 
-        # Subscription trends for the last 6 months
-        subscription_trends = UserSubscription.objects.filter(
-            start_date__gte=six_months_ago
-        ).annotate(
-            month=TruncMonth('start_date')
-        ).values('month').annotate(
-            count=Count('id')
-        ).order_by('month')
+        # Limit to last 30 days instead of 6 months to reduce data volume
+        thirty_days_ago = now - timedelta(days=30)
 
-        # User metrics
-        total_users = User.objects.count()
-        new_users_count = User.objects.filter(date_joined__gte=month_ago).count()
+        # Use caching for expensive queries
+        cache_key = "dashboard_subscription_trends"
+        daily_trends = cache.get(cache_key)
 
-        # Subscription metrics
-        active_subscriptions = UserSubscription.objects.filter(is_active=True).count()
-        expiring_soon = UserSubscription.objects.filter(
-            is_active=True,
-            end_date__lte=now + timedelta(days=7)
-        ).count()
+        if daily_trends is None:
+            # Optimize the query - use TruncDay and annotate in a single query
+            from django.db.models.functions import TruncDay
 
-        # Recipe metrics
-        total_recipes = Recipe.objects.count()
-        ai_generated_recipes = Recipe.objects.filter(is_ai_generated=True).count()
+            subscription_trends = UserSubscription.objects.filter(
+                start_date__gte=thirty_days_ago
+            ).annotate(
+                day=TruncDay('start_date')
+            ).values('day').annotate(
+                count=Count('id')
+            ).order_by('day')
 
-        # Meal plan metrics
-        active_meal_plans = MealPlan.objects.count()
-        new_meal_plans = MealPlan.objects.filter(created_at__gte=week_ago).count()
+            # Convert to dictionary for faster lookups
+            trend_dict = {item['day'].date(): item['count'] for item in subscription_trends}
 
-        # Activity metrics
-        total_activities = UserActivity.objects.filter(
-            timestamp__gte=now - timedelta(days=1)
-        ).count()
+            # Create a complete list of days with proper counts
+            daily_trends = []
+            current_date = thirty_days_ago.date()
+            end_date = now.date()
 
-        # Feedback metrics and data
-        feedback_stats = {
-            'total': UserFeedback.objects.count(),
-            'resolved': UserFeedback.objects.filter(is_resolved=True).count(),
-            'unresolved': UserFeedback.objects.filter(is_resolved=False).count(),
-        }
+            while current_date <= end_date:
+                daily_trends.append({
+                    'day': current_date.isoformat(),
+                    'count': trend_dict.get(current_date, 0)
+                })
+                current_date += timedelta(days=1)
 
-        # Get recent feedback for the tables
-        recent_feedback = UserFeedback.objects.all().select_related('user').order_by('-created_at')
+            # Cache the result for 1 hour
+            cache.set(cache_key, daily_trends, 3600)
 
+        # Use select_related and only fetch what's needed
         context = {
-            'total_users': total_users,
-            'new_users_count': new_users_count,
-            'active_subscriptions': active_subscriptions,
-            'expiring_soon': expiring_soon,
-            'total_recipes': total_recipes,
-            'ai_generated_recipes': ai_generated_recipes,
-            'active_meal_plans': active_meal_plans,
-            'new_meal_plans': new_meal_plans,
-            'total_activities': total_activities,
-            'feedback_stats': feedback_stats,
-            'subscription_trends': list(subscription_trends),
-            'recent_feedback': recent_feedback,  # Add this line
+            # Use count() instead of fetching all objects
+            'total_users': User.objects.count(),
+            'new_users_count': User.objects.filter(date_joined__gte=month_ago).count(),
+            'active_subscriptions': UserSubscription.objects.filter(is_active=True).count(),
+            'expiring_soon': UserSubscription.objects.filter(
+                is_active=True,
+                end_date__lte=now + timedelta(days=7)
+            ).count(),
+            'total_recipes': Recipe.objects.count(),
+            'ai_generated_recipes': Recipe.objects.filter(is_ai_generated=True).count(),
+            'active_meal_plans': MealPlan.objects.count(),
+            'new_meal_plans': MealPlan.objects.filter(created_at__gte=week_ago).count(),
+            'total_activities': UserActivity.objects.filter(
+                timestamp__gte=now - timedelta(days=1)
+            ).count(),
+            'feedback_stats': {
+                'total': UserFeedback.objects.count(),
+                'resolved': UserFeedback.objects.filter(is_resolved=True).count(),
+                'unresolved': UserFeedback.objects.filter(is_resolved=False).count(),
+            },
+            'subscription_trends': daily_trends,
+            # Limit the number of feedback items and use select_related
+            'recent_feedback': UserFeedback.objects.select_related('user').order_by('-created_at')[:50],
             'title': 'Dashboard',
             'site_title': self.site_title,
             'site_header': self.site_header,
             'has_permission': True,
         }
+
         return TemplateResponse(request, "admin/dashboard.html", context)
 
 # Create an instance of CustomAdminSite

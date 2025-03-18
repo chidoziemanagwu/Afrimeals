@@ -328,10 +328,15 @@
     </div>
 
     <!-- Subscription Trends -->
+    <!-- Subscription Trends Chart -->
     <div class="dashboard-graphs">
-        <h2>Subscription Trends</h2>
-        <canvas id="subscriptionsChart" style="max-height: 300px;"></canvas>
+        <h2>Subscription Trends (Last 30 Days)</h2>
+        <div style="height: 300px; position: relative;">
+            <canvas id="subscriptionsChart"></canvas>
+        </div>
     </div>
+
+
     <!-- Feedback Section -->
     <div class="feedback-section">
         <h2>Feedback Overview</h2>
@@ -559,48 +564,70 @@
         }
     
         // Initialize Subscription Trends Chart
+
+    
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get the data
         const subscriptionData = {{ subscription_trends|safe }};
-        const ctx1 = document.getElementById('subscriptionsChart');
-        if (ctx1) {
-            const subscriptionsChart = new Chart(ctx1.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: subscriptionData.map(item => new Date(item.month).toLocaleDateString('default', { month: 'short', year: 'numeric' })),
-                    datasets: [{
-                        label: 'Active Subscriptions',
-                        data: subscriptionData.map(item => item.count),
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        borderWidth: 2,
-                        tension: 0.4
-                    }]
+        
+        // Skip rendering if no canvas or data
+        const canvas = document.getElementById('subscriptionsChart');
+        if (!canvas || !subscriptionData || subscriptionData.length === 0) {
+            console.error('Missing canvas or data for chart');
+            return;
+        }
+        
+        // Prepare the data - only process what we need
+        const labels = [];
+        const counts = [];
+        
+        for (let i = 0; i < subscriptionData.length; i++) {
+            const item = subscriptionData[i];
+            const date = new Date(item.day);
+            labels.push(date.toLocaleDateString('default', { day: 'numeric', month: 'short' }));
+            counts.push(item.count);
+        }
+        
+        // Create a simpler chart with fewer options
+        new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Daily Subscriptions',
+                    data: counts,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
                 },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
                         }
                     },
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Months'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Subscriptions'
-                            },
-                            beginAtZero: true
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
                         }
                     }
                 }
-            });
-        }
+            }
+        });
     });
 </script>
 {% endblock %}
