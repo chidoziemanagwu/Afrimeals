@@ -246,7 +246,7 @@ class GroceryList(models.Model, CacheModelMixin):
 
 class SubscriptionTier(models.Model, CacheModelMixin):
     TIER_CHOICES = (
-        ('one_time', 'Pay As You Go'),
+        ('one_time', 'Pay Once'),
         ('weekly', 'Weekly Plan'),
         ('monthly', 'Monthly Plan'),
     )
@@ -256,6 +256,7 @@ class SubscriptionTier(models.Model, CacheModelMixin):
     price = models.DecimalField(max_digits=6, decimal_places=2)
     description = models.TextField()
     features = models.JSONField(default=dict)
+    meal_plan_limit = models.IntegerField(default=0)  # 0 for unlimited, 3 for free tier
     is_active = models.BooleanField(default=True, db_index=True)
     stripe_price_id = models.CharField(max_length=100, blank=True, null=True)
     stripe_product_id = models.CharField(max_length=100, blank=True, null=True)
@@ -340,6 +341,22 @@ class SubscriptionTier(models.Model, CacheModelMixin):
         """Return human-readable interval"""
         return dict(self.TIER_CHOICES).get(self.tier_type, '')
 
+    @property
+    def is_premium(self):
+        return self.tier_type in ['weekly']
+
+    @property
+    def allows_gemini_chat(self):
+        return self.tier_type == 'weekly'
+
+    @property
+    def meal_plan_count(self):
+        if self.tier_type == 'free':
+            return 3
+        elif self.tier_type == 'pay_once':
+            return 1
+        return 0  # Unlimited for weekly
+        
 
 
 class UserSubscription(models.Model, CacheModelMixin):
@@ -401,6 +418,26 @@ class UserSubscription(models.Model, CacheModelMixin):
 
         return subscription
 
+
+    def expire_one_time_subscription(self):
+        """Expire a one-time subscription"""
+        logger.info(f"Attempting to expire one-time subscription for user {self.user.id}")
+
+        if self.subscription_tier.tier_type == 'one_time' and self.is_active:
+            logger.info(f"Found active one-time subscription {self.id} for user {self.user.id}")
+            self.is_active = False
+            self.status = 'expired'
+            self.end_date = timezone.now()
+            self.save()
+
+            # Clear cache
+            cache.delete(f"active_subscription_{self.user.id}")
+
+            logger.info(f"Successfully expired one-time subscription {self.id} for user {self.user.id}")
+            return True
+
+        logger.info(f"Subscription {self.id} is not a one-time subscription or is already expired")
+        return False
 
 class PaymentHistory(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

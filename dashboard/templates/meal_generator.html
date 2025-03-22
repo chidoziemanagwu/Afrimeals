@@ -180,7 +180,83 @@ select[multiple]:disabled {
             </div>
             {% endif %}
 
-            <form id="mealPlanForm" class="space-y-6" method="POST" action="{% url 'meal_generator' %}" novalidate>
+            {% if has_maxed_trials %}
+<div class="bg-white rounded-xl shadow-xl p-8 text-center">
+    <div class="mx-auto w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center mb-6">
+        <i class="fas fa-lock text-yellow-500 text-4xl"></i>
+    </div>
+    
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">You've Reached Your Free Trial Limit</h2>
+    
+    <p class="text-gray-600 mb-6 max-w-lg mx-auto">
+        You've used all 3 of your free meal plan generations. Upgrade to continue creating personalized Nigerian meal plans!
+    </p>
+    
+    <div class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+            <div class="bg-green-50 p-4 rounded-lg">
+                <i class="fas fa-infinity text-green-500 text-2xl mb-2"></i>
+                <h3 class="font-semibold text-gray-800">Unlimited Plans</h3>
+                <p class="text-sm text-gray-600">Generate as many meal plans as you need</p>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <i class="fas fa-robot text-blue-500 text-2xl mb-2"></i>
+                <h3 class="font-semibold text-gray-800">AI Assistant</h3>
+                <p class="text-sm text-gray-600">Get personalized cooking tips</p>
+            </div>
+            
+            <div class="bg-purple-50 p-4 rounded-lg">
+                <i class="fas fa-location-dot text-purple-500 text-2xl mb-2"></i>
+                <h3 class="font-semibold text-gray-800">Store Locator</h3>
+                <p class="text-sm text-gray-600">Find ingredients near you</p>
+            </div>
+        </div>
+        
+        <div class="flex flex-col items-center space-y-4">
+            <a href="{% url 'pricing' %}" 
+               class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105">
+                <i class="fas fa-crown mr-2"></i>
+                Upgrade Now
+            </a>
+            
+            <p class="text-sm text-gray-500">
+                <i class="fas fa-shield-alt text-gray-400 mr-1"></i>
+                30-day money-back guarantee
+            </p>
+        </div>
+    </div>
+</div>
+{% else %}
+{% if not has_subscription %}
+<div class="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+    <div class="flex items-start">
+        <div class="flex-shrink-0">
+            <i class="fas fa-info-circle text-yellow-500 text-xl"></i>
+        </div>
+        <div class="ml-3">
+            <h3 class="text-sm font-medium text-yellow-800">Free Plan Limitations</h3>
+            <div class="mt-2 text-sm text-yellow-700">
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>Maximum 3 meal plans total</li>
+                    <li>Maximum 3 days per plan</li>
+                    <li>Breakfast and lunch only</li>
+                    <li>No snacks included</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+      <form id="mealPlanForm" 
+      class="space-y-6" 
+      method="POST" 
+      action="{% url 'meal_generator' %}" 
+      data-has-subscription="{{ has_subscription|yesno:'true,false' }}"
+      data-subscription-type="{{ subscription_type }}"
+      novalidate>
                 {% csrf_token %}
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -192,42 +268,51 @@ select[multiple]:disabled {
                         </h3>
                         
                         <div class="space-y-4">
-                            <div class="form-group">
-                                <label for="dietary_preferences" class="block text-gray-700 mb-2" id="dietary-label">
-                                    <i class="fas fa-utensils mr-2"></i>Dietary Preferences
-                                    <span class="text-red-500">*</span>
-                                </label>
-                                <select id="dietary_preferences" 
-                                        name="dietary_preferences" 
-                                        class="form-select w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
-                                        aria-labelledby="dietary-label"
-                                        aria-describedby="dietary-help" required>
-                                    <option value="">Select a dietary preference</option>
-                                    {% for key, description in dietary_preferences.items %}
-                                        <option value="{{ key }}" data-description="{{ description }}">
-                                            {{ key|title }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                                <small id="dietary-help" class="block mt-2 text-sm text-gray-500">
-                                    <span id="preference-description"></span>
-                                </small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="block text-gray-700 mb-2" for="preferred_cuisine">
-                                    <i class="fas fa-globe-africa mr-2"></i>Nigerian Cuisine Type
-                                    <span class="text-red-500">*</span>
-                                </label>
-                                <select required id="preferred_cuisine" name="preferred_cuisine" class="form-select w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300">
-                                    <option value="">Select Cuisine Type</option>
-                                    <option value="Yoruba">Yoruba</option>
-                                    <option value="Igbo">Igbo</option>
-                                    <option value="Hausa">Hausa</option>
-                                    <option value="Calabar">Calabar/Efik</option>
-                                    <option value="Contemporary">Contemporary Nigerian</option>
-                                </select>
-                            </div>
+      
+<!-- Dietary Style Selection -->
+<div class="form-group">
+    <label for="dietary_preferences" class="block text-gray-700 mb-2" id="dietary-label">
+        <i class="fas fa-utensils mr-2"></i>Nigerian Dietary Style
+        <span class="text-red-500">*</span>
+    </label>
+    <select id="dietary_preferences" 
+            name="dietary_preferences" 
+            class="form-select w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
+            aria-labelledby="dietary-label"
+            aria-describedby="dietary-help" 
+            required>
+        <option value="">Select Your Preferred Style</option>
+        {% for style, info in dietary_preferences.items %}
+            <option value="{{ style }}" 
+                    data-description="{{ info.description }}">
+                {{ style|title|cut:"_" }}
+            </option>
+        {% endfor %}
+    </select>
+    <small id="dietary-help" class="block mt-2 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+        <span id="preference-description" class="italic">Select a dietary style to see its description</span>
+    </small>
+</div>
+
+<!-- Hidden input for cuisine type - will be set server-side -->
+<input type="hidden" name="preferred_cuisine" value="">
+
+<!-- Cuisine Type Selection -->
+<div class="form-group">
+    <label class="block text-gray-700 mb-2" for="preferred_cuisine">
+        <i class="fas fa-globe-africa mr-2"></i>Nigerian Region
+        <span class="text-red-500">*</span>
+    </label>
+    <select required id="preferred_cuisine" 
+            name="preferred_cuisine" 
+            class="form-select w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300">
+        <option value="">Select Region</option>
+        <option value="Yoruba">Yoruba (Southwest)</option>
+        <option value="Igbo">Igbo (Southeast)</option>
+        <option value="Hausa">Hausa (North)</option>
+        <option value="Contemporary">Contemporary Nigerian</option>
+    </select>
+</div>
                             
                             <div class="form-group">
                                 <label class="block text-gray-700 mb-2" for="family_size">
@@ -251,10 +336,16 @@ select[multiple]:disabled {
                                        id="plan_days" 
                                        name="plan_days" 
                                        class="form-input w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
-                                       placeholder="Default: 7 days"
-                                       value="7"
+                                       placeholder="{% if not has_subscription %}Max: 3 days{% else %}Default: 7 days{% endif %}"
+                                       value="{% if not has_subscription %}3{% else %}7{% endif %}"
                                        min="1"
-                                       max="14">
+                                       max="{% if not has_subscription %}3{% else %}14{% endif %}"
+                                       {% if not has_subscription %}readonly{% endif %}>
+                                {% if not has_subscription %}
+                                <div class="mt-1 text-xs text-gray-500 flex items-center">
+                                    <i class="fas fa-info-circle mr-1"></i> Free users limited to 3 days
+                                </div>
+                                {% endif %}
                             </div>
                             
                             <div class="form-group">
@@ -263,18 +354,29 @@ select[multiple]:disabled {
                                 </label>
                                 <select id="meals_per_day" 
                                         name="meals_per_day" 
-                                        class="form-select w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300">
-                                    <option value="2">2 meals per day</option>
-                                    <option value="3" selected>3 meals per day</option>
+                                        class="form-select w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-300"
+                                        {% if not has_subscription %}disabled{% endif %}>
+                                    <option value="2" selected>2 meals per day (Breakfast & Lunch)</option>
+                                    {% if has_subscription %}
+                                    <option value="3">3 meals per day</option>
+                                    {% endif %}
                                 </select>
+                                {% if not has_subscription %}
+                                <div class="mt-1 text-xs text-gray-500 flex items-center">
+                                    <i class="fas fa-info-circle mr-1"></i> Free users limited to breakfast and lunch
+                                </div>
+                                {% endif %}
                             </div>
                             
+                            <!-- Hide snacks option for free users -->
+                            {% if has_subscription %}
                             <div class="form-group">
                                 <label class="flex items-center">
                                     <input type="checkbox" name="include_snacks" id="include_snacks" class="form-checkbox h-5 w-5 text-green-600" checked>
                                     <span class="ml-2 text-gray-700">Include Snacks</span>
                                 </label>
                             </div>
+                            {% endif %}
                             
                             <div class="form-group">
                                 <label class="block text-gray-700 mb-2" for="budget">
@@ -498,6 +600,7 @@ select[multiple]:disabled {
                 <!-- Hidden field to ensure snacks are properly tracked -->
                 <input type="hidden" id="include_snacks_value" name="include_snacks_value" value="true">
             </form>
+{% endif %}
         </div>
         
         <!-- Loading animation (initially hidden) - Animated SVG -->
@@ -710,14 +813,32 @@ select[multiple]:disabled {
                         </div>
                         
                         <!-- Instructions Tab -->
-                        <div id="content-instructions" class="recipe-content custom-scrollbar hidden px-2 py-2">
+                        <div id="content-nutrition" class="recipe-content custom-scrollbar hidden px-2 py-2">
                             <div class="space-y-4">
                                 <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
-                                    <i class="fas fa-utensils text-green-500 mr-2"></i>Cooking Steps
+                                    <i class="fas fa-heartbeat text-green-500 mr-2"></i>Nutritional Information
                                 </h4>
-                                <ol id="recipeInstructions" class="space-y-4">
-                                    <!-- Dynamically populated -->
-                                </ol>
+                                <div class="p-4 bg-green-50 rounded-lg">
+                                    <p class="text-sm text-gray-600 mb-3">Per serving (250g)</p>
+                                    <div id="recipeNutrition" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div class="bg-white p-3 rounded-lg shadow-sm">
+                                            <span class="block text-sm text-gray-600">Calories</span>
+                                            <span class="block font-medium text-gray-800">350 kcal</span>
+                                        </div>
+                                        <div class="bg-white p-3 rounded-lg shadow-sm">
+                                            <span class="block text-sm text-gray-600">Protein</span>
+                                            <span class="block font-medium text-gray-800">15g</span>
+                                        </div>
+                                        <div class="bg-white p-3 rounded-lg shadow-sm">
+                                            <span class="block text-sm text-gray-600">Carbohydrates</span>
+                                            <span class="block font-medium text-gray-800">45g</span>
+                                        </div>
+                                        <div class="bg-white p-3 rounded-lg shadow-sm">
+                                            <span class="block text-sm text-gray-600">Fat</span>
+                                            <span class="block font-medium text-gray-800">12g</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
@@ -767,11 +888,13 @@ select[multiple]:disabled {
     
     <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
         <!-- Share button -->
-        <button onclick="shareShoppingList()" 
-                class="w-full sm:w-auto p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors duration-200 flex items-center justify-center">
-            <i class="fas fa-share-alt mr-1"></i>
-            <span>Share List</span>
-        </button>
+{% if has_subscription %}
+<button onclick="shareShoppingList()" 
+        class="w-full sm:w-auto p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors duration-200 flex items-center justify-center">
+    <i class="fas fa-share-alt mr-1"></i>
+    <span>Share List</span>
+</button>
+{% endif %}
         
         <!-- Pagination controls -->
         <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-1">
@@ -920,6 +1043,46 @@ window.groceryList = [];
 let currentPage = 1;
 const itemsPerPage = 10;
 
+const hasSubscription = document.getElementById('mealPlanForm').dataset.hasSubscription === 'true';
+
+
+
+// Update the form validation function
+function validateSubscriptionForm(e) {
+    const subscriptionType = document.getElementById('mealPlanForm').dataset.subscriptionType;
+    const planDays = parseInt(document.getElementById('plan_days').value);
+
+    switch(subscriptionType) {
+        case 'free':
+            if (planDays > 3) {
+                e.preventDefault();
+                showToast('Free users can only generate meal plans for up to 3 days', 3000);
+                return false;
+            }
+            break;
+
+        case 'pay_once':
+            if (planDays > 7) {
+                e.preventDefault();
+                showToast('Pay Once users can generate meal plans for up to 7 days', 3000);
+                return false;
+            }
+            break;
+
+        case 'weekly':
+            if (planDays > 14) {
+                e.preventDefault();
+                showToast('Weekly users can generate meal plans for up to 14 days', 3000);
+                return false;
+            }
+            break;
+    }
+    return true;
+}
+
+
+
+
 function showToast(message, duration = 3000) {
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toastMessage');
@@ -941,14 +1104,25 @@ function showToast(message, duration = 3000) {
     }, duration);
 }
 
-// Utility Functions
 function handleRecipeError(error) {
     console.error('Error:', error);
+    
+    let errorMessage = 'An unexpected error occurred while loading the recipe.';
+    if (error.message === 'Recipe not found') {
+        errorMessage = 'This recipe could not be found.';
+    } else if (error.message.includes('HTTP error')) {
+        errorMessage = 'There was a problem connecting to the server.';
+    }
+
     $('#recipeTitle').html('<i class="fas fa-exclamation-circle text-red-500 mr-2"></i>Error Loading Recipe');
     $('#content-overview').html(`
         <div class="p-4 bg-red-50 rounded-lg">
-            <p class="text-red-600">Failed to load recipe details. Please try again later.</p>
+            <p class="text-red-600">${errorMessage}</p>
             <p class="text-red-500 text-sm mt-2">${error.message}</p>
+            <button onclick="$('#recipeModal').addClass('hidden')" 
+                    class="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200">
+                Close
+            </button>
         </div>
     `);
 }
@@ -976,7 +1150,25 @@ function showProgressiveLoading() {
     $('#recipeNutrition').html('<div class="recipe-loading-animation grid grid-cols-2 gap-4">' + Array(4).fill('<div class="animate-pulse bg-gray-200 h-12 rounded"></div>').join('') + '</div>');
 }
 
-// Recipe View Functions
+
+function showPremiumFeaturePrompt() {
+    if (confirm('This sharing feature is only available to premium users. Would you like to upgrade now?')) {
+        window.location.href = "{% url 'pricing' %}";
+    }
+}
+
+// Add click handlers for sharing buttons for free users
+if (!hasSubscription) {
+    $(document).on('click', '.share-button', function(e) {
+        e.preventDefault();
+        showPremiumFeaturePrompt();
+    });
+}
+
+
+
+
+
 function viewRecipe(dayIndex, mealType) {
     const cacheKey = `${window.currentMealPlanId}-${dayIndex}-${mealType}`;
     
@@ -990,33 +1182,48 @@ function viewRecipe(dayIndex, mealType) {
     // Check cache first
     if (recipeCache.has(cacheKey)) {
         console.log('Using cached recipe data');
-        // Remove loading animations before updating content
         $('.recipe-loading-animation').remove();
         updateRecipeModal(recipeCache.get(cacheKey));
         return;
     }
 
+    // Add CSRF token to headers
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
     // Fetch recipe details
-    fetch(`/api/recipe-details/${window.currentMealPlanId}/${dayIndex}/${mealType}/`)
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return response.json();
-        })
-        .then(recipeData => {
-            console.log('Received recipe data from API');
-            recipeCache.set(cacheKey, recipeData);
-            // Remove loading animations before updating content
-            $('.recipe-loading-animation').remove();
-            updateRecipeModal(recipeData);
-            preloadNextRecipes(dayIndex, mealType);
-        })
-        .catch(error => {
-            console.error('Error fetching recipe:', error);
-            // Remove loading animations before showing error
-            $('.recipe-loading-animation').remove();
-            handleRecipeError(error);
-        });
+    fetch(`/api/recipe-details/${window.currentMealPlanId}/${dayIndex}/${mealType}/`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrftoken
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to load recipe');
+        }
+        
+        console.log('Received recipe data:', data);
+        recipeCache.set(cacheKey, data);
+        $('.recipe-loading-animation').remove();
+        updateRecipeModal(data);
+        preloadNextRecipes(dayIndex, mealType);
+    })
+    .catch(error => {
+        console.error('Error fetching recipe:', error);
+        $('.recipe-loading-animation').remove();
+        handleRecipeError(error);
+        showToast('Unable to load recipe details. Please try again later.', 3000);
+        
+        setTimeout(() => {
+            $('#recipeModal').addClass('hidden');
+        }, 3000);
+    });
 }
+
 
 
 // Preloading Functions
@@ -1051,6 +1258,12 @@ function preloadRecipe(dayIndex, mealType) {
 
 
 function shareDayMealPlan(dayIndex) {
+    const subscriptionType = document.getElementById('mealPlanForm').dataset.subscriptionType;
+    if (subscriptionType === 'free') {
+        showToast('Sharing is a premium feature. Please upgrade to share meal plans.', 3000);
+        return;
+    }
+
     const day = window.currentMealPlan[dayIndex];
     
     const text = `🍳 My NaijaPlate Meal Plan for ${day.day}:\n\n` +
@@ -1071,6 +1284,13 @@ function shareDayMealPlan(dayIndex) {
 
 
 function shareShoppingList() {
+    const subscriptionType = document.getElementById('mealPlanForm').dataset.subscriptionType;
+    if (subscriptionType === 'free') {
+        showToast('Sharing is a premium feature. Please upgrade to share shopping lists.', 3000);
+        return;
+    }
+
+    
     if (!window.groceryList || window.groceryList.length === 0) {
         alert('No shopping list available. Please generate a meal plan first.');
         return;
@@ -1249,13 +1469,35 @@ function getUserLocation() {
 }
 
 
+if (!{{ has_subscription|yesno:"true,false" }}) {
+    // Set default values for free users
+    $('#plan_days').val('3').attr('max', '3');
+    $('#meals_per_day').val('2');
+    $('#include_snacks').prop('checked', false);
+    
+    // Disable dinner and snacks columns in the meal plan table
+    $('.include-snacks').hide();
+    $('th:contains("Dinner")').hide();
+    $('td:nth-child(5)').hide();
+    
+    // Add form submission validation
+    $('#mealPlanForm').on('submit', function(e) {
+        const planDays = parseInt($('#plan_days').val());
+        if (planDays > 3) {
+            e.preventDefault();
+            showToast('Free users can only generate meal plans for up to 3 days', 3000);
+            return false;
+        }
+    });
+}
+
 
 // Meal Plan Rendering Functions
 // Modify the renderDesktopMealPlan function
 function renderDesktopMealPlan(mealPlanData) {
     // First, check if snacks are included
-    const includeSnacks = $('#include_snacks').is(':checked');
-    const mealsPerDay = parseInt($('#meals_per_day').val());
+    const includeSnacks = hasSubscription && document.getElementById('include_snacks').checked;
+    const mealsPerDay = hasSubscription ? parseInt(document.getElementById('meals_per_day').value) : 2;
 
     // Update table headers first
     let headerHtml = `
@@ -1304,36 +1546,18 @@ function renderDesktopMealPlan(mealPlanData) {
                     <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-orange-200">
                         ${day.meals.breakfast || 'No Meal'}
                     </div>
-                    ${day.meals.breakfast ? `
-                        <button onclick="viewRecipe(${index}, 'breakfast')" 
-                                class="text-xs bg-white hover:bg-orange-200 text-orange-800 px-2 py-1 rounded transition-colors duration-200 border border-orange-300">
-                            <i class="fas fa-book-open mr-1"></i> View Recipe
-                        </button>
-                    ` : ''}
                 </td>
             ` : ''}
             <td class="py-3 px-4 bg-green-100">
                 <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-green-200">
                     ${day.meals.lunch || 'No Meal'}
                 </div>
-                ${day.meals.lunch ? `
-                    <button onclick="viewRecipe(${index}, 'lunch')" 
-                            class="text-xs bg-white hover:bg-green-200 text-green-800 px-2 py-1 rounded transition-colors duration-200 border border-green-300">
-                        <i class="fas fa-book-open mr-1"></i> View Recipe
-                    </button>
-                ` : ''}
             </td>
             ${includeSnacks ? `
                 <td class="py-3 px-4 bg-purple-100">
                     <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-purple-200">
                         ${day.meals.snack || 'No Snack'}
                     </div>
-                    ${day.meals.snack ? `
-                        <button onclick="viewRecipe(${index}, 'snack')" 
-                                class="text-xs bg-white hover:bg-purple-200 text-purple-800 px-2 py-1 rounded transition-colors duration-200 border border-purple-300">
-                            <i class="fas fa-book-open mr-1"></i> View Recipe
-                        </button>
-                    ` : ''}
                 </td>
             ` : ''}
             ${mealsPerDay >= 3 ? `
@@ -1341,19 +1565,15 @@ function renderDesktopMealPlan(mealPlanData) {
                     <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-blue-200">
                         ${day.meals.dinner || 'No Meal'}
                     </div>
-                    ${day.meals.dinner ? `
-                        <button onclick="viewRecipe(${index}, 'dinner')" 
-                                class="text-xs bg-white hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors duration-200 border border-blue-300">
-                            <i class="fas fa-book-open mr-1"></i> View Recipe
-                        </button>
-                    ` : ''}
                 </td>
             ` : ''}
 <td class="py-3 px-4 bg-gray-100">
+    ${hasSubscription ? `
     <button onclick="shareDayMealPlan(${index})" 
             class="text-xs bg-white hover:bg-green-100 text-green-800 px-3 py-1 rounded transition-colors duration-200 border border-green-300 w-full mb-2">
         <i class="fab fa-whatsapp mr-1"></i> Share Day
     </button>
+    ` : ''}
 </td>
         </tr>
     `).join('');
@@ -1364,9 +1584,8 @@ function renderDesktopMealPlan(mealPlanData) {
 
 
 function renderMobileMealPlan(mealPlanData) {
-    // Get current settings
-    const includeSnacks = $('#include_snacks').is(':checked');
-    const mealsPerDay = parseInt($('#meals_per_day').val());
+    const includeSnacks = hasSubscription && document.getElementById('include_snacks').checked;
+    const mealsPerDay = hasSubscription ? parseInt(document.getElementById('meals_per_day').value) : 2;
     
     let html = '';
     mealPlanData.forEach((day, index) => {
@@ -1374,10 +1593,12 @@ function renderMobileMealPlan(mealPlanData) {
             <div class="mb-6 bg-white rounded-lg shadow-md overflow-hidden">
                 <div class="bg-gray-100 p-4 flex justify-between items-center">
                     <span class="font-semibold">${day.day}</span>
+                    ${hasSubscription ? `
                     <button onclick="shareDayMealPlan(${index})" 
                             class="text-xs bg-white hover:bg-green-100 text-green-800 px-3 py-1 rounded-full transition-colors duration-200 border border-green-300">
                         <i class="fab fa-whatsapp mr-1"></i> Share
                     </button>
+                    ` : ''}
                 </div>
                 <div class="p-4 space-y-4">
                     ${Object.entries(day.meals)
@@ -1442,6 +1663,11 @@ function updateShoppingList() {
 
 // Sharing Functions
 function shareMealPlan() {
+    if (!hasSubscription) {
+        showToast('Sharing is a premium feature. Please upgrade to share meal plans.', 3000);
+        return;
+    }
+
     if (!window.currentMealPlan || window.currentMealPlan.length === 0) {
         alert('No meal plan available. Please generate a meal plan first.');
         return;
@@ -1586,25 +1812,36 @@ $('#meals_per_day, #include_snacks').on('change', function() {
             processData: false,
             contentType: false,
             success: function(response) {
-                $('#loading').addClass('hidden');
-                
-                if (response.success) {
-                    window.currentMealPlanId = response.meal_plan_id;
-                    window.currentMealPlan = response.meal_plan;
-                    window.groceryList = filterShoppingList(response.grocery_list);
-                    $('#results').removeClass('hidden');
-                    
-                    if (window.innerWidth < 768) {
-                        renderMobileMealPlan(response.meal_plan);
-                    } else {
-                        renderDesktopMealPlan(response.meal_plan);
-                    }
-                    updateShoppingList();
-                } else if (response.requires_upgrade) {
-                    alert(response.message);
-                    window.location.href = "{% url 'pricing' %}";
-                }
-            },
+    console.log('Response from server:', response);
+    $('#loading').addClass('hidden');
+    
+    if (response.success) {
+        console.log('Meal plan generated successfully');
+        window.currentMealPlanId = response.meal_plan_id;
+        window.currentMealPlan = response.meal_plan;
+        window.groceryList = filterShoppingList(response.grocery_list);
+        $('#results').removeClass('hidden');
+        
+        if (response.subscription_deactivated) {
+            console.log('Subscription deactivated');
+            showToast('Your one-time meal plan has been generated. Your subscription is now complete.', 5000);
+            setTimeout(() => {
+                window.location.href = "{% url 'pricing' %}";
+            }, 6000);
+        }
+        
+        if (window.innerWidth < 768) {
+            renderMobileMealPlan(response.meal_plan);
+        } else {
+            renderDesktopMealPlan(response.meal_plan);
+        }
+        updateShoppingList();
+    } else if (response.requires_upgrade) {
+        alert(response.message);
+        window.location.href = "{% url 'pricing' %}";
+    }
+
+},
             error: function(xhr, status, error) {
                 $('#loading').addClass('hidden');
                 $('#mealPlanForm').removeClass('hidden');
@@ -1674,16 +1911,114 @@ $('#meals_per_day, #include_snacks').on('change', function() {
 </script>
 
 <script>
+    function enforceSubscriptionRestrictions() {
+    const subscriptionType = document.getElementById('mealPlanForm').dataset.subscriptionType;
+    const planDaysInput = document.getElementById('plan_days');
+    const mealsPerDaySelect = document.getElementById('meals_per_day');
+    const includeSnacksCheckbox = document.getElementById('include_snacks');
+
+    switch(subscriptionType) {
+        case 'free':
+            planDaysInput.value = '3';
+            planDaysInput.max = '3';
+            planDaysInput.readOnly = true;
+            mealsPerDaySelect.value = '2';
+            mealsPerDaySelect.disabled = true;
+            if (includeSnacksCheckbox) {
+                includeSnacksCheckbox.checked = false;
+                includeSnacksCheckbox.disabled = true;
+            }
+            break;
+
+        case 'pay_once':
+            planDaysInput.max = '7';
+            planDaysInput.min = '1';
+            planDaysInput.readOnly = false;
+            mealsPerDaySelect.disabled = false;
+            if (includeSnacksCheckbox) {
+                includeSnacksCheckbox.disabled = false;
+            }
+            break;
+
+        case 'weekly':
+            planDaysInput.max = '14';
+            planDaysInput.min = '1';
+            planDaysInput.readOnly = false;
+            mealsPerDaySelect.disabled = false;
+            if (includeSnacksCheckbox) {
+                includeSnacksCheckbox.disabled = false;
+            }
+            break;
+    }
+}
     document.addEventListener('DOMContentLoaded', function() {
+        enforceSubscriptionRestrictions();
+
+        // Add form validation
+    const mealPlanForm = document.getElementById('mealPlanForm');
+    if (mealPlanForm) {
+        mealPlanForm.addEventListener('submit', validateSubscriptionForm);
+    }
+
+    // Handle meals per day and snacks changes
+    const mealsPerDaySelect = document.getElementById('meals_per_day');
+    const includeSnacksCheckbox = document.getElementById('include_snacks');
+
+    if (mealsPerDaySelect) {
+        mealsPerDaySelect.addEventListener('change', function() {
+            if (window.currentMealPlan) {
+                if (window.innerWidth < 768) {
+                    renderMobileMealPlan(window.currentMealPlan);
+                } else {
+                    renderDesktopMealPlan(window.currentMealPlan);
+                }
+            }
+        });
+    }
+
+    if (includeSnacksCheckbox) {
+        includeSnacksCheckbox.addEventListener('change', function() {
+            if (window.currentMealPlan) {
+                if (window.innerWidth < 768) {
+                    renderMobileMealPlan(window.currentMealPlan);
+                } else {
+                    renderDesktopMealPlan(window.currentMealPlan);
+                }
+            }
+        });
+    }
         // Dietary preferences description handling
         const dietarySelect = document.getElementById('dietary_preferences');
         const preferenceDescription = document.getElementById('preference-description');
         
+        // Set initial description text
+        preferenceDescription.textContent = "Select a dietary style to see its description";
+
         dietarySelect.addEventListener('change', function() {
-            const selected = this.options[this.selectedIndex];
+        const selected = this.options[this.selectedIndex];
+        if (selected.value === "") {
+            preferenceDescription.textContent = "Select a dietary style to see its description";
+        } else {
             const description = selected.getAttribute('data-description');
-            preferenceDescription.textContent = description || '';
-        });
+            preferenceDescription.textContent = description || "No description available";
+        }
+    
+        // Update the cuisine type based on the selection
+        const cuisineSelect = document.getElementById('preferred_cuisine');
+        const selectedStyle = selected.value;
+        
+        // Map the style to the appropriate cuisine
+        const cuisineMapping = {
+            'yoruba_traditional': 'Yoruba',
+            'igbo_traditional': 'Igbo',
+            'hausa_traditional': 'Hausa',
+            'contemporary_nigerian': 'Contemporary'
+        };
+        
+        if (cuisineMapping[selectedStyle]) {
+            cuisineSelect.value = cuisineMapping[selectedStyle];
+        }
+    });
     
         // Currency handling
         const currencySelect = document.getElementById('currency');
@@ -1691,8 +2026,8 @@ $('#meals_per_day, #include_snacks').on('change', function() {
         const budgetInput = document.getElementById('budget');
         
         // Currency symbols mapping
-        const symbols = JSON.parse('{{ supported_currencies|escapejs }}');
-        
+        // const symbols = JSON.parse('{{ supported_currencies|escapejs }}');
+        const SUPPORTED_CURRENCIES = {{ supported_currencies|to_json|safe }};
 // Update currency symbol when currency selection changes
 currencySelect.addEventListener('change', function() {
         const selectedCurrency = this.value;

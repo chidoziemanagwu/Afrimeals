@@ -368,9 +368,9 @@ body {
           <a href="{% url 'meal_generator' %}" class="text-green-500 font-medium hover:text-green-500 transition-colors duration-300">
             <i class="fas fa-utensils mr-2"></i>Meal Plans
           </a>
-          <a href="{% url 'recipe_list' %}" class="text-green-500 font-medium hover:text-green-500 transition-colors duration-300">
+          <!-- <a href="{% url 'recipe_list' %}" class="text-green-500 font-medium hover:text-green-500 transition-colors duration-300">
             <i class="fas fa-book-open mr-2"></i>Recipes
-          </a>
+          </a> -->
           <a href="{% url 'meal_plan_history' %}" class="text-green-500 font-medium hover:text-green-500 transition-colors duration-300">
             <i class="fas fa-history mr-2"></i>
             Meal Plan History
@@ -422,9 +422,9 @@ body {
           <a href="{% url 'meal_generator' %}" class="text-green-500 font-medium hover:text-green-200 transition-colors duration-300">
             <i class="fas fa-utensils mr-2"></i>Meal Plans
           </a>
-          <a href="{% url 'recipe_list' %}" class="text-green-500 font-medium hover:text-green-200 transition-colors duration-300">
+          <!-- <a href="{% url 'recipe_list' %}" class="text-green-500 font-medium hover:text-green-200 transition-colors duration-300">
             <i class="fas fa-book-open mr-2"></i>Recipes
-          </a>
+          </a> -->
           <a href="{% url 'meal_plan_history' %}" class="text-green-500 font-medium hover:text-green-500 transition-colors duration-300">
             <i class="fas fa-history mr-2"></i>
             Meal Plan History
@@ -488,6 +488,8 @@ body {
   {% endif %}
 </div>
 
+
+{% if has_subscription and subscription.subscription_tier.tier_type == 'weekly' %}
 {% if not hide_chat %}
 <div id="gemini-chat-widget" class="fixed bottom-4 right-4 z-50">
 <!-- Chat Toggle Button -->
@@ -552,6 +554,211 @@ body {
       </div>
   </div>
 </div>
+{% endif %}
+{% else %}
+<!-- Upgrade Prompt -->
+<div id="chat-upgrade-prompt" class="fixed bottom-4 right-4 z-50">
+    <!-- Chat Toggle Button -->
+    <div id="chat-toggle-container" class="chat-toggle-container flex justify-end">
+      <button id="chat-toggle" type="button" class="w-14 h-14 bg-yellow-600 rounded-full shadow-lg hover:bg-yellow-700 transition-all duration-300 focus:outline-none">
+          <span class="flex items-center justify-center w-full h-full">
+              <i class="fas fa-crown text-xl text-white"></i>
+          </span>
+      </button>
+  </div>
+
+    <!-- Upgrade Prompt Window (Initially Hidden) -->
+    <div id="chat-window" class="hidden w-[400px] bg-white rounded-xl shadow-xl max-h-[80vh] flex flex-col mt-4 upgrade-prompt-window">
+        <!-- Header -->
+        <div class="bg-yellow-600 text-white px-4 py-3 rounded-t-xl flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-crown text-lg"></i>
+                <h3 class="text-base font-medium">Premium Feature</h3>
+            </div>
+            <button id="close-chat" class="text-white hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Content -->
+        <div class="p-6">
+            <h4 class="text-lg font-semibold text-gray-900 mb-3">AI Cooking Assistant</h4>
+            <p class="text-gray-600 mb-4">
+                Get personalized cooking tips, ingredient substitutions, and recipe variations with our AI assistant.
+            </p>
+
+            <div class="bg-yellow-50 rounded-lg p-4 mb-4">
+                <h5 class="font-medium text-yellow-800 mb-2">Weekly Plan Features:</h5>
+                <ul class="space-y-2">
+                    <li class="flex items-center text-yellow-700">
+                        <i class="fas fa-check-circle text-yellow-600 mr-2"></i>
+                        24/7 AI Cooking Assistant
+                    </li>
+                    <li class="flex items-center text-yellow-700">
+                        <i class="fas fa-check-circle text-yellow-600 mr-2"></i>
+                        Unlimited Recipe Variations
+                    </li>
+                    <li class="flex items-center text-yellow-700">
+                        <i class="fas fa-check-circle text-yellow-600 mr-2"></i>
+                        Ingredient Substitution Help
+                    </li>
+                </ul>
+            </div>
+
+            <div class="flex justify-center">
+                <a href="{% url 'pricing' %}" 
+                   class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-medium rounded-lg hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300">
+                    <i class="fas fa-crown mr-2"></i>
+                    Upgrade to Weekly Plan
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+  /* Base styles for the upgrade prompt */
+  #chat-upgrade-prompt {
+      z-index: 50;
+  }
+  
+  /* Styles for the window */
+  .upgrade-prompt-window {
+      width: 400px;
+      max-width: 90%;
+  }
+  
+  /* Toggle button container - always right-aligned */
+  #chat-toggle-container {
+      display: flex;
+      justify-content: flex-end;
+  }
+  
+  /* Mobile responsiveness */
+  @media (max-width: 640px) {
+      #chat-upgrade-prompt {
+          left: 1rem;
+          right: 1rem;
+          bottom: 1rem;
+      }
+  
+      /* Keep toggle button on right side */
+      #chat-toggle-container {
+          justify-content: flex-end;
+          padding-left: 1rem;
+      }
+  
+      .upgrade-prompt-window {
+          width: 100%;
+          position: fixed;
+          left: 1rem;
+          right: 1rem;
+          bottom: 5rem; /* Adjust based on your toggle button height + margin */
+          margin: 0 auto;
+      }
+  
+      /* Ensure content is properly padded */
+      .upgrade-prompt-window .p-6 {
+          padding: 1.25rem;
+      }
+  
+      /* Adjust max height for mobile */
+      .upgrade-prompt-window {
+          max-height: calc(100vh - 8rem);
+          overflow-y: auto;
+      }
+  
+      /* Ensure buttons and interactive elements have enough touch area */
+      .upgrade-prompt-window button,
+      .upgrade-prompt-window a {
+          min-height: 44px;
+          padding: 0.75rem 1rem;
+      }
+  }
+  
+  /* Smooth transitions */
+  .upgrade-prompt-window {
+      transition: all 0.3s ease-in-out;
+      transform-origin: bottom right;
+  }
+  
+  /* Animation for opening/closing */
+  .upgrade-prompt-window.hidden {
+      transform: scale(0.95);
+      opacity: 0;
+  }
+  
+  /* Improved scrollbar for the content */
+  .upgrade-prompt-window {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  }
+  
+  .upgrade-prompt-window::-webkit-scrollbar {
+      width: 6px;
+  }
+  
+  .upgrade-prompt-window::-webkit-scrollbar-track {
+      background: transparent;
+  }
+  
+  .upgrade-prompt-window::-webkit-scrollbar-thumb {
+      background-color: rgba(156, 163, 175, 0.5);
+      border-radius: 3px;
+  }
+  </style>
+  
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+      const chatToggle = document.getElementById('chat-toggle');
+      const chatWindow = document.getElementById('chat-window');
+      const chatToggleContainer = document.getElementById('chat-toggle-container');
+      const closeChatBtn = document.getElementById('close-chat');
+  
+      function toggleChatWindow() {
+          if (chatWindow.classList.contains('hidden')) {
+              chatWindow.classList.remove('hidden');
+              // Add a small delay to trigger the animation
+              setTimeout(() => {
+                  chatWindow.style.transform = 'scale(1)';
+                  chatWindow.style.opacity = '1';
+              }, 50);
+              chatToggleContainer.style.display = 'none';
+          }
+      }
+  
+      function closeWindow() {
+          chatWindow.style.transform = 'scale(0.95)';
+          chatWindow.style.opacity = '0';
+          setTimeout(() => {
+              chatWindow.classList.add('hidden');
+              chatToggleContainer.style.display = 'flex';
+          }, 300);
+      }
+  
+      if (chatToggle) {
+          chatToggle.onclick = toggleChatWindow;
+      }
+  
+      if (closeChatBtn) {
+          closeChatBtn.addEventListener('click', closeWindow);
+      }
+  
+      // Close on escape key
+      document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && !chatWindow.classList.contains('hidden')) {
+              closeWindow();
+          }
+      });
+  
+      // Handle window resize
+      window.addEventListener('resize', () => {
+          if (!chatWindow.classList.contains('hidden')) {
+              chatWindow.style.maxHeight = `${window.innerHeight - 96}px`;
+          }
+      });
+  });
+  </script>
 {% endif %}
 
 

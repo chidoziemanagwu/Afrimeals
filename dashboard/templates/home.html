@@ -426,7 +426,7 @@
                     <h3 class="text-xl font-medium text-gray-900">Pay Once</h3>
                     <p class="mt-4 text-gray-500">Full features for a single meal plan.</p>
                     <p class="mt-8">
-                        <span class="text-4xl font-extrabold text-gray-900" data-base-price="5.99">£5.99</span>
+                        <span class="text-4xl font-extrabold text-gray-900" data-base-price="1.99">£1.99</span>
                         <span class="text-base font-medium text-gray-500">/meal plan</span>
                     </p>
                     <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
@@ -467,7 +467,7 @@
                     <h3 class="text-xl font-medium text-gray-900">Weekly Access</h3>
                     <p class="mt-4 text-gray-500">Full AI assistant access for a week.</p>
                     <p class="mt-8">
-                        <span class="text-4xl font-extrabold text-gray-900" data-base-price="12.99">£12.99</span>
+                        <span class="text-4xl font-extrabold text-gray-900" data-base-price="7.99">£7.99</span>
                         <span class="text-base font-medium text-gray-500">/week</span>
                     </p>
                     <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
@@ -512,7 +512,6 @@
                 class="block w-24 pl-2 pr-6 py-1.5 text-sm text-gray-900 border-0 rounded-lg focus:ring-1 focus:ring-green-500 focus:outline-none cursor-pointer">
             <option value="GBP">GBP (£)</option>
             <option value="USD">USD ($)</option>
-            <option value="EUR">EUR (€)</option>
         </select>
     </div>
 
@@ -569,7 +568,7 @@
                 <div class="mt-8 md:mt-0 md:order-1 flex items-center justify-center md:justify-start">
                     <span class="text-2xl font-bold text-green-600 mr-2">NaijaPlate</span>
                     <p class="text-base text-gray-400">
-                        &copy; 2025 All rights reserved.
+                        &copy; <span id="currentYear"></span> All rights reserved.
                     </p>
                 </div>
             </div>
@@ -603,6 +602,9 @@
 <!-- Mobile menu toggle script -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+        
         // Get mobile menu button and menu
         const mobileMenuButton = document.getElementById('mobile-menu-toggle');
         const menu = document.getElementById('navbar-sticky');
@@ -634,7 +636,6 @@ class CurrencyConverter {
         this.currencies = {
             'GBP': { rate: 1, symbol: '£', name: 'British Pound', locale: 'en-GB' },
             'USD': { rate: 1.27, symbol: '$', name: 'US Dollar', locale: 'en-US' },
-            'EUR': { rate: 1.17, symbol: '€', name: 'Euro', locale: 'de-DE' }
         };
 
         // UI Elements

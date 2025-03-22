@@ -1,19 +1,48 @@
 # dashboard/context_processors.py
 from django.utils import timezone
-from .models import UserSubscription
+from .models import MealPlan, UserSubscription
+
+
+# dashboard/context_processors.py
 
 def subscription_status(request):
-    if request.user.is_authenticated:
-        subscription = UserSubscription.objects.filter(
-            user=request.user,
-            is_active=True,
-            end_date__gt=timezone.now()
-        ).select_related('subscription_tier').first()
+    """Provide subscription information to all templates"""
+    if not request.user.is_authenticated:
         return {
-            'subscription': subscription,
-            'has_subscription': subscription is not None
+            'subscription': None,
+            'has_subscription': False,
+            'is_premium': False,
+            'can_use_gemini': False,
+            'has_detailed_recipes': False,
+            'meal_plans_used': 0,
+            'meal_plans_remaining': 3,
+            'subscription_type': 'free'
         }
-    return {
-        'subscription': None,
-        'has_subscription': False
+
+    subscription = UserSubscription.get_active_subscription(request.user.id)
+    meal_plan_count = MealPlan.objects.filter(user=request.user).count()
+
+    context = {
+        'subscription': subscription,
+        'has_subscription': subscription is not None,
+        'meal_plans_used': meal_plan_count,
+        'subscription_type': 'free'
     }
+
+    if not subscription:
+        context.update({
+            'is_premium': False,
+            'can_use_gemini': False,
+            'has_detailed_recipes': False,
+            'meal_plans_remaining': 3 - meal_plan_count
+        })
+    else:
+        context.update({
+            'is_premium': subscription.subscription_tier.tier_type == 'weekly',
+            'can_use_gemini': subscription.subscription_tier.tier_type == 'weekly',
+            'has_detailed_recipes': True,
+            'meal_plans_remaining': None if subscription.subscription_tier.tier_type == 'weekly' else 1 - meal_plan_count,
+            'subscription_type': subscription.subscription_tier.tier_type
+        })
+
+    return context

@@ -366,7 +366,7 @@
                 <thead>
                     <tr>
                         <th>Type</th>
-                        <th>Subject</th>
+                        <th>Message</th>
                         <th>User</th>
                         <th>Created At</th>
                         <th>Actions</th>
@@ -377,7 +377,7 @@
                     {% if not feedback.is_resolved %}
                     <tr data-id="{{ feedback.id }}">
                         <td>{{ feedback.get_feedback_type_display }}</td>
-                        <td>{{ feedback.subject }}</td>
+                        <td>{{ feedback.message }}</td>
                         <td>{{ feedback.user.username }}</td>
                         <td data-order="{{ feedback.created_at|date:'Y-m-d' }}">
                             {{ feedback.created_at|date:"M d, Y" }}
@@ -400,7 +400,7 @@
                 <thead>
                     <tr>
                         <th>Type</th>
-                        <th>Subject</th>
+                        <th>Message</th>
                         <th>User</th>
                         <th>Created At</th>
                         <th>Actions</th>
@@ -411,7 +411,7 @@
                     {% if feedback.is_resolved %}
                     <tr data-id="{{ feedback.id }}">
                         <td>{{ feedback.get_feedback_type_display }}</td>
-                        <td>{{ feedback.subject }}</td>
+                        <td>{{ feedback.message }}</td>
                         <td>{{ feedback.user.username }}</td>
                         <td data-order="{{ feedback.created_at|date:'Y-m-d' }}">
                             {{ feedback.created_at|date:"M d, Y" }}

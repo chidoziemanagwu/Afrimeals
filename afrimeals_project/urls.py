@@ -4,7 +4,7 @@ from django.urls import path, include
 from django.views.generic import RedirectView
 from dashboard.views import (
     ExportMealPlanPDF, HomeView, DashboardView, MealGeneratorView,
-    PricingView, CheckoutView, RecipeDetailsView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView,
+    PricingView, CheckoutView, RecipeDetailsView, SubscriptionManagementView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView, SubscriptionUpgradeSuccessView, TermsAndPolicyView,
     UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView, RecipeDeleteView,
     ExportMealPlanView, FeedbackView, check_task_status, custom_logout, detect_user_currency, export_activity_pdf, activity_detail_api, find_stores, gemini_chat, 
     checkout_success, checkout_cancel, get_exchange_rates, mark_feedback_status, meal_plan_history, get_meal_plan_details, update_currency, google_login_redirect
@@ -42,6 +42,8 @@ urlpatterns = [
     path('', HomeView.as_view(), name='home'),
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
 
+
+    path('accounts/social/login/error/', RedirectView.as_view(url='/', permanent=False)),
     path('accounts/login/', google_login_redirect, name='account_login'),
     path('accounts/', include('allauth.urls')),
 
@@ -103,7 +105,18 @@ urlpatterns = [
     path('api/find-stores/', find_stores, name='find_stores'),
     path('api/exchange-rates/', get_exchange_rates, name='exchange_rates'),
     path('api/detect-currency/', detect_user_currency, name='detect_currency'),
+    path('terms-and-policy/', TermsAndPolicyView.as_view(), name='terms_policy'),
 
+    path(
+        'subscription/manage/',
+        SubscriptionManagementView.as_view(),
+        name='subscription_management'
+    ),
+    path(
+        'subscription/upgrade/success/',
+        SubscriptionUpgradeSuccessView.as_view(),
+        name='subscription_upgrade_success'
+    ),
 ]
 
 

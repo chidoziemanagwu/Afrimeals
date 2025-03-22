@@ -128,7 +128,7 @@ body > nav {
                         <h3 class="text-xl font-medium text-gray-900">Pay Once</h3>
                         <p class="mt-4 text-gray-500">Full features for a single meal plan.</p>
                         <p class="mt-8">
-                            <span class="text-4xl font-extrabold text-gray-900" data-price data-base-price="5.99">£5.99</span>
+                            <span class="text-4xl font-extrabold text-gray-900" data-price data-base-price="1.99">£1.99</span>
                             <span class="text-base font-medium text-gray-500">/meal plan</span>
                         </p>
                         <a href="{% url 'checkout' tier_id=2 %}" class="mt-8 block w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
@@ -169,7 +169,7 @@ body > nav {
                         <h3 class="text-xl font-medium text-gray-900">Weekly Access</h3>
                         <p class="mt-4 text-gray-500">Full AI assistant access for a week.</p>
                         <p class="mt-8">
-                            <span class="text-4xl font-extrabold text-gray-900" data-price data-base-price="12.99">£12.99</span>
+                            <span class="text-4xl font-extrabold text-gray-900" data-price data-base-price="7.99">£7.99</span>
                             <span class="text-base font-medium text-gray-500">/week</span>
                         </p>
                         <a href="{% url 'checkout' tier_id=3 %}" class="mt-8 block w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
@@ -240,85 +240,146 @@ body > nav {
 </div>
 
 <script>
-// Initialize Stripe
-const stripe = Stripe('{{ stripe_public_key }}');
-
-// Handle checkout button clicks
-document.addEventListener('DOMContentLoaded', () => {
-    const stripe = Stripe('{{ stripe_public_key }}');
-    const priceManager = new PriceManager();
-
-    // Handle checkout button clicks
-    document.querySelectorAll('[href^="/checkout/"]').forEach(button => {
-        button.addEventListener('click', async (e) => {
-            e.preventDefault();
-            
-            // Store original button content
-            const originalText = e.currentTarget.innerHTML;
-            const selectedCurrency = document.getElementById('currency-select').value;
-            const tierId = e.currentTarget.href.split('/checkout/')[1].split('/')[0];
-            
-            try {
-                // Show loading state
-                e.currentTarget.disabled = true;
-                e.currentTarget.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-                
-                // Create checkout session
-                const response = await fetch(`/checkout/${tierId}/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'X-Currency': selectedCurrency
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                
-                const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                
-                // Redirect to Stripe checkout
-                const result = await stripe.redirectToCheckout({
-                    sessionId: data.sessionId
-                });
-                
-                if (result.error) {
-                    throw new Error(result.error.message);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('An error occurred. Please try again.');
-            } finally {
-                // Reset button state
-                e.currentTarget.disabled = false;
-                e.currentTarget.innerHTML = originalText;
-            }
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Stripe with your publishable key
+        const stripe = Stripe('{{ stripe_public_key }}');
+        
+        // Handle subscription buttons
+        document.querySelectorAll('[href^="/checkout/"]').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                e.preventDefault();
+                await handleCheckout(e, button, stripe);
+            });
         });
+    
+        // Initialize currency selector
+        initializeCurrencySelector();
     });
-});
-
-// Helper function to get CSRF token
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
+    
+    async function handleCheckout(event, button, stripe) {
+        event.preventDefault();
+        
+        // Get tier ID and currency
+        const tierId = button.href.split('/checkout/')[1].split('/')[0];
+        const currency = document.getElementById('currency-select').value || 'GBP';
+        
+        // Store original button content
+        const originalContent = button.innerHTML;
+        
+        try {
+            // Disable button and show loading state
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    
+            // Create checkout session
+            const response = await fetch(`/checkout/${tierId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Currency': currency
+                },
+                body: JSON.stringify({ currency: currency })
+            });
+    
+            const data = await response.json();
+    
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to create checkout session');
             }
+    
+            // Redirect to Stripe checkout
+            const { error } = await stripe.redirectToCheckout({
+                sessionId: data.sessionId
+            });
+    
+            if (error) {
+                throw new Error(error.message);
+            }
+    
+        } catch (error) {
+            console.error('Checkout error:', error);
+            showToast('error', error.message || 'An error occurred. Please try again.');
+        } finally {
+            // Reset button state
+            button.disabled = false;
+            button.innerHTML = originalContent;
         }
     }
-    return cookieValue;
-}
-</script>
+    
+    function initializeCurrencySelector() {
+        const currencySelect = document.getElementById('currency-select');
+        if (!currencySelect) return;
+    
+        currencySelect.addEventListener('change', async function() {
+            try {
+                const currency = this.value;
+                const response = await fetch(`/api/update-currency/?currency=${currency}`, {
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+    
+                if (!response.ok) {
+                    throw new Error('Failed to update currency');
+                }
+    
+                const data = await response.json();
+                updatePrices(data);
+                showToast('success', `Currency updated to ${currency}`);
+    
+            } catch (error) {
+                console.error('Currency update error:', error);
+                showToast('error', 'Failed to update currency');
+            }
+        });
+    }
+    
+    function updatePrices(priceData) {
+        document.querySelectorAll('[data-price]').forEach(element => {
+            const tierId = element.dataset.tierId;
+            if (priceData[tierId]) {
+                element.textContent = priceData[tierId];
+            }
+        });
+    }
+    
+    function showToast(type, message) {
+        const toast = document.getElementById('toast');
+        if (!toast) return;
+    
+        const toastContent = `
+            <div class="flex items-center p-4 ${type === 'error' ? 'bg-red-100' : 'bg-green-100'} rounded-lg">
+                <i class="fas ${type === 'error' ? 'fa-exclamation-circle text-red-500' : 'fa-check-circle text-green-500'} mr-2"></i>
+                <span class="text-sm font-medium ${type === 'error' ? 'text-red-800' : 'text-green-800'}">${message}</span>
+            </div>
+        `;
+    
+        toast.innerHTML = toastContent;
+        toast.classList.remove('hidden');
+        toast.classList.add('show');
+    
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hidden');
+        }, 3000);
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    </script>
 
 <script>
 // pricing.js
@@ -396,11 +457,6 @@ class PriceManager {
         const symbols = {
             'GBP': '£',
             'USD': '$',
-            'EUR': '€',
-            'NGN': '₦',
-            'GHS': '₵',
-            'KES': 'KSh',
-            'ZAR': 'R'
         };
         return symbols[currency] || currency;
     }

@@ -136,7 +136,11 @@
                         <h5 class="text-lg font-medium mb-2">Support</h5>
                         <ul class="space-y-2">
                             <li><a  href="{% url 'feedback' %}" class="text-gray-400 hover:text-white transition">Contact Us</a></li>
-                            <li><a href="#" class="text-gray-400 hover:text-white transition">Privacy Policy</a></li>
+                            <li>
+                                <a href="{% url 'terms_policy' %}" class="text-gray-400 hover:text-white transition">
+                                    Terms & Policy
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -150,13 +154,17 @@
                 </div>
             </div>
             <div class="border-t border-gray-700 mt-12 pt-6 text-center text-gray-400 text-sm">
-                &copy; 2025 NaijaPlate. All rights reserved.
+                &copy; <span id="currentYear"></span> NaijaPlate. All rights reserved.
             </div>
         </div>
     </footer>
 </div>
 
 <script>
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('currentYear').textContent = new Date().getFullYear();
+});
 
 function shareMealPlanOnWhatsApp() {
     const mealPlanTable = document.getElementById('mealPlanTable');

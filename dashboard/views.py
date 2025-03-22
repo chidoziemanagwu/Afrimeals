@@ -17,10 +17,11 @@ from django.contrib import messages
 from django.db.models import Q
 from django.core.exceptions import PermissionDenied
 import requests
+
+from dashboard.utils.subscription import check_subscription_access
 from .utils.currency import CurrencyManager
 
-
-from dashboard.decorators import rate_limit
+from dashboard.decorators import check_subscription_limits, rate_limit
 from .models import (
     MealPlan, PaymentHistory, Recipe, GroceryList, SubscriptionTier,
     UserSubscription, UserActivity, UserFeedback
@@ -213,20 +214,26 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 
 @require_http_methods(["POST"])
+@check_subscription_access('gemini_chat')
 def gemini_chat(request):
     try:
         data = json.loads(request.body)
         user_message = data.get('message', '')
 
-        # Here you would integrate with the Gemini API
-        # For now, we'll return a simple response
-        response = {
-            'message': f"I received your message about: {user_message}"
-        }
+        gemini_assistant = GeminiAssistant()
+        response = gemini_assistant.chat(user_message)
 
-        return JsonResponse(response)
+        return JsonResponse({
+            'success': True,
+            'message': response
+        })
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"Gemini chat error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
 
 def check_task_status(request, task_id):
     task = AsyncResult(task_id)
@@ -343,7 +350,10 @@ def update_currency(request):
 def google_login_redirect(request):
     """Redirect all login attempts to Google OAuth"""
     next_url = request.GET.get('next', '')
-    return redirect(f'/accounts/google/login/?next={next_url}')
+    # Clear any existing session data
+    request.session.flush()
+    # Always force account selection
+    return redirect(f'/accounts/google/login/?next={next_url}&prompt=select_account')
 
 @require_http_methods(["GET"])
 def custom_logout(request):
@@ -448,17 +458,13 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
 
 
-class MealGeneratorView(LoginRequiredMixin, View):
-    # Configurable timeouts
-    API_TIMEOUT = 15  # seconds
-    CACHE_TIMEOUT = 3600  # 1 hour
-    MAX_RETRIES = 2
-    
+class MealGeneratorView(LoginRequiredMixin, TemplateView):
+    template_name = 'meal_generator.html'
+
     def __init__(self):
         super().__init__()
-        # Initialize OpenAI client
+        self.logger = logging.getLogger(__name__)
         self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        # Initialize Gemini client
         self.gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
         self.base_context = """
         You are a Nigerian cuisine expert specializing in creating detailed recipes
@@ -471,30 +477,88 @@ class MealGeneratorView(LoginRequiredMixin, View):
         5. Health and nutrition information
         """
 
-    def get(self, request):
-        """Handle GET request - display meal generator form"""
+
+    def _check_and_expire_subscription(self, user):
+        """Check and expire one-time subscription after use"""
         try:
-            # Get active subscription
+            subscription = UserSubscription.objects.select_related('subscription_tier').filter(
+                user=user,
+                is_active=True,
+                subscription_tier__tier_type='one_time'
+            ).first()
+
+            self.logger.info(f"Checking subscription for user {user.id}")
+            self.logger.info(f"Current subscription: {subscription}")
+
+            if subscription:
+                self.logger.info(f"Found active one-time subscription: {subscription.id}")
+                expired = subscription.expire_one_time_subscription()
+
+                if expired:
+                    self.logger.info(f"Successfully expired subscription {subscription.id}")
+                    # Create activity log
+                    UserActivity.objects.create(
+                        user=user,
+                        action='subscription',
+                        details={
+                            'event': 'subscription_expired',
+                            'subscription_id': subscription.id,
+                            'subscription_type': 'one_time',
+                            'expiration_date': timezone.now().isoformat()
+                        }
+                    )
+                    return True
+
+            self.logger.info(f"No active one-time subscription found for user {user.id}")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error in subscription expiration: {str(e)}", exc_info=True)
+            return False
+        
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        try:
+            # Get user's subscription
             subscription = UserSubscription.objects.filter(
-                user=request.user,
+                user=self.request.user,
                 is_active=True,
                 end_date__gt=timezone.now()
             ).select_related('subscription_tier').first()
 
-            context = {
+            # Determine subscription type
+            if subscription:
+                if subscription.subscription_tier.tier_type == 'weekly':
+                    subscription_type = 'weekly'
+                else:
+                    subscription_type = 'pay_once'
+            else:
+                subscription_type = 'free'
+
+            # Check trial usage
+            has_maxed_trials = self._check_trial_usage(self.request.user)
+
+            # Convert currencies to JSON string
+            supported_currencies_json = json.dumps(settings.SUPPORTED_CURRENCIES)
+
+            context.update({
                 'has_subscription': subscription is not None,
                 'subscription': subscription,
+                'subscription_type': subscription_type,
+                'has_maxed_trials': has_maxed_trials,
                 'dietary_preferences': settings.DIETARY_PREFERENCES,
                 'supported_currencies': settings.SUPPORTED_CURRENCIES,
-                'user_currency': self.get_user_currency(request)
-            }
-
-            return render(request, 'meal_generator.html', context)
+                'supported_currencies_json': supported_currencies_json,
+                'user_currency': self.get_user_currency(self.request)
+            })
 
         except Exception as e:
             logger.error(f"Error in meal generator view: {str(e)}")
-            messages.error(request, "An error occurred. Please try again.")
+            messages.error(self.request, "An error occurred. Please try again.")
             return redirect('dashboard')
+
+        return context
+
 
     def get_user_currency(self, request):
         """Detect user's currency based on IP location"""
@@ -506,8 +570,7 @@ class MealGeneratorView(LoginRequiredMixin, View):
             data = response.json()
 
             currency_map = {
-                'NG': 'NGN', 'US': 'USD', 'GB': 'GBP',
-                'GH': 'GHS', 'KE': 'KES', 'ZA': 'ZAR'
+                'US': 'USD', 'GB': 'GBP'
             }
 
             return currency_map.get(data.get('country_code'), 'USD')
@@ -515,44 +578,57 @@ class MealGeneratorView(LoginRequiredMixin, View):
             logger.warning(f"Currency detection failed: {str(e)}")
             return 'USD'
 
-    @rate_limit('meal_generator', max_requests=5, timeout=3600)
     def post(self, request):
         """Handle POST request - generate meal plan"""
         try:
+            self.logger.info(f"Starting meal plan generation for user {request.user.id}")
+
+            # Get current subscription status
+            subscription = UserSubscription.objects.select_related('subscription_tier').filter(
+                user=request.user,
+                is_active=True
+            ).first()
+
+            self.logger.info(f"Current subscription status: {subscription}")
+
             form_data = self._extract_form_data(request.POST)
 
-            if form_data['premium_features_requested'] and not self._has_active_subscription(request.user):
-                return JsonResponse({
-                    'success': False,
-                    'requires_upgrade': True,
-                    'message': 'This feature requires a subscription. Please upgrade to access it.'
-                })
+            # Check if premium features are requested
+            if form_data['premium_features_requested']:
+                self.logger.info("Premium features requested")
+                if not subscription:
+                    self.logger.info("No active subscription found for premium features")
+                    return JsonResponse({
+                        'success': False,
+                        'requires_upgrade': True,
+                        'message': 'This feature requires a subscription. Please upgrade to access it.'
+                    })
 
+            # Generate meal plan
             response_data = self._generate_meal_plan(request.user, form_data)
 
-            UserActivity.objects.create(
-                user=request.user,
-                action='create_meal',
-                details={
-                    'meal_plan_type': form_data['dietary_preferences'],
-                    'currency': form_data['budget']['currency']
-                }
-            )
+            # If meal plan generation was successful
+            if response_data['success']:
+                self.logger.info("Meal plan generated successfully")
+
+                # Check and expire one-time subscription if applicable
+                if subscription and subscription.subscription_tier.tier_type == 'one_time':
+                    self.logger.info("Attempting to expire one-time subscription")
+                    if self._check_and_expire_subscription(request.user):
+                        self.logger.info("One-time subscription expired successfully")
+                        messages.info(request, "Your one-time subscription has been used and is now expired.")
+                    else:
+                        self.logger.warning("Failed to expire one-time subscription")
 
             return JsonResponse(response_data)
 
         except Exception as e:
-            error_message = self._get_error_message(e)
-            logger.error(f"Meal generation error: {str(e)}", exc_info=True, extra={
-                'user_id': request.user.id,
-                'form_data': form_data if 'form_data' in locals() else {}
-            })
-
+            self.logger.error(f"Error in meal plan generation: {str(e)}", exc_info=True)
             return JsonResponse({
                 'success': False,
-                'error': error_message,
-                'details': str(e) if settings.DEBUG else ""
+                'error': str(e) if settings.DEBUG else "An error occurred"
             }, status=500)
+        
 
     def _generate_with_gemini(self, prompt):
         """Generate response using Gemini API with enhanced randomization"""
@@ -900,6 +976,8 @@ class MealGeneratorView(LoginRequiredMixin, View):
     
     
     
+
+
     def _extract_form_data(self, post_data):
         """Extract and validate form data"""
         try:
@@ -907,13 +985,14 @@ class MealGeneratorView(LoginRequiredMixin, View):
         except:
             budget_amount = Decimal('0')
 
-        dietary_pref = post_data.get('dietary_preferences', 'balanced')
-        if dietary_pref not in settings.DIETARY_PREFERENCES:
-            dietary_pref = 'balanced'
+        dietary_pref = post_data.get('dietary_preferences', '')
+
+        # Get the region directly from DIETARY_PREFERENCES
+        preferred_cuisine = settings.DIETARY_PREFERENCES.get(dietary_pref, {}).get('region', 'Contemporary Nigerian')
 
         return {
             'dietary_preferences': dietary_pref,
-            'preferred_cuisine': post_data.get('preferred_cuisine', 'Contemporary Nigerian'),
+            'preferred_cuisine': preferred_cuisine,  # This is now automatically set based on dietary preference
             'health_goals': post_data.get('health_goals', ''),
             'allergies': post_data.get('allergies', ''),
             'meals_per_day': post_data.get('meals_per_day', '3'),
@@ -1026,11 +1105,66 @@ class MealGeneratorView(LoginRequiredMixin, View):
         return UserSubscription.get_active_subscription(user.id) is not None
 
 
+    def _check_trial_usage(self, user):
+        """Check if user has exceeded their plan limits"""
+        subscription = UserSubscription.objects.filter(
+            user=user,
+            is_active=True,
+            end_date__gt=timezone.now()
+        ).select_related('subscription_tier').first()
 
+        logger.info(f"Checking trial usage for user {user.id}")
+        logger.info(f"Current subscription: {subscription}")
 
+        if subscription:
+            logger.info(f"Subscription type: {subscription.subscription_tier.tier_type}")
+            logger.info(f"Is active: {subscription.is_active}")
+            logger.info(f"End date: {subscription.end_date}")
 
-# views.py
+        if not subscription:
+            # Free user - check trial limit
+            meal_plan_count = MealPlan.objects.filter(user=user).count()
+            logger.info(f"Free user meal plan count: {meal_plan_count}")
+            return meal_plan_count >= 3
+        elif subscription.subscription_tier.tier_type == 'pay_once':
+            # Pay once user - check if they've used their one-time access
+            meal_plan_count = MealPlan.objects.filter(
+                user=user,
+                created_at__gt=subscription.start_date
+            ).count()
 
+            logger.info(f"Pay once user meal plan count: {meal_plan_count}")
+
+            if meal_plan_count >= 1:
+                logger.info("Deactivating pay-once subscription")
+                # Deactivate the pay-once subscription
+                subscription.is_active = False
+                subscription.status = 'expired'
+                subscription.end_date = timezone.now()
+                subscription.save()
+
+                # Create activity record
+                UserActivity.objects.create(
+                    user=user,
+                    action='subscription_expired',
+                    details={
+                        'subscription_type': 'pay_once',
+                        'reason': 'One-time use completed'
+                    }
+                )
+
+                # Clear subscription cache
+                cache.delete(f"active_subscription_{user.id}")
+
+                logger.info("Pay-once subscription deactivated successfully")
+                return True
+
+            logger.info("Pay-once subscription still valid")
+            return False
+
+        # Weekly subscription - no limits
+        logger.info("Weekly subscription - no limits")
+        return False
 class PricingView(TemplateView):
     template_name = 'pricing.html'
 
@@ -1057,49 +1191,296 @@ class PricingView(TemplateView):
         })
         return context
 
-class CheckoutView(View):
+# class CheckoutView(View):
+#     def post(self, request, tier_id):
+#         try:
+#             tier = get_object_or_404(SubscriptionTier, id=tier_id)
+#             currency = request.headers.get('X-Currency', 'GBP')
+#             exchange_rate = self.get_exchange_rate(currency)
+#             converted_price = float(tier.price) * exchange_rate
+
+#             # Deactivate existing subscriptions
+#             UserSubscription.objects.filter(
+#                 user=request.user,
+#                 is_active=True
+#             ).update(
+#                 is_active=False,
+#                 status='expired',
+#                 end_date=timezone.now()
+#             )
+
+#             # Calculate end date based on tier type
+#             end_date = timezone.now() + {
+#                 'weekly': timedelta(days=7),
+#                 'monthly': timedelta(days=30),
+#                 'one_time': timedelta(days=365),
+#             }.get(tier.tier_type, timedelta(days=30))
+
+#             # Map our tier types to Stripe's accepted intervals
+#             stripe_intervals = {
+#                 'weekly': 'week',
+#                 'monthly': 'month'
+#             }
+
+#             # Set up common metadata
+#             metadata = {
+#                 'user_id': str(request.user.id),
+#                 'tier_id': str(tier.id),
+#                 'tier_type': tier.tier_type,
+#                 'payment_currency': currency,
+#                 'exchange_rate': str(exchange_rate),
+#                 'end_date': end_date.isoformat()
+#             }
+
+#             if tier.tier_type in ['weekly', 'monthly']:
+#                 # For subscription plans
+#                 checkout_session = stripe.checkout.Session.create(
+#                     payment_method_types=['card'],
+#                     line_items=[{
+#                         'price_data': {
+#                             'currency': currency.lower(),
+#                             'unit_amount': int(converted_price * 100),
+#                             'product_data': {
+#                                 'name': f"{tier.name} - {tier.get_tier_type_display()}",
+#                                 'description': tier.description,
+#                             },
+#                             'recurring': {
+#                                 'interval': stripe_intervals[tier.tier_type],  # Use mapped interval
+#                                 'interval_count': 1
+#                             }
+#                         },
+#                         'quantity': 1,
+#                     }],
+#                     mode='subscription',
+#                     success_url=request.build_absolute_uri(reverse('checkout_success')),
+#                     cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
+#                     metadata=metadata
+#                 )
+#             else:
+#                 # For one-time payment
+#                 checkout_session = stripe.checkout.Session.create(
+#                     payment_method_types=['card'],
+#                     line_items=[{
+#                         'price_data': {
+#                             'currency': currency.lower(),
+#                             'unit_amount': int(converted_price * 100),
+#                             'product_data': {
+#                                 'name': f"{tier.name} - One-time Payment",
+#                                 'description': tier.description,
+#                             },
+#                         },
+#                         'quantity': 1,
+#                     }],
+#                     mode='payment',
+#                     success_url=request.build_absolute_uri(reverse('checkout_success')),
+#                     cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
+#                     metadata=metadata
+#                 )
+
+#             # Create subscription record
+#             subscription = UserSubscription.objects.create(
+#                 user=request.user,
+#                 subscription_tier=tier,
+#                 start_date=timezone.now(),
+#                 end_date=end_date,
+#                 is_active=True,
+#                 status='active',
+#                 payment_status='pending',
+#                 stripe_subscription_id=checkout_session.id
+#             )
+
+#             # Create payment history record
+#             PaymentHistory.objects.create(
+#                 user=request.user,
+#                 subscription=subscription,
+#                 amount=converted_price,
+#                 currency=currency.upper(),
+#                 payment_method='card',
+#                 transaction_id=checkout_session.id,
+#                 status='pending'
+#             )
+
+#             self.send_confirmation_email(request.user, tier, end_date)
+
+#             return JsonResponse({
+#                 'sessionId': checkout_session.id
+#             })
+
+#         except Exception as e:
+#             logger.error(f"Checkout error: {str(e)}")
+#             return JsonResponse({'error': str(e)}, status=500)
+#     def get_exchange_rate(self, target_currency):
+#         """Get exchange rate from GBP to target currency"""
+#         try:
+#             cache_key = f'exchange_rate_GBP_{target_currency}'
+#             rate = cache.get(cache_key)
+
+#             if rate is None:
+#                 response = requests.get(
+#                     'https://api.freecurrencyapi.com/v1/latest',
+#                     headers={'apikey': settings.CURRENCY_API_KEY},
+#                     params={'base_currency': 'GBP'}
+#                 )
+
+#                 if response.ok:
+#                     rates = response.json().get('data', {})
+#                     rate = rates.get(target_currency, 1.0)
+#                     cache.set(cache_key, rate, 3600)
+#                 else:
+#                     logger.error(f"Failed to fetch exchange rate: {response.status_code}")
+#                     rate = 1.0
+
+#             return float(rate)
+
+#         except Exception as e:
+#             logger.error(f"Error fetching exchange rate: {str(e)}")
+#             return 1.0
+
+#     def send_confirmation_email(self, user, tier, end_date):
+#         try:
+#             # Initialize Mailjet client
+#             mailjet = Client(
+#                 auth=(settings.MAILJET_API_KEY, settings.MAILJET_API_SECRET),
+#                 version='v3.1'
+#             )
+
+#             # Format end date
+#             end_date_str = end_date.strftime('%Y-%m-%d')
+
+#             # Prepare email content
+#             text_content = (
+#                 f"Dear {user.username},\n\n"
+#                 f"Thank you for subscribing to {tier.name}! "
+#                 f"Your subscription is active until {end_date_str}."
+#             )
+
+#             # HTML email template with modern styling
+#             html_content = f"""
+#             <!DOCTYPE html>
+#             <html lang="en">
+#             <head>
+#                 <meta charset="UTF-8">
+#                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+#                 <title>Subscription Confirmation</title>
+#                 <style>
+#                     body {{
+#                         font-family: Arial, sans-serif;
+#                         line-height: 1.6;
+#                         color: #333;
+#                         background-color: #f4f4f4;
+#                         margin: 0;
+#                         padding: 0;
+#                     }}
+#                     .container {{
+#                         max-width: 600px;
+#                         margin: 0 auto;
+#                         padding: 20px;
+#                         background-color: #ffffff;
+#                         border-radius: 8px;
+#                         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+#                     }}
+#                     .header {{
+#                         background-color: #4CAF50;
+#                         color: white;
+#                         text-align: center;
+#                         padding: 20px;
+#                         border-radius: 8px 8px 0 0;
+#                     }}
+#                     .content {{
+#                         padding: 20px;
+#                     }}
+#                     .footer {{
+#                         background-color: #f4f4f4;
+#                         text-align: center;
+#                         padding: 10px;
+#                         border-radius: 0 0 8px 8px;
+#                         font-size: 0.8em;
+#                     }}
+#                     .icon {{
+#                         font-size: 24px;
+#                         color: #4CAF50;
+#                         margin-right: 10px;
+#                     }}
+#                     h1 {{
+#                         color: #ffffff;
+#                     }}
+#                     h3 {{
+#                         color: #333;
+#                     }}
+#                     p {{
+#                         margin-bottom: 20px;
+#                     }}
+#                 </style>
+#             </head>
+#             <body>
+#                 <div class="container">
+#                     <div class="header">
+#                         <h1>Subscription Confirmation</h1>
+#                     </div>
+#                     <div class="content">
+#                         <h3><span class="icon">✨</span> Dear {user.username},</h3>
+#                         <p>Thank you for subscribing to <strong>{tier.name}</strong>! Your subscription is now active and will remain so until <strong>{end_date_str}</strong>.</p>
+#                         <p>We're excited to have you on board and can't wait for you to enjoy all the benefits of your new plan. If you have any questions or need assistance, feel free to reach out to our support team.</p>
+#                         <p>Happy meal planning!</p>
+#                         <p>The NaijaPlate Team</p>
+#                     </div>
+#                     <div class="footer">
+#                         <p>&copy; 2025 NaijaPlate. All rights reserved.</p>
+#                     </div>
+#                 </div>
+#             </body>
+#             </html>
+#             """
+
+#             # Build Mailjet API payload
+#             data = {
+#                 'Messages': [{
+#                     "From": {
+#                         "Email": settings.DEFAULT_FROM_EMAIL,
+#                         "Name": "NaijaPlate"
+#                     },
+#                     "To": [{
+#                         "Email": user.email,
+#                         "Name": user.get_full_name() or user.username
+#                     }],
+#                     "Subject": "Subscription Confirmation",
+#                     "TextPart": text_content,
+#                     "HTMLPart": html_content
+#                 }]
+#             }
+
+#             # Send email
+#             response = mailjet.send.create(data=data)
+#             if response.status_code != 200:
+#                 logger.error(f"Mailjet API error: {response.status_code} - {response.json()}")
+#             else:
+#                 logger.info(f"Confirmation email sent successfully to {user.email}")
+
+#         except Exception as email_err:
+#             logger.error(f"Failed to send confirmation email: {str(email_err)}")
+
+
+# dashboard/views.py
+
+class CheckoutView(LoginRequiredMixin, View):
+    def get(self, request, tier_id):
+        # Redirect GET requests to pricing page
+        return redirect('pricing')
+
+
     def post(self, request, tier_id):
-        try:
-            tier = get_object_or_404(SubscriptionTier, id=tier_id)
-            currency = request.headers.get('X-Currency', 'GBP')
-            exchange_rate = self.get_exchange_rate(currency)
-            converted_price = float(tier.price) * exchange_rate
+            try:
+                # Get subscription tier
+                tier = get_object_or_404(SubscriptionTier, id=tier_id)
 
-            # Deactivate existing subscriptions
-            UserSubscription.objects.filter(
-                user=request.user,
-                is_active=True
-            ).update(
-                is_active=False,
-                status='expired',
-                end_date=timezone.now()
-            )
+                # Get currency from request headers
+                currency = request.headers.get('X-Currency', 'GBP')
 
-            # Calculate end date based on tier type
-            end_date = timezone.now() + {
-                'weekly': timedelta(days=7),
-                'monthly': timedelta(days=30),
-                'one_time': timedelta(days=365),
-            }.get(tier.tier_type, timedelta(days=30))
+                # Get exchange rate
+                exchange_rate = self._get_exchange_rate(currency)
+                converted_price = float(tier.price) * exchange_rate
 
-            # Map our tier types to Stripe's accepted intervals
-            stripe_intervals = {
-                'weekly': 'week',
-                'monthly': 'month'
-            }
-
-            # Set up common metadata
-            metadata = {
-                'user_id': str(request.user.id),
-                'tier_id': str(tier.id),
-                'tier_type': tier.tier_type,
-                'payment_currency': currency,
-                'exchange_rate': str(exchange_rate),
-                'end_date': end_date.isoformat()
-            }
-
-            if tier.tier_type in ['weekly', 'monthly']:
-                # For subscription plans
+                # Create Stripe checkout session
                 checkout_session = stripe.checkout.Session.create(
                     payment_method_types=['card'],
                     line_items=[{
@@ -1108,193 +1489,140 @@ class CheckoutView(View):
                             'unit_amount': int(converted_price * 100),
                             'product_data': {
                                 'name': f"{tier.name} - {tier.get_tier_type_display()}",
-                                'description': tier.description,
+                                'description': tier.description
                             },
                             'recurring': {
-                                'interval': stripe_intervals[tier.tier_type],  # Use mapped interval
+                                'interval': 'week',
                                 'interval_count': 1
-                            }
+                            } if tier.tier_type == 'weekly' else None
                         },
                         'quantity': 1,
                     }],
-                    mode='subscription',
+                    mode='subscription' if tier.tier_type == 'weekly' else 'payment',
                     success_url=request.build_absolute_uri(reverse('checkout_success')),
                     cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
-                    metadata=metadata
+                    metadata={
+                        'user_id': str(request.user.id),
+                        'tier_id': str(tier.id),
+                        'tier_type': tier.tier_type
+                    }
                 )
-            else:
-                # For one-time payment
-                checkout_session = stripe.checkout.Session.create(
-                    payment_method_types=['card'],
-                    line_items=[{
-                        'price_data': {
-                            'currency': currency.lower(),
-                            'unit_amount': int(converted_price * 100),
-                            'product_data': {
-                                'name': f"{tier.name} - One-time Payment",
-                                'description': tier.description,
-                            },
+
+                # Create subscription record
+                subscription = UserSubscription.objects.create(
+                    user=request.user,
+                    subscription_tier=tier,
+                    start_date=timezone.now(),
+                    end_date=timezone.now() + timedelta(days=7 if tier.tier_type == 'weekly' else 365),
+                    is_active=True,
+                    status='Active',
+                    stripe_subscription_id=checkout_session.id
+                )
+
+                return JsonResponse({
+                    'sessionId': checkout_session.id,
+                    'tier_type': tier.tier_type
+                })
+
+            except Exception as e:
+                logger.error(f"Checkout error: {str(e)}")
+                return JsonResponse({
+                    'error': str(e)
+                }, status=500)
+
+
+    def _create_stripe_session(self, tier, price, currency, config):
+        """Create Stripe checkout session based on tier type"""
+        common_data = {
+            'payment_method_types': ['card'],
+            'success_url': self.request.build_absolute_uri(reverse('checkout_success')),
+            'cancel_url': self.request.build_absolute_uri(reverse('checkout_cancel')),
+            'metadata': {
+                'user_id': str(self.request.user.id),
+                'tier_id': str(tier.id),
+                'tier_type': tier.tier_type,
+                'features': ','.join(config['features'])
+            }
+        }
+
+        if tier.tier_type == 'weekly':
+            # Subscription payment
+            return stripe.checkout.Session.create(
+                **common_data,
+                mode='subscription',
+                line_items=[{
+                    'price_data': {
+                        'currency': currency.lower(),
+                        'unit_amount': int(price * 100),
+                        'product_data': {
+                            'name': f"{tier.name} Subscription",
+                            'description': tier.description
                         },
-                        'quantity': 1,
-                    }],
-                    mode='payment',
-                    success_url=request.build_absolute_uri(reverse('checkout_success')),
-                    cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
-                    metadata=metadata
-                )
-
-            # Create subscription record
-            subscription = UserSubscription.objects.create(
-                user=request.user,
-                subscription_tier=tier,
-                start_date=timezone.now(),
-                end_date=end_date,
-                is_active=True,
-                status='active',
-                payment_status='pending',
-                stripe_subscription_id=checkout_session.id
+                        'recurring': {
+                            'interval': 'week',
+                            'interval_count': 1
+                        }
+                    },
+                    'quantity': 1
+                }]
+            )
+        else:
+            # One-time payment
+            return stripe.checkout.Session.create(
+                **common_data,
+                mode='payment',
+                line_items=[{
+                    'price_data': {
+                        'currency': currency.lower(),
+                        'unit_amount': int(price * 100),
+                        'product_data': {
+                            'name': f"{tier.name} - One-time Purchase",
+                            'description': tier.description
+                        }
+                    },
+                    'quantity': 1
+                }]
             )
 
-            # Create payment history record
-            PaymentHistory.objects.create(
-                user=request.user,
-                subscription=subscription,
-                amount=converted_price,
-                currency=currency.upper(),
-                payment_method='card',
-                transaction_id=checkout_session.id,
-                status='pending'
-            )
+    def _create_subscription(self, user, tier, config, session_id):
+        """Create subscription record"""
+        # Deactivate existing subscriptions
+        UserSubscription.objects.filter(
+            user=user,
+            is_active=True
+        ).update(
+            is_active=False,
+            status='expired',
+            end_date=timezone.now()
+        )
 
-            self.send_confirmation_email(request.user, tier, end_date)
+        # Create new subscription
+        return UserSubscription.objects.create(
+            user=user,
+            subscription_tier=tier,
+            start_date=timezone.now(),
+            end_date=timezone.now() + config['duration'] if config['duration'] else None,
+            is_active=True,
+            status='active',
+            features=config['features'],
+            meal_plan_limit=config['limit'],
+            stripe_subscription_id=session_id
+        )
 
-            return JsonResponse({
-                'sessionId': checkout_session.id
-            })
-
-        except Exception as e:
-            logger.error(f"Checkout error: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
-    def get_exchange_rate(self, target_currency):
-        """Get exchange rate from GBP to target currency"""
+    def _send_subscription_email(self, user, subscription):
+        """Send subscription confirmation email"""
         try:
-            cache_key = f'exchange_rate_GBP_{target_currency}'
-            rate = cache.get(cache_key)
-
-            if rate is None:
-                response = requests.get(
-                    'https://api.freecurrencyapi.com/v1/latest',
-                    headers={'apikey': settings.CURRENCY_API_KEY},
-                    params={'base_currency': 'GBP'}
-                )
-
-                if response.ok:
-                    rates = response.json().get('data', {})
-                    rate = rates.get(target_currency, 1.0)
-                    cache.set(cache_key, rate, 3600)
-                else:
-                    logger.error(f"Failed to fetch exchange rate: {response.status_code}")
-                    rate = 1.0
-
-            return float(rate)
-
-        except Exception as e:
-            logger.error(f"Error fetching exchange rate: {str(e)}")
-            return 1.0
-
-    def send_confirmation_email(self, user, tier, end_date):
-        try:
-            # Initialize Mailjet client
             mailjet = Client(
                 auth=(settings.MAILJET_API_KEY, settings.MAILJET_API_SECRET),
                 version='v3.1'
             )
 
             # Prepare email content
-            end_date_str = end_date.strftime('%Y-%m-%d')
-            text_content = (
-                f"Dear {user.username},\n\n"
-                f"Thank you for subscribing to {tier.name}! "
-                f"Your subscription is active until {end_date_str}."
-            )
-            html_content = f"""
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Subscription Confirmation</title>
-                <style>
-                    body {{
-                        font-family: Arial, sans-serif;
-                        line-height: 1.6;
-                        color: #333;
-                        background-color: #f4f4f4;
-                        margin: 0;
-                        padding: 0;
-                    }}
-                    .container {{
-                        max-width: 600px;
-                        margin: 0 auto;
-                        padding: 20px;
-                        background-color: #ffffff;
-                        border-radius: 8px;
-                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                    }}
-                    .header {{
-                        background-color: #4CAF50;
-                        color: white;
-                        text-align: center;
-                        padding: 20px;
-                        border-radius: 8px 8px 0 0;
-                    }}
-                    .content {{
-                        padding: 20px;
-                    }}
-                    .footer {{
-                        background-color: #f4f4f4;
-                        text-align: center;
-                        padding: 10px;
-                        border-radius: 0 0 8px 8px;
-                        font-size: 0.8em;
-                    }}
-                    .icon {{
-                        font-size: 24px;
-                        color: #4CAF50;
-                        margin-right: 10px;
-                    }}
-                    h1 {{
-                        color: #fffff;
-                    }}
-                    h3 {{
-                        color: #333;
-                    }}
-                    p {{
-                        margin-bottom: 20px;
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="header">
-                        <h1>Subscription Confirmation</h1>
-                    </div>
-                    <div class="content">
-                        <h3><span class="icon">✨</span> Dear {user.username},</h3>
-                        <p>Thank you for subscribing to <strong>{tier.name}</strong>! Your subscription is now active and will remain so until <strong>{end_date_str}</strong>.</p>
-                        <p>We're excited to have you on board and can't wait for you to enjoy all the benefits of your new plan. If you have any questions or need assistance, feel free to reach out to our support team.</p>
-                        <p>Happy meal planning!</p>
-                        <p>The NaijaPlate Team</p>
-                    </div>
-                    <div class="footer">
-                        <p>&copy; 2025 NaijaPlate. All rights reserved.</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            """
+            subject = f"Welcome to {subscription.subscription_tier.name}!"
 
-            # Build Mailjet API payload
+            # Create HTML content based on subscription type
+            html_content = self._generate_subscription_email_content(user, subscription)
+
             data = {
                 'Messages': [{
                     "From": {
@@ -1305,21 +1633,113 @@ class CheckoutView(View):
                         "Email": user.email,
                         "Name": user.get_full_name() or user.username
                     }],
-                    "Subject": "Subscription Confirmation",
-                    "TextPart": text_content,
+                    "Subject": subject,
                     "HTMLPart": html_content
                 }]
             }
 
-            # Send email and handle response
             response = mailjet.send.create(data=data)
             if response.status_code != 200:
-                logger.error(f"Mailjet API error: {response.status_code} - {response.json()}")
-            else:
-                logger.info(f"Confirmation email sent successfully to {user.email}")
+                logger.error(f"Failed to send subscription email: {response.json()}")
 
-        except Exception as email_err:
-            logger.error(f"Failed to send confirmation email: {str(email_err)}")
+        except Exception as e:
+            logger.error(f"Email sending error: {str(e)}")
+
+    def _generate_subscription_email_content(self, user, subscription):
+        """Generate HTML content for subscription email"""
+        features_html = {
+            'free': """
+                <li>Generate up to 3 meal plans</li>
+                <li>Basic recipe access</li>
+            """,
+            'pay_once': """
+                <li>Generate 1 detailed meal plan</li>
+                <li>Full recipe access</li>
+                <li>Detailed nutritional information</li>
+            """,
+            'weekly': """
+                <li>Unlimited meal plans</li>
+                <li>Full recipe access</li>
+                <li>Detailed nutritional information</li>
+                <li>Gemini AI chat assistance</li>
+                <li>Premium features and support</li>
+            """
+        }
+
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #4CAF50; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 20px; }}
+                .features {{ background-color: #f9f9f9; padding: 15px; margin: 15px 0; }}
+                .button {{ background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Welcome to NaijaPlate {subscription.subscription_tier.name}!</h1>
+                </div>
+                <div class="content">
+                    <p>Dear {user.get_full_name() or user.username},</p>
+                    <p>Thank you for choosing NaijaPlate! Your {subscription.subscription_tier.name} subscription is now active.</p>
+
+                    <div class="features">
+                        <h3>Your Features Include:</h3>
+                        <ul>
+                            {features_html[subscription.subscription_tier.tier_type]}
+                        </ul>
+                    </div>
+
+                    <p>Start exploring your new features now:</p>
+                    <p><a href="{settings.SITE_URL}/meal-generator/" class="button">Generate Meal Plan</a></p>
+
+                    <p>If you have any questions, our support team is here to help!</p>
+
+                    <p>Best regards,<br>The NaijaPlate Team</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    
+    def _get_exchange_rate(self, target_currency):
+        """Get exchange rate from GBP to target currency"""
+        if target_currency == 'GBP':
+            return 1.0
+
+        try:
+            cache_key = f'exchange_rate_GBP_{target_currency}'
+            rate = cache.get(cache_key)
+
+            if rate is None:
+                response = requests.get(
+                    'https://api.freecurrencyapi.com/v1/latest',
+                    headers={'apikey': settings.CURRENCY_API_KEY},
+                    params={
+                        'base_currency': 'GBP',
+                        'currencies': target_currency
+                    }
+                )
+
+                if response.ok:
+                    data = response.json()
+                    rate = data.get('data', {}).get(target_currency, 1.0)
+                    cache.set(cache_key, rate, 3600)  # Cache for 1 hour
+                else:
+                    logger.error(f"Failed to fetch exchange rate: {response.status_code}")
+                    rate = 1.0
+
+            return float(rate)
+
+        except Exception as e:
+            logger.error(f"Error fetching exchange rate: {str(e)}")
+            return 1.0
+    
+
 
 
 class SubscriptionSuccessView(LoginRequiredMixin, TemplateView):
@@ -1430,159 +1850,180 @@ class RecipeDetailView(LoginRequiredMixin, DetailView):
 class RecipeDetailsView(LoginRequiredMixin, View):
     def __init__(self):
         super().__init__()
-        self.gemini_assistant = GeminiAssistant()
-
-    def _clean_json_response(self, response_text: str) -> str:
-        """Clean the response text to get valid JSON"""
-        # Remove markdown code block markers
-        cleaned_text = re.sub(r'^```json\s*', '', response_text)
-        cleaned_text = re.sub(r'\s*```$', '', cleaned_text)
-
-        # Remove any leading/trailing whitespace
-        cleaned_text = cleaned_text.strip()
-
-        return cleaned_text
-
-    def get(self, request, meal_plan_id, day_index, meal_type):
+        # Initialize the Gemini client
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    def _generate_recipe(self, meal_name):
+        """Generate detailed recipe using Gemini API"""
         try:
-            # Get the meal plan
-            meal_plan = get_object_or_404(MealPlan, id=meal_plan_id, user=request.user)
-
-            try:
-                meal_data = json.loads(meal_plan.description)
-                meal_name = meal_data[int(day_index)]['meals'][meal_type]
-            except (json.JSONDecodeError, IndexError, KeyError) as e:
-                logger.error(f"Error parsing meal plan data: {str(e)}")
-                return JsonResponse({
-                    'error': 'Invalid meal plan data'
-                }, status=400)
-
-            # Check for existing recipe
-            existing_recipe = Recipe.objects.filter(
-                meal_plan=meal_plan,
-                day_index=day_index,
-                meal_type=meal_type
-            ).first()
-
-            if existing_recipe:
-                return JsonResponse({
-                    'title': existing_recipe.title,
-                    'description': self.gemini_assistant.format_response(existing_recipe.description),
-                    'prepTime': existing_recipe.prep_time,
-                    'cookTime': existing_recipe.cook_time,
-                    'servings': existing_recipe.servings,
-                    'difficulty': existing_recipe.difficulty,
-                    'ingredients': existing_recipe.ingredients_list,
-                    'instructions': existing_recipe.instructions_list,
-                    'nutrition': existing_recipe.nutrition_info,
-                    'tips': existing_recipe.tips,
-                    'isNewlyGenerated': False  # Add this flag
-                })
-
-            # Construct the recipe generation prompt
-            prompt = f"""
-            Create a detailed Nigerian recipe for {meal_name}.
-            Return only the JSON object without any markdown formatting or code blocks.
-            The response should be a valid JSON object with this structure:
+            # Construct the prompt for recipe generation
+            prompt = f"""Generate a detailed recipe for {meal_name}, a Nigerian dish.
+            Return ONLY a JSON object with NO additional text or formatting.
+            The JSON must follow this EXACT structure:
             {{
                 "title": "{meal_name}",
-                "description": "Brief description including cultural significance and UK-Nigerian fusion notes",
-                "prep_time": "30 mins",
-                "cook_time": "45 mins",
-                "servings": 4,
-                "difficulty": "Medium",
+                "description": "A detailed description of the dish and its cultural significance",
+                "prepTime": "Preparation time in minutes",
+                "cookTime": "Cooking time in minutes",
+                "servings": "Number of people it serves",
+                "difficulty": "Easy/Medium/Hard",
                 "ingredients": [
-                    "List each ingredient with UK measurements",
-                    "Include UK store suggestions in parentheses"
+                    "List each ingredient with exact measurements"
                 ],
                 "instructions": [
-                    "Detailed steps with UK-specific notes",
-                    "Include temperature in both Celsius and Fahrenheit"
+                    "Numbered step-by-step cooking instructions"
                 ],
-                "nutrition_info": {{
-                    "calories": "per serving",
-                    "protein": "in grams",
-                    "carbs": "in grams",
-                    "fat": "in grams"
+                "nutrition": {{
+                    "calories": "Calories per serving",
+                    "protein": "Protein in grams",
+                    "carbs": "Carbohydrates in grams",
+                    "fat": "Fat in grams"
                 }},
                 "tips": [
-                    "UK ingredient substitutions",
-                    "Storage and reheating advice",
-                    "Serving suggestions"
+                    "Cooking tips and variations"
                 ]
-            }}
-            """
+            }}"""
 
             try:
-                # Generate recipe using GeminiAssistant
-                response = self.gemini_assistant.client.models.generate_content(
-                    model=self.gemini_assistant.model,
-                    contents=self.gemini_assistant.base_context + "\n" + prompt
+                # Generate recipe using Gemini with only the required parameters
+                response = self.client.models.generate_content(
+                    model='gemini-pro',
+                    contents=prompt
                 )
 
-                if not response or not response.text:
-                    raise ValueError("Empty response from Gemini API")
-
-                # Clean the response text before parsing JSON
-                cleaned_response = self._clean_json_response(response.text)
-                recipe_data = json.loads(cleaned_response)
-
-                                # Create the recipe
+                # Get the response text
+                response_text = response.text.strip()
+                
+                # Remove any markdown formatting if present
+                if response_text.startswith('```json'):
+                    response_text = response_text[7:].strip()
+                    if response_text.endswith('```'):
+                        response_text = response_text[:-3].strip()
+                
+                # Parse the JSON response
+                recipe_data = json.loads(response_text)
+                
+                # Create Recipe object
                 recipe = Recipe.objects.create(
-                        user=request.user,
-                        meal_plan=meal_plan,
-                        meal_type=meal_type,
-                        day_index=day_index,
-                        title=recipe_data['title'],
-                        description=recipe_data['description'],
-                        ingredients=json.dumps(recipe_data['ingredients']),
-                        instructions=json.dumps(recipe_data['instructions']),
-                        prep_time=recipe_data['prep_time'],
-                        cook_time=recipe_data['cook_time'],
-                        servings=recipe_data['servings'],
-                        difficulty=recipe_data['difficulty'],
-                        nutrition_info=recipe_data['nutrition_info'],
-                        tips=recipe_data.get('tips', []),
-                        is_ai_generated=True
-                    )
+                    meal_plan_id=self.kwargs['meal_plan_id'],
+                    day_index=self.kwargs['day_index'],
+                    meal_type=self.kwargs['meal_type'],
+                    title=recipe_data['title'],
+                    description=recipe_data['description'],
+                    prep_time=recipe_data['prepTime'],
+                    cook_time=recipe_data['cookTime'],
+                    servings=recipe_data['servings'],
+                    difficulty=recipe_data['difficulty'],
+                    ingredients='\n'.join(recipe_data['ingredients']),
+                    instructions='\n'.join(recipe_data['instructions']),
+                    nutrition_info=recipe_data['nutrition'],
+                    tips=recipe_data['tips'],
+                    user=self.request.user
+                )
 
-                    # Return response with isNewlyGenerated flag
+                return recipe_data
+
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing error: {str(e)}")
+                return self._get_fallback_recipe(meal_name, "JSON parsing error")
+            except Exception as e:
+                logger.error(f"Error processing Gemini response: {str(e)}")
+                return self._get_fallback_recipe(meal_name, str(e))
+
+        except Exception as e:
+            logger.error(f"Error generating recipe: {str(e)}")
+            return self._get_fallback_recipe(meal_name, str(e))
+
+
+    def _get_fallback_recipe(self, meal_name, error_type):
+        """Return a fallback recipe structure"""
+        return {
+            'success': True,
+            'title': meal_name,
+            'description': f"A flavorful Nigerian dish featuring {meal_name}",
+            'prepTime': "30-45 minutes",
+            'cookTime': "45-60 minutes",
+            'servings': "4-6 servings",
+            'difficulty': "Medium",
+            'ingredients': [
+                "Recipe ingredients temporarily unavailable",
+                "Please try regenerating the recipe",
+                f"Error: {error_type}"
+            ],
+            'instructions': [
+                "Recipe instructions temporarily unavailable",
+                "Please try regenerating the recipe",
+                f"Error: {error_type}"
+            ],
+            'nutrition': {
+                'calories': "Approximately 400-500 kcal per serving",
+                'protein': "25-30g per serving",
+                'carbs': "45-50g per serving",
+                'fat': "20-25g per serving"
+            },
+            'tips': [
+                "Recipe tips temporarily unavailable",
+                "Please try regenerating the recipe",
+                f"Error: {error_type}"
+            ]
+        }
+
+    def get(self, request, meal_plan_id, day_index, meal_type):
+            try:
+                # Get meal plan and validate access
+                meal_plan = get_object_or_404(MealPlan, id=meal_plan_id, user=request.user)
+
+                try:
+                    meal_data = json.loads(meal_plan.description)
+                    meal_name = meal_data[int(day_index)]['meals'][meal_type]
+                except (json.JSONDecodeError, IndexError, KeyError):
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Invalid meal plan data'
+                    }, status=400)
+
+                # Check for existing recipe
+                existing_recipe = Recipe.objects.filter(
+                    meal_plan=meal_plan,
+                    day_index=day_index,
+                    meal_type=meal_type
+                ).first()
+
+                if existing_recipe:
+                    return JsonResponse({
+                        'success': True,
+                        'title': existing_recipe.title,
+                        'description': existing_recipe.description,
+                        'prepTime': existing_recipe.prep_time,
+                        'cookTime': existing_recipe.cook_time,
+                        'servings': existing_recipe.servings,
+                        'difficulty': existing_recipe.difficulty,
+                        'ingredients': existing_recipe.ingredients_list,
+                        'instructions': existing_recipe.instructions_list,
+                        'nutrition': existing_recipe.nutrition_info,
+                        'tips': existing_recipe.tips,
+                        'isNewlyGenerated': False
+                    })
+
+                # Generate new recipe if none exists
+                recipe_data = self._generate_recipe(meal_name)
                 return JsonResponse({
-                    'title': recipe.title,
-                    'description': self.gemini_assistant.format_response(recipe.description),
-                    'prepTime': recipe.prep_time,
-                    'cookTime': recipe.cook_time,
-                    'servings': recipe.servings,
-                    'difficulty': recipe.difficulty,
-                    'ingredients': [
-                        self.gemini_assistant.format_response(ingredient)
-                        for ingredient in recipe.ingredients_list
-                    ],
-                    'instructions': [
-                        self.gemini_assistant.format_response(instruction)
-                        for instruction in recipe.instructions_list
-                    ],
-                    'nutrition': recipe.nutrition_info,
-                    'tips': [
-                        self.gemini_assistant.format_response(tip)
-                        for tip in recipe.tips
-                    ],
-                    'isNewlyGenerated': True  # Add this flag
+                    'success': True,
+                    **recipe_data,
+                    'isNewlyGenerated': True
                 })
 
             except Exception as e:
                 logger.error(f"Error in RecipeDetailsView: {str(e)}", exc_info=True)
                 return JsonResponse({
+                    'success': False,
                     'error': 'An error occurred while generating the recipe'
                 }, status=500)
 
-        except Exception as e:
-            logger.error(f"Error in RecipeDetailsView: {str(e)}", exc_info=True)
-            return JsonResponse({
-                'error': 'An error occurred while generating the recipe'
-            }, status=500)
-            
-                       
+
+
+
+
+
 
 
 class UserProfileView(LoginRequiredMixin, View):
@@ -2288,5 +2729,223 @@ class ActivityListView(LoginRequiredMixin, ListView):
                 'date_filter': self.request.GET.get('date_filter', 'all'),
                 'sort': self.request.GET.get('sort', '-timestamp'),
             }
+        })
+        return context
+
+
+class TermsAndPolicyView(TemplateView):
+    template_name = 'terms_policy.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'page_title': 'Terms and Policy - NaijaPlate',
+            'meta_description': 'Terms of Service and Privacy Policy for NaijaPlate'
+        })
+        return context
+    
+
+
+# dashboard/views.py
+
+class SubscriptionManagementView(LoginRequiredMixin, View):
+    def get(self, request):
+        subscription = UserSubscription.get_active_subscription(request.user.id)
+        payment_history = PaymentHistory.objects.filter(
+            user=request.user
+        ).order_by('-created_at')[:5]
+
+        context = {
+            'subscription': subscription,
+            'payment_history': payment_history,
+            'features': settings.SUBSCRIPTION_SETTINGS['FEATURES'],
+            'meal_plans_count': MealPlan.objects.filter(user=request.user).count()
+        }
+
+        return render(request, 'subscription_management.html', context)
+
+    def post(self, request):
+        action = request.POST.get('action')
+        subscription = UserSubscription.get_active_subscription(request.user.id)
+
+        if not subscription:
+            return JsonResponse({
+                'success': False,
+                'message': 'No active subscription found.'
+            })
+
+        try:
+            if action == 'cancel':
+                return self._handle_cancellation(request, subscription)
+            elif action == 'upgrade':
+                return self._handle_upgrade(request, subscription)
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Invalid action specified.'
+                })
+
+        except Exception as e:
+            logger.error(f"Subscription management error: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'message': 'An error occurred. Please try again.'
+            })
+
+    def _handle_cancellation(self, request, subscription):
+        try:
+            if subscription.subscription_tier.tier_type == 'weekly':
+                # Cancel Stripe subscription
+                stripe.Subscription.delete(
+                    subscription.stripe_subscription_id
+                )
+
+            # Update subscription status
+            subscription.is_active = False
+            subscription.status = 'cancelled'
+            subscription.end_date = timezone.now()
+            subscription.save()
+
+            # Track activity
+            UserActivity.objects.create(
+                user=request.user,
+                action='cancel_subscription',
+                details={
+                    'subscription_type': subscription.subscription_tier.tier_type,
+                    'cancellation_date': timezone.now().isoformat()
+                }
+            )
+
+            # Send cancellation email
+            self._send_cancellation_email(request.user, subscription)
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Your subscription has been cancelled.'
+            })
+
+        except Exception as e:
+            logger.error(f"Subscription cancellation error: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to cancel subscription. Please try again.'
+            })
+
+    def _handle_upgrade(self, request, subscription):
+        try:
+            # Create checkout session for upgrade
+            checkout_session = stripe.checkout.Session.create(
+                customer=subscription.stripe_customer_id,
+                payment_method_types=['card'],
+                mode='subscription',
+                line_items=[{
+                    'price': settings.STRIPE_WEEKLY_PRICE_ID,
+                    'quantity': 1,
+                }],
+                success_url=request.build_absolute_uri(
+                    reverse('subscription_upgrade_success')
+                ),
+                cancel_url=request.build_absolute_uri(
+                    reverse('subscription_management')
+                ),
+                metadata={
+                    'user_id': str(request.user.id),
+                    'upgrade_from': subscription.subscription_tier.tier_type
+                }
+            )
+
+            return JsonResponse({
+                'success': True,
+                'session_id': checkout_session.id
+            })
+
+        except Exception as e:
+            logger.error(f"Subscription upgrade error: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to process upgrade. Please try again.'
+            })
+
+    def _send_cancellation_email(self, user, subscription):
+        try:
+            mailjet = Client(
+                auth=(settings.MAILJET_API_KEY, settings.MAILJET_API_SECRET),
+                version='v3.1'
+            )
+
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                    .header {{ background-color: #4CAF50; color: white; padding: 20px; text-align: center; }}
+                    .content {{ padding: 20px; }}
+                    .button {{ background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>Subscription Cancelled</h1>
+                    </div>
+                    <div class="content">
+                        <p>Dear {user.get_full_name() or user.username},</p>
+                        <p>We're sorry to see you go! Your subscription has been cancelled.</p>
+                        <p>You'll continue to have access to your current features until {subscription.end_date.strftime('%B %d, %Y')}.</p>
+                        <p>If you change your mind, you can resubscribe at any time:</p>
+                        <p><a href="{settings.SITE_URL}/pricing/" class="button">View Plans</a></p>
+                        <p>We'd love to hear your feedback on how we can improve our service.</p>
+                        <p>Best regards,<br>The NaijaPlate Team</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+
+            data = {
+                'Messages': [{
+                    "From": {
+                        "Email": settings.DEFAULT_FROM_EMAIL,
+                        "Name": "NaijaPlate"
+                    },
+                    "To": [{
+                        "Email": user.email,
+                        "Name": user.get_full_name() or user.username
+                    }],
+                    "Subject": "Subscription Cancelled - NaijaPlate",
+                    "HTMLPart": html_content
+                }]
+            }
+
+            response = mailjet.send.create(data=data)
+            if response.status_code != 200:
+                logger.error(f"Failed to send cancellation email: {response.json()}")
+
+        except Exception as e:
+            logger.error(f"Error sending cancellation email: {str(e)}")
+
+
+
+# dashboard/views.py
+
+class SubscriptionUpgradeSuccessView(LoginRequiredMixin, TemplateView):
+    template_name = 'subscription_upgrade_success.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        subscription = UserSubscription.get_active_subscription(self.request.user.id)
+        
+        context.update({
+            'subscription': subscription,
+            'features': settings.SUBSCRIPTION_SETTINGS['FEATURES'].get(
+                subscription.subscription_tier.tier_type if subscription else 'free',
+                []
+            ),
+            'next_billing_date': (
+                subscription.end_date.strftime('%B %d, %Y')
+                if subscription and subscription.end_date
+                else None
+            )
         })
         return context

@@ -14,13 +14,14 @@ class Command(BaseCommand):
         tiers = [
             {
                 'name': 'Free Plan',
-                'tier_type': 'one_time',
+                'tier_type': 'free',
                 'price': 0.00,
                 'description': 'Try basic Nigerian recipes at no cost.',
                 'features': {
-                    'Limited meal plan options': True,
-                    'Basic grocery lists': True,
-                    'Access to 5 popular recipes': True
+                    'meal_plan_limit': 3,
+                    'recipe_access': 'basic',
+                    'gemini_chat': False,
+                    'premium_features': False
                 },
                 'is_active': True,
                 'created_at': timezone.now(),
@@ -28,14 +29,14 @@ class Command(BaseCommand):
             },
             {
                 'name': 'Pay Once',
-                'tier_type': 'one_time',
-                'price': 5.99,
+                'tier_type': 'pay_once',
+                'price': 1.99,
                 'description': 'Full features for a single meal plan.',
                 'features': {
-                    'Single AI-generated meal plan': True,
-                    'Complete grocery list with UK prices': True,
-                    'Cooking instructions with videos': True,
-                    'Store location details': True
+                    'meal_plan_limit': 1,
+                    'recipe_access': 'full',
+                    'gemini_chat': False,
+                    'premium_features': True
                 },
                 'is_active': True,
                 'created_at': timezone.now(),
@@ -47,11 +48,10 @@ class Command(BaseCommand):
                 'price': 12.99,
                 'description': 'Full AI assistant access for a week.',
                 'features': {
-                    'Unlimited meal plans for 7 days': True,
-                    'Full AI cuisine assistant access': True,
-                    'Advanced ingredient location finder': True,
-                    'YouTube tutorial recommendations': True,
-                    'Full Google Maps integration': True
+                    'meal_plan_limit': 0,
+                    'recipe_access': 'full',
+                    'gemini_chat': True,
+                    'premium_features': True
                 },
                 'is_active': True,
                 'created_at': timezone.now(),

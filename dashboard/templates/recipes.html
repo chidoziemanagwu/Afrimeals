@@ -110,10 +110,10 @@
 
         {% else %}
         <div class="bg-white rounded-lg shadow-md p-8 text-center">
-            <p class="text-gray-600 mb-4">You haven't added any recipes yet.</p>
-            <a href="{% url 'recipe_add' %}"
+            <p class="text-gray-600 mb-4">You have no any recipes yet.</p>
+            <a href="{% url 'meal_generator' %}"
                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                <i class="fas fa-plus mr-1"></i> Add Your First Recipe
+                <i class="fas fa-plus mr-1"></i> Generate Meal Plan
             </a>
         </div>
         {% endif %}

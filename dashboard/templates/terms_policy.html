@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Terms and Policy - NaijaPlate{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="bg-white rounded-lg shadow-md p-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center">Terms and Policy</h1>
+
+        <!-- User Agreement Section -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">1. User Agreement</h2>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="text-gray-600">
+                    By using NaijaPlate, you agree to comply with these Terms. If you do not agree, you may not use the Service.
+                </p>
+            </div>
+        </div>
+
+        <!-- Account Registration Section -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">2. Account Registration</h2>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="text-gray-600">
+                    NaijaPlate uses Google Sign-In for authentication. By registering, you agree to:
+                </p>
+                <ul class="list-disc list-inside mt-2 text-gray-600">
+                    <li>Provide accurate information</li>
+                    <li>Maintain the security of your account</li>
+                    <li>Accept responsibility for all activities under your account</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Subscription Plans Section -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">3. Subscription Plans</h2>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-medium text-gray-800 mb-2">Basic Plan</h3>
+                <ul class="list-disc list-inside mb-4 text-gray-600">
+                    <li>£7/week or £1 for single use</li>
+                    <li>Access to 1-week meal plans</li>
+                    <li>Basic shopping list generation</li>
+                    <li>Limited recipe database</li>
+                </ul>
+
+                <h3 class="font-medium text-gray-800 mb-2">Premium Plan</h3>
+                <ul class="list-disc list-inside text-gray-600">
+                    <li>£10/week or £2 for single use</li>
+                    <li>Unlimited access to meal plans</li>
+                    <li>Advanced shopping lists with substitutions</li>
+                    <li>Full recipe database</li>
+                    <li>Priority customer support</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Privacy Policy Section -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">4. Privacy Policy</h2>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="text-gray-600 mb-2">We collect and process the following information:</p>
+                <ul class="list-disc list-inside text-gray-600">
+                    <li>Google account information</li>
+                    <li>Usage data and preferences</li>
+                    <li>Payment information (processed securely)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="mt-8 text-center">
+            <p class="text-gray-600">
+                For questions about these terms, contact us at:<br>
+                <a href="mailto:support@naijaplate.com" class="text-blue-600 hover:text-blue-800">support@naijaplate.com</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+# templates/subscription_upgrade_success.html
+
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-green-600 mb-4">
+                Subscription Upgraded Successfully!
+            </h1>
+            <p class="text-gray-600">
+                Thank you for upgrading to our Weekly subscription plan.
+            </p>
+        </div>
+
+        <div class="bg-green-50 rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Your New Features Include:</h2>
+            <ul class="space-y-3">
+                {% for feature in features %}
+                <li class="flex items-center">
+                    <svg class="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    {{ feature }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {% if next_billing_date %}
+        <div class="text-center text-gray-600 mb-8">
+            <p>Next billing date: {{ next_billing_date }}</p>
+        </div>
+        {% endif %}
+
+        <div class="flex justify-center space-x-4">
+            <a href="{% url 'meal_generator' %}"
+               class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                Generate Meal Plan
+            </a>
+            <a href="{% url 'dashboard' %}"
+               class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                Go to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

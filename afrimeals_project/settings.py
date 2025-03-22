@@ -67,7 +67,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',  
     'django.contrib.messages.middleware.MessageMiddleware',  
     'django.middleware.clickjacking.XFrameOptionsMiddleware',  
-    'allauth.account.middleware.AccountMiddleware',  
+    'allauth.account.middleware.AccountMiddleware',
+    'dashboard.middleware.SubscriptionMiddleware',  
 ]  
 
 ROOT_URLCONF = 'afrimeals_project.urls'  
@@ -156,6 +157,18 @@ MEDIA_DIRS = {
     'profiles': os.path.join(MEDIA_ROOT, 'profiles'),
 }
 
+# Subscription-related settings
+SUBSCRIPTION_SETTINGS = {
+    'FREE_TIER_LIMIT': 3,
+    'PAY_ONCE_LIMIT': 1,
+    'SUBSCRIPTION_CACHE_TIMEOUT': 3600,  # 1 hour
+    'FEATURES': {
+        'free': ['basic_meal_plans'],
+        'pay_once': ['basic_meal_plans', 'detailed_recipes'],
+        'weekly': ['unlimited_meal_plans', 'detailed_recipes', 'gemini_chat']
+    }
+}
+
 
 # File upload settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
@@ -189,14 +202,28 @@ SOCIALACCOUNT_PROVIDERS = {
             'email',  
         ],  
         'AUTH_PARAMS': {  
-            'access_type': 'online',  
+            'access_type': 'online', 
+            'prompt': 'select_account consent'  
         },  
         'OAUTH_PKCE_ENABLED': True,  
     }  
 }  
 
+SOCIALACCOUNT_STATE_STORAGE = 'allauth.socialaccount.providers.utils.CachedStateStorage'
+
+SESSION_COOKIE_AGE = 3600  # 1 hour
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
+
 SOCIALACCOUNT_AUTO_SIGNUP = True  
-SOCIALACCOUNT_LOGIN_ON_GET = True  
+SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_EMAIL_REQUIRED = True 
+SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
+SOCIALACCOUNT_QUERY_EMAIL = True
+
+
+ACCOUNT_SESSION_REMEMBER = False
+
 
 # In settings.py
 ACCOUNT_LOGOUT_ON_GET = True  # Set to True if you want to logout immediately without confirmation
@@ -210,6 +237,9 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False  
 ACCOUNT_AUTHENTICATION_METHOD = 'email'  
 ACCOUNT_EMAIL_VERIFICATION = 'none'  
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 5
+ACCOUNT_LOGIN_ATTEMPTS_TIMEOUT = 300
 
 # Security settings for production  
 if not DEBUG:
@@ -266,34 +296,63 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 
 
-# Dietary Preferences Configuration
+## settings.py
+
+# settings.py
+
 DIETARY_PREFERENCES = {
-    'vegetarian': 'No meat or fish, but may include dairy and eggs',
-    'vegan': 'No animal products whatsoever',
-    'pescatarian': 'Vegetarian diet that includes fish',
-    'halal': 'Food permitted under Islamic dietary laws',
-    'kosher': 'Food prepared according to Jewish dietary laws',
-    'gluten_free': 'No wheat, barley, rye or their derivatives',
-    'dairy_free': 'No milk or dairy products',
-    'keto': 'Low-carb, high-fat diet',
-    'paleo': 'Based on foods presumed eaten during the Paleolithic era',
-    'low_carb': 'Reduced carbohydrate intake',
-    'mediterranean': 'Based on traditional Mediterranean cuisine',
-    'nigerian': 'Traditional Nigerian cuisine',
-    'west_african': 'West African dishes and ingredients',
-    'east_african': 'East African dishes and ingredients',
-    'south_african': 'South African dishes and ingredients',
-    'north_african': 'North African dishes and ingredients',
-    'central_african': 'Central African dishes and ingredients'
+    'yoruba_traditional': {
+        'description': 'Classic Yoruba cuisine featuring amala, iyan, ewedu, gbegiri, and rich palm oil-based soups',
+        'region': 'Yoruba'
+    },
+    'igbo_traditional': {
+        'description': 'Traditional Igbo dishes including oha soup, egusi, nsala, and various yam preparations',
+        'region': 'Igbo'
+    },
+    'hausa_traditional': {
+        'description': 'Authentic Northern Nigerian cuisine with tuwo shinkafa, suya, kilishi, and miyan kuka',
+        'region': 'Hausa'
+    },
+    'contemporary_nigerian': {
+        'description': 'Modern Nigerian fusion cuisine that maintains authentic flavors while incorporating contemporary cooking methods',
+        'region': 'Contemporary'
+    }
 }
 
 # Currency Configuration (you already have this)
 SUPPORTED_CURRENCIES = {
-    'NGN': '₦',  # Nigerian Naira
     'USD': '$',  # US Dollar
     'GBP': '£',  # British Pound
-    'EUR': '€',  # Euro
-    'GHS': '₵',  # Ghanaian Cedi
-    'KES': 'KSh', # Kenyan Shilling
-    'ZAR': 'R',  # South African Rand
+}
+
+
+# In settings.py, add or update LOGGING configuration:
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': 'debug.log',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'dashboard': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
 }
