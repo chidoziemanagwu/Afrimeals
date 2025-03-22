@@ -10,6 +10,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from django.utils import timezone
+from django.core.management import call_command
+
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -209,3 +211,7 @@ def process_recipe_async(recipe_id, user_id):
 
     except Exception as e:
         return {'success': False, 'error': str(e)}
+    
+@shared_task
+def check_expired_subscriptions():
+    call_command('check_expired_subscriptions')

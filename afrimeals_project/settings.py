@@ -356,3 +356,12 @@ LOGGING = {
         },
     },
 }
+
+# settings.py
+
+CELERY_BEAT_SCHEDULE = {
+    'check-expired-subscriptions': {
+        'task': 'dashboard.tasks.check_expired_subscriptions',
+        'schedule': 3600.0,  # Run every hour
+    },
+}

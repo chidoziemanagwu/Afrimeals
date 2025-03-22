@@ -401,6 +401,53 @@ class UserSubscription(models.Model, CacheModelMixin):
     def is_valid(self):
         return self.is_active and self.end_date > timezone.now()
 
+
+    def check_and_expire_if_needed(self):
+        """Check if subscription has expired and update status if needed"""
+        if (self.is_active and
+            self.subscription_tier.tier_type == 'weekly' and
+            self.end_date and
+            self.end_date <= timezone.now()):
+
+            self.is_active = False
+            self.status = 'expired'
+            self.end_date = timezone.now()
+            self.save()
+
+            # Create activity log
+            UserActivity.objects.create(
+                user=self.user,
+                action='subscription_expired',
+                details={
+                    'subscription_type': 'weekly',
+                    'expiration_date': timezone.now().isoformat()
+                }
+            )
+
+            # Clear subscription cache
+            cache.delete(f'user_subscription_{self.user.id}')
+            cache.delete(f'active_subscription_{self.user.id}')
+
+            return True
+        return False
+
+    @classmethod
+    def check_all_active_weekly_subscriptions(cls):
+        """Check all active weekly subscriptions for expiry"""
+        expired_count = 0
+        active_subs = cls.objects.filter(
+            is_active=True,
+            subscription_tier__tier_type='weekly',
+            end_date__lte=timezone.now()
+        )
+
+        for sub in active_subs:
+            if sub.check_and_expire_if_needed():
+                expired_count += 1
+
+        return expired_count
+
+
     @classmethod
     def get_active_subscription(cls, user_id):
         """Get cached active subscription for a user"""

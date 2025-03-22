@@ -8,6 +8,25 @@
 <div class="container mx-auto px-4 py-8">
     <h2 class="text-2xl font-bold mb-6">Previously Generated Meal Plans</h2>
     
+    {% if not has_sharing_access %}
+<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4 mb-2">
+    <div class="flex">
+        <div class="flex-shrink-0">
+            <i class="fas fa-info-circle text-yellow-400"></i>
+        </div>
+        <div class="ml-3">
+            <p class="text-sm text-yellow-700">
+                Sharing meal plans is available for weekly and pay-once subscribers. 
+                <a href="{% url 'pricing' %}" class="font-medium underline text-yellow-700 hover:text-yellow-600">
+                    Upgrade your plan
+                </a> 
+                to unlock this feature.
+            </p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
     {% if meal_plans %}
     <!-- Meal Plans List -->
     <div class="space-y-6">
@@ -30,10 +49,12 @@
                             <i class="fas fa-chevron-down mr-1 transition-transform duration-200" id="chevron-{{ plan.id }}"></i>
                             View Details
                         </button>
+                        {% if has_sharing_access %}
                         <button onclick="shareMealPlan('{{ plan.id }}')"
                                 class="text-blue-600 hover:text-blue-700">
                             <i class="fas fa-share-alt mr-1"></i>Share
                         </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>

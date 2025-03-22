@@ -115,6 +115,18 @@ def detect_user_currency(request):
             'error': str(e)
         })
 
+def check_subscription_status(user):
+    """Utility function to check subscription status"""
+    subscription = UserSubscription.objects.filter(
+        user=user,
+        is_active=True
+    ).select_related('subscription_tier').first()
+
+    if subscription:
+        subscription.check_and_expire_if_needed()
+        return subscription
+    return None
+
 
 @require_http_methods(["GET"])
 def get_exchange_rates(request):
@@ -251,8 +263,57 @@ def check_task_status(request, task_id):
 
 @login_required
 def meal_plan_history(request):
-    meal_plans = MealPlan.objects.filter(user=request.user).order_by('-created_at')
-    return render(request, 'meal_plan_history.html', {'meal_plans': meal_plans})
+    try:
+        # Get meal plans
+        meal_plans = MealPlan.objects.filter(user=request.user).order_by('-created_at')
+        
+        # Get current subscription
+        subscription = UserSubscription.objects.select_related('subscription_tier').filter(
+            user=request.user,
+            is_active=True,
+            end_date__gt=timezone.now()
+        ).first()
+
+        # Determine subscription type
+        subscription_type = None
+        if subscription:
+            if subscription.subscription_tier.tier_type == 'weekly':
+                subscription_type = 'weekly'
+            elif subscription.subscription_tier.tier_type == 'one_time':
+                subscription_type = 'pay_once'
+        
+        # Check if weekly subscription has expired
+        if subscription and subscription_type == 'weekly':
+            if subscription.start_date + timedelta(days=7) <= timezone.now():
+                subscription.is_active = False
+                subscription.status = 'expired'
+                subscription.end_date = timezone.now()
+                subscription.save()
+                
+                # Create activity log
+                UserActivity.objects.create(
+                    user=request.user,
+                    action='subscription_expired',
+                    details={
+                        'subscription_type': 'weekly',
+                        'expiration_date': timezone.now().isoformat()
+                    }
+                )
+                
+                # Clear subscription cache
+                cache.delete(f'user_subscription_{request.user.id}')
+                subscription_type = None
+
+        return render(request, 'meal_plan_history.html', {
+            'meal_plans': meal_plans,
+            'subscription_type': subscription_type,
+            'has_sharing_access': subscription_type in ['weekly', 'pay_once']
+        })
+
+    except Exception as e:
+        logger.error(f"Error in meal plan history: {str(e)}")
+        messages.error(request, "An error occurred while loading your meal plan history.")
+        return redirect('dashboard')
 
 @login_required
 def get_meal_plan_details(request, meal_plan_id):
@@ -418,10 +479,59 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 user=user
             ).select_related('user').order_by('-created_at')[:5]
 
-            # Get subscription
-            # subscription = UserSubscription.get_active_subscription(user.id)
+            subscription = check_subscription_status(self.request.user)
 
-            # Process activities to include related objects
+            # If subscription exists, check if it needs to be expired
+            if subscription:
+                if subscription.subscription_tier.tier_type == 'weekly':
+                    # Check if weekly subscription has expired
+                    if subscription.start_date + timedelta(days=7) <= timezone.now():
+                        subscription.is_active = False
+                        subscription.status = 'expired'
+                        subscription.end_date = timezone.now()
+                        subscription.save()
+                        
+                        # Create activity log for expiration
+                        UserActivity.objects.create(
+                            user=user,
+                            action='subscription_expired',
+                            details={
+                                'subscription_type': 'weekly',
+                                'expiration_date': timezone.now().isoformat()
+                            }
+                        )
+                        
+                        # Clear subscription cache
+                        cache.delete(f'user_subscription_{user.id}')
+                        subscription = None
+                elif subscription.subscription_tier.tier_type == 'one_time':
+                    # Check if one-time subscription has been used
+                    meal_plan_count = MealPlan.objects.filter(
+                        user=user,
+                        created_at__gt=subscription.start_date
+                    ).count()
+
+                    if meal_plan_count >= 1:
+                        subscription.is_active = False
+                        subscription.status = 'expired'
+                        subscription.end_date = timezone.now()
+                        subscription.save()
+                        
+                        # Create activity log for expiration
+                        UserActivity.objects.create(
+                            user=user,
+                            action='subscription_expired',
+                            details={
+                                'subscription_type': 'one_time',
+                                'reason': 'Usage limit reached'
+                            }
+                        )
+                        
+                        # Clear subscription cache
+                        cache.delete(f'user_subscription_{user.id}')
+                        subscription = None
+
+            # Process activities
             processed_activities = []
             for activity in recent_activities:
                 activity_data = {
@@ -433,12 +543,25 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 }
                 processed_activities.append(activity_data)
 
+            # Add subscription status to context
+            subscription_status = {
+                'has_subscription': subscription is not None,
+                'subscription_type': subscription.subscription_tier.tier_type if subscription else None,
+                'is_active': subscription.is_active if subscription else False,
+                'end_date': subscription.end_date if subscription else None,
+                'days_remaining': (subscription.end_date - timezone.now()).days if subscription and subscription.end_date else 0
+            }
+
             context.update({
                 'recent_meal_plans': recent_meal_plans,
                 'recent_recipes': recent_recipes,
-                # 'subscription': subscription,
+                'subscription': subscription,
+                'subscription_status': subscription_status,
                 'recent_activities': processed_activities,
             })
+
+            # Log subscription status for debugging
+            logger.info(f"User {user.id} subscription status: {subscription_status}")
 
         except Exception as e:
             # Log the error
@@ -448,13 +571,18 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 'recent_meal_plans': [],
                 'recent_recipes': [],
                 'subscription': None,
+                'subscription_status': {
+                    'has_subscription': False,
+                    'subscription_type': None,
+                    'is_active': False,
+                    'end_date': None,
+                    'days_remaining': 0
+                },
                 'recent_activities': [],
             })
             messages.error(self.request, "There was an error loading your dashboard. Please try again later.")
 
         return context
-
-# views.py
 
 
 
@@ -1469,67 +1597,114 @@ class CheckoutView(LoginRequiredMixin, View):
 
 
     def post(self, request, tier_id):
-            try:
-                # Get subscription tier
-                tier = get_object_or_404(SubscriptionTier, id=tier_id)
+        try:
+            # Get subscription tier
+            tier = get_object_or_404(SubscriptionTier, id=tier_id)
 
-                # Get currency from request headers
-                currency = request.headers.get('X-Currency', 'GBP')
+            # Get currency from request headers
+            currency = request.headers.get('X-Currency', 'GBP')
 
-                # Get exchange rate
-                exchange_rate = self._get_exchange_rate(currency)
-                converted_price = float(tier.price) * exchange_rate
+            # Deactivate all existing active subscriptions first
+            UserSubscription.objects.filter(
+                user=request.user,
+                is_active=True
+            ).update(
+                is_active=False,
+                status='expired',
+                end_date=timezone.now()
+            )
 
-                # Create Stripe checkout session
-                checkout_session = stripe.checkout.Session.create(
-                    payment_method_types=['card'],
-                    line_items=[{
-                        'price_data': {
-                            'currency': currency.lower(),
-                            'unit_amount': int(converted_price * 100),
-                            'product_data': {
-                                'name': f"{tier.name} - {tier.get_tier_type_display()}",
-                                'description': tier.description
-                            },
-                            'recurring': {
-                                'interval': 'week',
-                                'interval_count': 1
-                            } if tier.tier_type == 'weekly' else None
+            # Get exchange rate
+            exchange_rate = self._get_exchange_rate(currency)
+            converted_price = float(tier.price) * exchange_rate
+
+            # Create different line items based on tier type
+            if tier.tier_type == 'weekly':
+                # Weekly subscription
+                line_items = [{
+                    'price_data': {
+                        'currency': currency.lower(),
+                        'unit_amount': int(converted_price * 100),
+                        'product_data': {
+                            'name': f"{tier.name} - Weekly Subscription",
+                            'description': tier.description
                         },
-                        'quantity': 1,
-                    }],
-                    mode='subscription' if tier.tier_type == 'weekly' else 'payment',
-                    success_url=request.build_absolute_uri(reverse('checkout_success')),
-                    cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
-                    metadata={
-                        'user_id': str(request.user.id),
-                        'tier_id': str(tier.id),
-                        'tier_type': tier.tier_type
-                    }
-                )
+                        'recurring': {
+                            'interval': 'week',
+                            'interval_count': 1
+                        }
+                    },
+                    'quantity': 1,
+                }]
+                mode = 'subscription'
+            else:
+                # One-time payment
+                line_items = [{
+                    'price_data': {
+                        'currency': currency.lower(),
+                        'unit_amount': int(converted_price * 100),
+                        'product_data': {
+                            'name': f"{tier.name} - One-time Purchase",
+                            'description': tier.description
+                        }
+                    },
+                    'quantity': 1,
+                }]
+                mode = 'payment'
 
-                # Create subscription record
-                subscription = UserSubscription.objects.create(
-                    user=request.user,
-                    subscription_tier=tier,
-                    start_date=timezone.now(),
-                    end_date=timezone.now() + timedelta(days=7 if tier.tier_type == 'weekly' else 365),
-                    is_active=True,
-                    status='Active',
-                    stripe_subscription_id=checkout_session.id
-                )
-
-                return JsonResponse({
-                    'sessionId': checkout_session.id,
+            # Create Stripe checkout session
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=line_items,
+                mode=mode,
+                success_url=request.build_absolute_uri(reverse('checkout_success')),
+                cancel_url=request.build_absolute_uri(reverse('checkout_cancel')),
+                metadata={
+                    'user_id': str(request.user.id),
+                    'tier_id': str(tier.id),
                     'tier_type': tier.tier_type
-                })
+                }
+            )
 
-            except Exception as e:
-                logger.error(f"Checkout error: {str(e)}")
-                return JsonResponse({
-                    'error': str(e)
-                }, status=500)
+            # Create and activate subscription immediately
+            subscription = UserSubscription.objects.create(
+                user=request.user,
+                subscription_tier=tier,
+                start_date=timezone.now(),
+                end_date=timezone.now() + timedelta(days=7 if tier.tier_type == 'weekly' else 365),
+                is_active=True,  # Activate immediately
+                status='active',  # Set status as active
+                stripe_subscription_id=checkout_session.id
+            )
 
+            # Create activity log
+            UserActivity.objects.create(
+                user=request.user,
+                action='subscription',
+                details={
+                    'event': 'new_subscription',
+                    'tier_name': tier.name,
+                    'tier_type': tier.tier_type,
+                    'previous_subscriptions_deactivated': True
+                }
+            )
+
+            # Clear cache
+            cache.delete_many([
+                f'user_subscription_{request.user.id}',
+                f'active_subscription_{request.user.id}'
+            ])
+
+            return JsonResponse({
+                'sessionId': checkout_session.id,
+                'tier_type': tier.tier_type
+            })
+
+        except Exception as e:
+            logger.error(f"Checkout error: {str(e)}")
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
 
     def _create_stripe_session(self, tier, price, currency, config):
         """Create Stripe checkout session based on tier type"""
@@ -1812,6 +1987,7 @@ class MealPlanListView(LoginRequiredMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
+        check_subscription_status(self.request.user)
         return MealPlan.objects.filter(
             user=self.request.user
         ).select_related('user').order_by('-created_at')
@@ -2031,7 +2207,7 @@ class UserProfileView(LoginRequiredMixin, View):
         # Get all user data with efficient queries
         user_data = {
             'activities': UserActivity.objects.filter(user=request.user),
-            # 'active_subscription': UserSubscription.get_active_subscription(request.user.id),
+            'active_subscription': UserSubscription.get_active_subscription(request.user.id),
             'purchases': UserSubscription.objects.filter(
                 user=request.user
             ).select_related('subscription_tier').order_by('-start_date')
@@ -2048,7 +2224,7 @@ class UserProfileView(LoginRequiredMixin, View):
 
         context = {
             'user': request.user,
-            # 'subscription': user_data['active_subscription'],
+            'subscription': user_data['active_subscription'],
             'purchases': user_data['purchases'],
             'recent_activity': activities_page,
             'is_paginated': True,
@@ -2133,13 +2309,27 @@ class UserProfileView(LoginRequiredMixin, View):
             # Calculate total spent
             stats['total_spent'] += float(purchase.subscription_tier.price)
 
-            # Count active plans
-            if purchase.status == 'active':
+            # Count active plans - check both status and end date
+            if (purchase.status == 'active' and
+                purchase.is_active and
+                purchase.end_date > timezone.now()):
                 stats['active_plans'] += 1
 
             # Count subscription types
             plan_type = purchase.subscription_tier.get_tier_type_display()
-            stats['subscription_types'][plan_type] = stats['subscription_types'].get(plan_type, 0) + 1
+            if plan_type not in stats['subscription_types']:
+                stats['subscription_types'][plan_type] = {
+                    'total': 0,
+                    'active': 0
+                }
+
+            stats['subscription_types'][plan_type]['total'] += 1
+
+            # Count active subscriptions for each type
+            if (purchase.status == 'active' and
+                purchase.is_active and
+                purchase.end_date > timezone.now()):
+                stats['subscription_types'][plan_type]['active'] += 1
 
         return stats
 
