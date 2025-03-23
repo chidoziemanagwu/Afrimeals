@@ -10,8 +10,8 @@ class CurrencyManager:
     CACHE_TIMEOUT = 3600  # 1 hour
 
     PRICES = {
-        'pay_once': {'GBP': 5.99, 'USD': 7.99, 'EUR': 6.99, 'NGN': 3500},
-        'weekly': {'GBP': 12.99, 'USD': 16.99, 'EUR': 14.99, 'NGN': 7500},
+        'pay_once': {'GBP': 1.99, 'USD': 7.99, 'EUR': 6.99, 'NGN': 3500},
+        'weekly': {'GBP': 7.99, 'USD': 16.99, 'EUR': 14.99, 'NGN': 7500},
     }
 
     SYMBOLS = {
