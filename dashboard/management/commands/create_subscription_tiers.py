@@ -2,9 +2,10 @@
 from django.core.management.base import BaseCommand
 from dashboard.models import SubscriptionTier
 from django.utils import timezone
+from django.db import transaction
 
 class Command(BaseCommand):
-    help = 'Create default subscription tiers'
+    help = 'Create default subscription tiers with fixed IDs'
 
     def handle(self, *args, **kwargs):
         # Delete all existing tiers
@@ -13,6 +14,7 @@ class Command(BaseCommand):
 
         tiers = [
             {
+                'id': 1,  # Free Plan ID
                 'name': 'Free Plan',
                 'tier_type': 'free',
                 'price': 0.00,
@@ -28,6 +30,7 @@ class Command(BaseCommand):
                 'updated_at': timezone.now()
             },
             {
+                'id': 2,  # Pay Once Plan ID
                 'name': 'Pay Once',
                 'tier_type': 'pay_once',
                 'price': 1.99,
@@ -43,6 +46,7 @@ class Command(BaseCommand):
                 'updated_at': timezone.now()
             },
             {
+                'id': 3,  # Weekly Access Plan ID
                 'name': 'Weekly Access',
                 'tier_type': 'weekly',
                 'price': 12.99,
@@ -60,16 +64,20 @@ class Command(BaseCommand):
         ]
 
         try:
-            for tier_data in tiers:
-                tier = SubscriptionTier.objects.create(**tier_data)
-                self.stdout.write(
-                    self.style.SUCCESS(f'Created tier: {tier.name} (£{tier.price})')
-                )
+            with transaction.atomic():
+                for tier_data in tiers:
+                    # Force the ID by using bulk_create with ignore_conflicts=True
+                    tier = SubscriptionTier(**tier_data)
+                    tier.save(force_insert=True)
+
+                    self.stdout.write(
+                        self.style.SUCCESS(f'Created tier: {tier.name} (£{tier.price}) with ID {tier.id}')
+                    )
 
             self.stdout.write(
-                self.style.SUCCESS('Successfully created all subscription tiers')
+                self.style.SUCCESS('Successfully created all subscription tiers with fixed IDs')
             )
-            
+
         except Exception as e:
             self.stdout.write(
                 self.style.ERROR(f'Error creating subscription tiers: {str(e)}')

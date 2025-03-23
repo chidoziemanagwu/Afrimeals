@@ -128,41 +128,6 @@ def check_subscription_status(user):
     return None
 
 
-@require_http_methods(["GET"])
-def get_exchange_rates(request):
-    try:
-        base_currency = request.GET.get('base_currency', 'GBP')
-
-        # Try to get from cache first
-        cache_key = f'exchange_rates_{base_currency}'
-        rates = cache.get(cache_key)
-
-        if not rates:
-            response = requests.get(
-                'https://api.freecurrencyapi.com/v1/latest',
-                headers={'apikey': settings.CURRENCY_API_KEY},
-                params={
-                    'base_currency': 'GBP',
-                    'currencies': 'USD,EUR'
-                },
-            )
-
-            if response.status_code == 200:
-                rates = response.json()
-                # Cache for 1 hour
-                cache.set(cache_key, rates, 3600)
-            else:
-                return JsonResponse({
-                    'error': 'Failed to fetch exchange rates'
-                }, status=400)
-
-        return JsonResponse(rates)
-
-    except Exception as e:
-        return JsonResponse({
-            'error': str(e)
-        }, status=500)
-
 
 def find_stores(request):
     try:
@@ -706,6 +671,7 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
             logger.warning(f"Currency detection failed: {str(e)}")
             return 'USD'
 
+    @rate_limit('meal_generation', max_requests=5, timeout=3600)
     def post(self, request):
         """Handle POST request - generate meal plan"""
         try:
@@ -1595,7 +1561,7 @@ class CheckoutView(LoginRequiredMixin, View):
         # Redirect GET requests to pricing page
         return redirect('pricing')
 
-
+    @rate_limit('checkout', max_requests=5, timeout=3600)
     def post(self, request, tier_id):
         try:
             # Get subscription tier
@@ -3139,3 +3105,40 @@ class SubscriptionUpgradeSuccessView(LoginRequiredMixin, TemplateView):
             )
         })
         return context
+
+
+class ExchangeRatesView(View):
+    @rate_limit('api_exchange_rates', max_requests=60, timeout=60)
+    def get(self, request):
+        try:
+            base_currency = request.GET.get('base_currency', 'GBP')
+
+            # Try to get from cache first
+            cache_key = f'exchange_rates_{base_currency}'
+            rates = cache.get(cache_key)
+
+            if not rates:
+                response = requests.get(
+                    'https://api.freecurrencyapi.com/v1/latest',
+                    headers={'apikey': settings.CURRENCY_API_KEY},
+                    params={
+                        'base_currency': 'GBP',
+                        'currencies': 'USD,EUR'
+                    },
+                )
+
+                if response.status_code == 200:
+                    rates = response.json()
+                    # Cache for 1 hour
+                    cache.set(cache_key, rates, 3600)
+                else:
+                    return JsonResponse({
+                        'error': 'Failed to fetch exchange rates'
+                    }, status=400)
+
+            return JsonResponse(rates)
+
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)

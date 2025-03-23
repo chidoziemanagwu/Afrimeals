@@ -556,6 +556,7 @@ body {
 </div>
 {% endif %}
 {% else %}
+{% if not request.resolver_match.url_name == 'home' %}
 <!-- Upgrade Prompt -->
 <div id="chat-upgrade-prompt" class="fixed bottom-4 right-4 z-50">
     <!-- Chat Toggle Button -->
@@ -615,6 +616,8 @@ body {
         </div>
     </div>
 </div>
+{% endif %}
+
 
 <style>
   /* Base styles for the upgrade prompt */
