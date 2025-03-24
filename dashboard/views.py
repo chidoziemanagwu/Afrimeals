@@ -1570,16 +1570,6 @@ class CheckoutView(LoginRequiredMixin, View):
             # Get currency from request headers
             currency = request.headers.get('X-Currency', 'GBP')
 
-            # Deactivate all existing active subscriptions first
-            UserSubscription.objects.filter(
-                user=request.user,
-                is_active=True
-            ).update(
-                is_active=False,
-                status='expired',
-                end_date=timezone.now()
-            )
-
             # Get exchange rate
             exchange_rate = self._get_exchange_rate(currency)
             converted_price = float(tier.price) * exchange_rate
@@ -1632,34 +1622,27 @@ class CheckoutView(LoginRequiredMixin, View):
                 }
             )
 
-            # Create and activate subscription immediately
+            # Create subscription but don't activate yet
             subscription = UserSubscription.objects.create(
                 user=request.user,
                 subscription_tier=tier,
                 start_date=timezone.now(),
                 end_date=timezone.now() + timedelta(days=7 if tier.tier_type == 'weekly' else 365),
-                is_active=True,  # Activate immediately
-                status='active',  # Set status as active
+                is_active=False,  # Don't activate until payment is confirmed
+                status='pending',  # Set status as pending
                 stripe_subscription_id=checkout_session.id
             )
 
             # Create activity log
             UserActivity.objects.create(
                 user=request.user,
-                action='subscription',
+                action='checkout_initiated',
                 details={
-                    'event': 'new_subscription',
                     'tier_name': tier.name,
                     'tier_type': tier.tier_type,
-                    'previous_subscriptions_deactivated': True
+                    'session_id': checkout_session.id
                 }
             )
-
-            # Clear cache
-            cache.delete_many([
-                f'user_subscription_{request.user.id}',
-                f'active_subscription_{request.user.id}'
-            ])
 
             return JsonResponse({
                 'sessionId': checkout_session.id,
@@ -1671,6 +1654,7 @@ class CheckoutView(LoginRequiredMixin, View):
             return JsonResponse({
                 'error': str(e)
             }, status=500)
+
 
     def _create_stripe_session(self, tier, price, currency, config):
         """Create Stripe checkout session based on tier type"""
@@ -2696,26 +2680,117 @@ class ExportMealPlanPDF(LoginRequiredMixin, View):
 @login_required
 def checkout_success(request):
     """Handle successful checkout"""
-    # Get latest subscription
-    subscription = UserSubscription.objects.filter(
-        user=request.user,
-        is_active=True
-    ).select_related('subscription_tier').first()
+    try:
+        # Get latest pending subscription
+        subscription = UserSubscription.objects.filter(
+            user=request.user,
+            status='pending',
+            is_active=False
+        ).order_by('-start_date').first()
 
-    return render(request, 'checkout_success.html', {
-        'title': 'Payment Successful',
-        # 'subscription': subscription
-    })
+        if subscription:
+            # Deactivate any existing active subscriptions
+            UserSubscription.objects.filter(
+                user=request.user,
+                is_active=True
+            ).exclude(id=subscription.id).update(
+                is_active=False,
+                status='expired',
+                end_date=timezone.now()
+            )
+
+            # Activate the new subscription
+            subscription.is_active = True
+            subscription.status = 'active'
+            subscription.save()
+
+            # Log activity
+            UserActivity.objects.create(
+                user=request.user,
+                action='subscription',
+                details={
+                    'event': 'payment_completed',
+                    'tier_name': subscription.subscription_tier.name,
+                    'tier_type': subscription.subscription_tier.tier_type,
+                    'activation_method': 'success_page'  # For debugging
+                }
+            )
+
+            # Clear cache
+            cache.delete_many([
+                f'user_subscription_{request.user.id}',
+                f'active_subscription_{request.user.id}'
+            ])
+
+            messages.success(request, "Your subscription has been activated successfully!")
+        else:
+            # Check if there's already an active subscription
+            active_sub = UserSubscription.objects.filter(
+                user=request.user,
+                is_active=True
+            ).first()
+
+            if not active_sub:
+                logger.warning(f"No pending subscription found for user {request.user.id} on checkout success page")
+                messages.warning(request, "We couldn't find your subscription. Please contact support if this issue persists.")
+
+        return render(request, 'checkout_success.html', {
+            'title': 'Payment Successful',
+            'subscription': subscription or active_sub
+        })
+    except Exception as e:
+        logger.error(f"Error in checkout_success: {str(e)}", exc_info=True)
+        messages.error(request, "An error occurred while activating your subscription. Please contact support.")
+        return render(request, 'checkout_success.html', {
+            'title': 'Payment Successful',
+            'error': True
+        })
 
 
+        
 
 @login_required
 def checkout_cancel(request):
     """Handle cancelled checkout"""
-    messages.warning(request, 'Your payment was cancelled.')
-    return render(request, 'checkout_cancel.html', {
-        'title': 'Payment Cancelled',
-    })
+    try:
+        # Find and delete pending subscriptions
+        pending_subscriptions = UserSubscription.objects.filter(
+            user=request.user,
+            status='pending',
+            is_active=False
+        )
+
+        if pending_subscriptions.exists():
+            count = pending_subscriptions.count()
+            pending_subscriptions.delete()
+
+            # Log activity
+            UserActivity.objects.create(
+                user=request.user,
+                action='checkout_cancelled',
+                details={
+                    'pending_subscriptions_deleted': count
+                }
+            )
+
+            logger.info(f"Deleted {count} pending subscriptions for user {request.user.id} on checkout cancel")
+            messages.warning(request, "Your payment was cancelled.")
+        else:
+            logger.info(f"No pending subscriptions found for user {request.user.id} on checkout cancel")
+
+        return render(request, 'checkout_cancel.html', {
+            'title': 'Payment Cancelled',
+        })
+
+    except Exception as e:
+        logger.error(f"Error in checkout cancel: {str(e)}", exc_info=True)
+        messages.error(request, "An error occurred while processing your cancellation.")
+        return redirect('pricing')
+
+
+
+
+
 
 @login_required
 def export_activity_pdf(request, activity_id):

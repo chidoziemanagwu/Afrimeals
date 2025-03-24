@@ -16,6 +16,7 @@ import logging
 from django.contrib.auth.models import User
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
+import json
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -33,20 +34,66 @@ def stripe_webhook(request):
             payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
         )
 
-        # Just log the event
-        logger.info(f"Received stripe webhook event: {event.type}")
+        # Log the event type for debugging
+        logger.info(f"Received Stripe webhook: {event.type}")
 
-        # Log successful payments
+        # Handle successful payments
         if event.type == 'checkout.session.completed':
             session = event.data.object
-            logger.info(f"Successful payment for session: {session.id}")
+            logger.info(f"Processing completed checkout session: {session.id}")
+
+            # Find the subscription by session ID
+            subscription = UserSubscription.objects.filter(
+                stripe_subscription_id=session.id,
+                status='pending',
+                is_active=False
+            ).first()
+
+            if subscription:
+                logger.info(f"Found subscription {subscription.id} for user {subscription.user.id}")
+
+                # Deactivate any existing active subscriptions
+                UserSubscription.objects.filter(
+                    user=subscription.user,
+                    is_active=True
+                ).exclude(id=subscription.id).update(
+                    is_active=False,
+                    status='expired',
+                    end_date=timezone.now()
+                )
+
+                # Activate the subscription
+                subscription.is_active = True
+                subscription.status = 'active'
+                subscription.save()
+
+                logger.info(f"Activated subscription {subscription.id}")
+
+                # Create activity log
+                UserActivity.objects.create(
+                    user=subscription.user,
+                    action='subscription',
+                    details={
+                        'event': 'payment_completed',
+                        'tier_name': subscription.subscription_tier.name,
+                        'tier_type': subscription.subscription_tier.tier_type,
+                        'activation_method': 'webhook'
+                    }
+                )
+
+                # Clear cache
+                cache.delete_many([
+                    f'user_subscription_{subscription.user.id}',
+                    f'active_subscription_{subscription.user.id}'
+                ])
+            else:
+                logger.error(f"No pending subscription found for session ID: {session.id}")
 
         return HttpResponse(status=200)
 
     except Exception as e:
-        logger.error(f"Error processing webhook: {str(e)}")
+        logger.error(f"Error processing webhook: {str(e)}", exc_info=True)
         return HttpResponse(status=400)
-    
 
     
 def handle_checkout_session(session):
