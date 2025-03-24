@@ -37,7 +37,7 @@ STRIPE_API_VERSION = '2023-10-16'  # Use the latest API version
 
 
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com', 'afrimeals-production.up.railway.app']  
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com', 'afrimeals-production.up.railway.app', 'naijaplate.digievolvehub.com', 'www.naijaplate.digievolvehub.com']  
 
 # Application definition  
 INSTALLED_APPS = [  
@@ -250,6 +250,8 @@ if not DEBUG:
     CSRF_TRUSTED_ORIGINS = [
         'https://afrimeals-production.up.railway.app',
         'https://afrimeals.onrender.com',
+        'https://naijaplate.digievolvehub.com',
+        'https://www.naijaplate.digievolvehub.com'
     ]
     # New security headers
     SECURE_HSTS_SECONDS = 31536000  # 1 year
