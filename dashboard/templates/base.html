@@ -348,7 +348,7 @@ body {
   {% block extra_head %}{% endblock %}
   
 </head>
-<body class="bg-gray-50 {% block body_class %}{% endblock %}">
+<body class="bg-gray-50 {% block body_class %}{% endblock %}" data-user-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
   {% csrf_token %}
   <!-- Navigation Bar -->
   <nav class="bg-white shadow-lg">

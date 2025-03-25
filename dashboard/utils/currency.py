@@ -11,7 +11,7 @@ class CurrencyManager:
 
     PRICES = {
         'pay_once': {'GBP': 1.99, 'USD': 7.99, 'EUR': 6.99, 'NGN': 3500},
-        'weekly': {'GBP': 7.99, 'USD': 16.99, 'EUR': 14.99, 'NGN': 7500},
+        'weekly': {'GBP': 4.99, 'USD': 16.99, 'EUR': 14.99, 'NGN': 7500},
     }
 
     SYMBOLS = {

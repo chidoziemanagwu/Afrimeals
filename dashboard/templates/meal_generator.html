@@ -303,7 +303,25 @@ select[multiple]:disabled {
 </div>
 {% endif %}
 
-
+{% if has_used_daily_limit %}
+<div class="bg-white rounded-xl shadow-xl p-8 text-center">
+    <div class="mx-auto w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center mb-6">
+        <i class="fas fa-clock text-yellow-500 text-4xl"></i>
+    </div>
+    
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">Daily Limit Reached</h2>
+    
+    <p class="text-gray-600 mb-6 max-w-lg mx-auto">
+        You've already generated a meal plan today. Please come back tomorrow to generate another one.
+    </p>
+    
+    <a href="{% url 'dashboard' %}" 
+       class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105">
+        <i class="fas fa-home mr-2"></i>
+        Go to Dashboard
+    </a>
+</div>
+{% else %}
       <form id="mealPlanForm" 
       class="space-y-6" 
       method="POST" 
@@ -654,6 +672,7 @@ select[multiple]:disabled {
                 <!-- Hidden field to ensure snacks are properly tracked -->
                 <input type="hidden" id="include_snacks_value" name="include_snacks_value" value="true">
             </form>
+            {% endif %}
 {% endif %}
         </div>
         
@@ -1003,9 +1022,9 @@ select[multiple]:disabled {
                 
                         <!-- Weekly Features -->
                         <div class="mb-6">
-                            <h4 class="font-semibold text-gray-700 mb-2">Get More with Weekly (£7.99/week):</h4>
+                            <h4 class="font-semibold text-gray-700 mb-2">Get More with Weekly (£4.99/week):</h4>
                             <ul class="list-disc pl-5 space-y-2 text-gray-600">
-                                <li>Unlimited meal plan generation</li>
+                                <li>Generate one comprehensive meal plan generation per day</li>
                                 <li>Extended planning up to 14 days</li>
                                 <li>Complete meal customization</li>
                                 <li>AI cooking assistant</li>
@@ -1055,7 +1074,7 @@ select[multiple]:disabled {
                             <ul class="space-y-2">
                                 <li class="flex items-center text-gray-700">
                                     <i class="fas fa-check text-green-500 mr-2"></i>
-                                    Unlimited meal plan generation
+                                    Generate one comprehensive meal plan generation per day
                                 </li>
                                 <li class="flex items-center text-gray-700">
                                     <i class="fas fa-check text-green-500 mr-2"></i>

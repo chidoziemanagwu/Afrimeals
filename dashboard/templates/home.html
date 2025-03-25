@@ -397,9 +397,10 @@
                         <span class="text-4xl font-extrabold text-gray-900" data-base-price="0">£0</span>
                         <span class="text-base font-medium text-gray-500">/forever</span>
                     </p>
-                    <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
-                        <i class="fas fa-sign-in-alt mr-2"></i> Sign Up
-                    </a>
+                    <a href="{% if user.is_authenticated %}{% url 'pricing' %}{% else %}{% url 'google_login' %}{% endif %}" 
+   class="mt-8 block w-full bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
+    <i class="fas fa-sign-in-alt mr-2"></i> {% if user.is_authenticated %}Get Started{% else %}Sign In to Start{% endif %}
+</a>
                 </div>
                 <div class="px-6 pt-6 pb-8">
                     <h4 class="text-sm font-medium text-gray-900 tracking-wide">What's included:</h4>
@@ -437,9 +438,11 @@
                         <span class="text-4xl font-extrabold text-gray-900" data-base-price="1.99">£1.99</span>
                         <span class="text-base font-medium text-gray-500">/meal plan</span>
                     </p>
-                    <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
-                        <i class="fas fa-shopping-cart mr-2"></i> Buy Now
-                    </a>
+<!-- Replace the Pay Once button -->
+<a href="{% if user.is_authenticated %}{% url 'pricing' %}{% else %}{% url 'google_login' %}{% endif %}" 
+   class="mt-8 block w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
+    <i class="fas fa-shopping-cart mr-2"></i> {% if user.is_authenticated %}Buy Now{% else %}Sign In to Purchase{% endif %}
+</a>
                 </div>
                 <div class="px-6 pt-6 pb-8">
                     <h4 class="text-sm font-medium text-gray-900 tracking-wide">What's included:</h4>
@@ -491,19 +494,21 @@
                     <h3 class="text-xl font-medium text-gray-900">Weekly Access</h3>
                     <p class="mt-4 text-gray-500">Full AI assistant access for a week.</p>
                     <p class="mt-8">
-                        <span class="text-4xl font-extrabold text-gray-900" data-base-price="7.99">£7.99</span>
+                        <span class="text-4xl font-extrabold text-gray-900" data-base-price="4.99">£4.99</span>
                         <span class="text-base font-medium text-gray-500">/week</span>
                     </p>
-                    <a href="{% url 'pricing' %}" class="mt-8 block w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
-                        <i class="fas fa-check-circle mr-2"></i> Subscribe
-                    </a>
+                    <!-- Replace the Weekly Plan button -->
+<a href="{% if user.is_authenticated %}{% url 'pricing' %}{% else %}{% url 'google_login' %}{% endif %}" 
+class="mt-8 block w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 border border-transparent rounded-md py-3 px-4 text-center font-medium text-white transition duration-300 transform hover:-translate-y-1">
+ <i class="fas fa-check-circle mr-2"></i> {% if user.is_authenticated %}Subscribe{% else %}Sign In to Subscribe{% endif %}
+</a>
                 </div>
                 <div class="px-6 pt-6 pb-8">
                     <h4 class="text-sm font-medium text-gray-900 tracking-wide">What's included:</h4>
                     <ul class="mt-6 space-y-4">
                         <li class="flex">
                             <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
-                            <span class="ml-3 text-base text-gray-500">Unlimited meal plan generation</span>
+                            <span class="ml-3 text-base text-gray-500">Generate one comprehensive meal plan generation per day</span>
                         </li>
                         <li class="flex">
                             <i class="fas fa-check text-green-500 flex-shrink-0 mt-1"></i>
@@ -778,5 +783,24 @@ class CurrencyConverter {
 document.addEventListener('DOMContentLoaded', () => {
     window.currencyConverter = new CurrencyConverter();
 });
+    </script>
+
+    <!-- Add this to your existing scripts section -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle subscription buttons
+        const subscriptionButtons = document.querySelectorAll('[data-subscription-action]');
+        
+        subscriptionButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                if (!document.body.dataset.userAuthenticated) {
+                    e.preventDefault();
+                    // Redirect to login with return URL
+                    const returnUrl = encodeURIComponent(window.location.pathname);
+                    window.location.href = `/accounts/google/login/?next=${returnUrl}`;
+                }
+            });
+        });
+    });
     </script>
 {% endblock %}

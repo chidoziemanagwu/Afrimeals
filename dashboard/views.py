@@ -611,6 +611,8 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
         
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        user = self.request.user
+
         try:
             # Get user's subscription
             subscription = UserSubscription.objects.filter(
@@ -619,10 +621,17 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
                 end_date__gt=timezone.now()
             ).select_related('subscription_tier').first()
 
-            # Determine subscription type
+            # Determine subscription type and check daily limit
+            has_used_daily_limit = False
             if subscription:
                 if subscription.subscription_tier.tier_type == 'weekly':
                     subscription_type = 'weekly'
+                    # Check if user has generated a meal plan today
+                    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                    has_used_daily_limit = MealPlan.objects.filter(
+                        user=user,
+                        created_at__gte=today_start
+                    ).exists()
                 else:
                     subscription_type = 'pay_once'
             else:
@@ -634,8 +643,16 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
             # Convert currencies to JSON string
             supported_currencies_json = json.dumps(settings.SUPPORTED_CURRENCIES)
 
+            # Get next available generation time for weekly users
+            next_generation_time = None
+            if has_used_daily_limit:
+                today_end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+                next_generation_time = (today_end + timedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S')
+
             context.update({
                 'has_subscription': subscription is not None,
+                'has_used_daily_limit': has_used_daily_limit,
+                'next_generation_time': next_generation_time,
                 'subscription': subscription,
                 'subscription_type': subscription_type,
                 'has_maxed_trials': has_maxed_trials,
@@ -645,13 +662,20 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
                 'user_currency': self.get_user_currency(self.request)
             })
 
+            # Log subscription status
+            self.logger.info(f"User {user.id} subscription status:")
+            self.logger.info(f"- Has subscription: {subscription is not None}")
+            self.logger.info(f"- Subscription type: {subscription_type}")
+            self.logger.info(f"- Has used daily limit: {has_used_daily_limit}")
+            if has_used_daily_limit:
+                self.logger.info(f"- Next generation available at: {next_generation_time}")
+
         except Exception as e:
-            logger.error(f"Error in meal generator view: {str(e)}")
+            self.logger.error(f"Error in meal generator view: {str(e)}", exc_info=True)
             messages.error(self.request, "An error occurred. Please try again.")
             return redirect('dashboard')
 
         return context
-
 
     def get_user_currency(self, request):
         """Detect user's currency based on IP location"""
@@ -671,6 +695,28 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
             logger.warning(f"Currency detection failed: {str(e)}")
             return 'USD'
 
+
+    def _check_daily_generation_limit(self, user):
+            """Check if weekly user has already generated a meal plan today"""
+            subscription = UserSubscription.objects.filter(
+                user=user,
+                is_active=True,
+                subscription_tier__tier_type='weekly'
+            ).first()
+
+            if subscription:
+                # Check if user has generated a meal plan today
+                today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                today_plans = MealPlan.objects.filter(
+                    user=user,
+                    created_at__gte=today_start
+                ).count()
+
+                return today_plans > 0
+
+            return False
+
+
     @rate_limit('meal_generation', max_requests=5, timeout=3600)
     def post(self, request):
         """Handle POST request - generate meal plan"""
@@ -684,6 +730,15 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
             ).first()
 
             self.logger.info(f"Current subscription status: {subscription}")
+
+            # Check daily limit for weekly users
+            if (subscription and
+                subscription.subscription_tier.tier_type == 'weekly' and
+                self._check_daily_generation_limit(request.user)):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'You have reached your daily meal plan generation limit. Please try again tomorrow.'
+                })
 
             form_data = self._extract_form_data(request.POST)
 
@@ -722,7 +777,7 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
                 'success': False,
                 'error': str(e) if settings.DEBUG else "An error occurred"
             }, status=500)
-        
+    
 
     def _generate_with_gemini(self, prompt):
         """Generate response using Gemini API with enhanced randomization"""
@@ -1259,6 +1314,8 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
         # Weekly subscription - no limits
         logger.info("Weekly subscription - no limits")
         return False
+
+
 class PricingView(TemplateView):
     template_name = 'pricing.html'
 
@@ -1557,6 +1614,9 @@ class PricingView(TemplateView):
 # dashboard/views.py
 
 class CheckoutView(LoginRequiredMixin, View):
+    login_url = '/accounts/google/login/'  # Redirect to Google login
+    redirect_field_name = 'next'
+
     def get(self, request, tier_id):
         # Redirect GET requests to pricing page
         return redirect('pricing')
@@ -1564,6 +1624,7 @@ class CheckoutView(LoginRequiredMixin, View):
     @rate_limit('checkout', max_requests=5, timeout=3600)
     def post(self, request, tier_id):
         try:
+            # User is guaranteed to be logged in due to LoginRequiredMixin
             # Get subscription tier
             tier = get_object_or_404(SubscriptionTier, id=tier_id)
 
@@ -1783,7 +1844,7 @@ class CheckoutView(LoginRequiredMixin, View):
                 <li>Detailed nutritional information</li>
             """,
             'weekly': """
-                <li>Unlimited meal plans</li>
+                <li>Generate one comprehensive meal plan generation per day</li>
                 <li>Full recipe access</li>
                 <li>Detailed nutritional information</li>
                 <li>Gemini AI chat assistance</li>
@@ -2747,7 +2808,7 @@ def checkout_success(request):
         })
 
 
-        
+
 
 @login_required
 def checkout_cancel(request):

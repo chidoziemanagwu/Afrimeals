@@ -49,7 +49,7 @@ class Command(BaseCommand):
                 'id': 3,  # Weekly Access Plan ID
                 'name': 'Weekly Access',
                 'tier_type': 'weekly',
-                'price': 7.99,
+                'price': 4.99,
                 'description': 'Full AI assistant access for a week.',
                 'features': {
                     'meal_plan_limit': 0,
