@@ -1844,7 +1844,7 @@ class CheckoutView(LoginRequiredMixin, View):
                 <li>Detailed nutritional information</li>
             """,
             'weekly': """
-                <li>Generate one comprehensive meal plan generation per day</li>
+                <li>Generate one comprehensive meal plan per day</li>
                 <li>Full recipe access</li>
                 <li>Detailed nutritional information</li>
                 <li>Gemini AI chat assistance</li>
