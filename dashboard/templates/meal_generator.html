@@ -155,6 +155,23 @@ select[multiple]:disabled {
     }
 }
 
+/* Add this to your CSS styles */
+#toast {
+  z-index: 9999;
+}
+
+#toast .bg-red-500 {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Add a new class for success toasts */
+#toast .bg-green-500 {
+  background-color: #10B981;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
 
 /* Base styles for skill level options */
 .skill-level-option input:checked + div {
@@ -206,13 +223,53 @@ select[multiple]:disabled {
     cursor: not-allowed;
     pointer-events: none;
 }
+
+.modal-popup {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 0.5rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
 </style>
 {% endblock %}
 
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-green-50 via-emerald-100 to-teal-100">
-
+    {% if subscription_type == 'pay_once' %}
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    Pay Once subscribers can order from Uber Eats up to 5 times. 
+                    <a href="{% url 'pricing' %}" class="font-medium underline text-blue-700 hover:text-blue-600">
+                        Upgrade to weekly
+                    </a> 
+                    for unlimited ordering capability.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     <!-- Main Content -->
     <div class="max-w-5xl mx-auto px-4 py-8">
         <div class="bg-white rounded-xl shadow-xl p-6 mb-8">
@@ -1017,6 +1074,7 @@ select[multiple]:disabled {
                                 <li>Include snacks option</li>
                                 <li>Share meal plans via WhatsApp</li>
                                 <li>Detailed recipe instructions</li>
+                                <li>Up to 5 Uber Eats orders</li>
                             </ul>
                         </div>
                 
@@ -1029,6 +1087,7 @@ select[multiple]:disabled {
                                 <li>Complete meal customization</li>
                                 <li>AI cooking assistant</li>
                                 <li>Premium recipe collection</li>
+                                <li>Unlimited Uber Eats ordering</li>
                             </ul>
                         </div>
                 
@@ -1119,6 +1178,26 @@ select[multiple]:disabled {
         <span id="toastMessage" class="text-sm font-medium flex-1"></span>
     </div>
 </div>
+
+<!-- Custom Modal for Subscription Alerts -->
+<div id="subscriptionModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg max-w-md w-full mx-4 overflow-hidden shadow-xl transform transition-all">
+      <div class="bg-gradient-to-r from-green-500 to-green-600 px-6 py-4">
+        <h3 class="text-white text-lg font-medium" id="modalTitle">Subscription Required</h3>
+      </div>
+      <div class="px-6 py-4">
+        <p id="modalMessage" class="text-gray-700 mb-4">You need a subscription to access this feature.</p>
+      </div>
+      <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+        <button id="modalCancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
+          Cancel
+        </button>
+        <button id="modalAction" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+          Upgrade Now
+        </button>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -1176,26 +1255,49 @@ function validateSubscriptionForm(e) {
 
 
 
-function showToast(message, duration = 3000) {
-    const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toastMessage');
-    
-    // Clear any existing timeout
-    if (window.toastTimeout) {
-        clearTimeout(window.toastTimeout);
-    }
-    
-    // Update message and show toast
-    toastMessage.textContent = message;
-    toast.classList.remove('translate-y-full', 'opacity-0');
-    toast.classList.add('translate-y-0', 'opacity-100');
-    
-    // Set new timeout
-    window.toastTimeout = setTimeout(() => {
-        toast.classList.add('translate-y-full', 'opacity-0');
-        toast.classList.remove('translate-y-0', 'opacity-100');
-    }, duration);
+// Enhanced toast function with support for different types
+function showToast(message, duration = 3000, type = 'error') {
+  const toast = document.getElementById('toast');
+  const toastMessage = document.getElementById('toastMessage');
+  const toastContainer = toast.querySelector('div');
+  
+  // Clear any existing timeout
+  if (window.toastTimeout) {
+    clearTimeout(window.toastTimeout);
+  }
+  
+  // Update message
+  toastMessage.textContent = message;
+  
+  // Set toast type
+  toastContainer.className = 'px-6 py-4 rounded-lg shadow-lg flex items-center mx-auto max-w-md';
+  
+  if (type === 'success') {
+    toastContainer.classList.add('bg-green-500', 'text-white');
+    toastContainer.querySelector('i').className = 'fas fa-check-circle mr-2 text-xl';
+  } else if (type === 'warning') {
+    toastContainer.classList.add('bg-yellow-500', 'text-white');
+    toastContainer.querySelector('i').className = 'fas fa-exclamation-triangle mr-2 text-xl';
+  } else {
+    toastContainer.classList.add('bg-red-500', 'text-white');
+    toastContainer.querySelector('i').className = 'fas fa-exclamation-circle mr-2 text-xl';
+  }
+  
+  // Show toast
+  toast.classList.remove('translate-y-full', 'opacity-0');
+  toast.classList.add('translate-y-0', 'opacity-100');
+  
+  // Set new timeout
+  window.toastTimeout = setTimeout(() => {
+    toast.classList.add('translate-y-full', 'opacity-0');
+    toast.classList.remove('translate-y-0', 'opacity-100');
+  }, duration);
 }
+
+
+
+
+
 
 function handleRecipeError(error) {
     console.error('Error:', error);
@@ -1585,14 +1687,13 @@ if (!{{ has_subscription|yesno:"true,false" }}) {
 }
 
 
-// Meal Plan Rendering Functions
-// Modify the renderDesktopMealPlan function
+
 function renderDesktopMealPlan(mealPlanData) {
     // First, check if snacks are included
     const includeSnacks = hasSubscription && document.getElementById('include_snacks').checked;
     const mealsPerDay = hasSubscription ? parseInt(document.getElementById('meals_per_day').value) : 2;
 
-    // Update table headers first
+    // Update table headers (unchanged)
     let headerHtml = `
         <tr>
             <th class="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100 rounded-tl-lg">Day</th>
@@ -1630,49 +1731,115 @@ function renderDesktopMealPlan(mealPlanData) {
         </tr>
     `;
 
-    // Update meal rows
     let mealPlanHtml = mealPlanData.map((day, index) => `
         <tr class="border-b border-gray-200 hover:bg-opacity-80 transition-colors duration-150">
             <td class="py-3 px-4 font-medium bg-gray-100">${day.day}</td>
+            
             ${mealsPerDay >= 2 ? `
                 <td class="py-3 px-4 bg-orange-100">
                     <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-orange-200">
                         ${day.meals.breakfast || 'No Meal'}
-                    </div>
+${day.meals.breakfast ? `
+    <div class="mt-2">
+        ${hasSubscription ? `
+            <button class="uber-eats-btn text-xs bg-black hover:bg-gray-800 text-white px-3 py-1 rounded transition-colors duration-200 w-full mb-2" data-meal="${day.meals.breakfast}">
+                <i class="fas fa-utensils mr-1"></i> Order on Uber Eats
+            </button>
+        ` : `
+            <button class="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded transition-colors duration-200 w-full mb-2" 
+                    onclick="showSubscriptionModal('Premium Feature', 'Ordering meals requires a subscription.', 'Upgrade Now', 'Cancel', function() { window.location.href='/pricing/'; })">
+                <i class="fas fa-lock mr-1"></i> Unlock Ordering
+            </button>
+        `}
+    </div>
+` : ''}
                 </td>
             ` : ''}
+            
             <td class="py-3 px-4 bg-green-100">
                 <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-green-200">
                     ${day.meals.lunch || 'No Meal'}
+${day.meals.lunch ? `
+    <div class="mt-2">
+        ${hasSubscription ? `
+            <button class="uber-eats-btn text-xs bg-black hover:bg-gray-800 text-white px-3 py-1 rounded transition-colors duration-200 w-full mb-2" data-meal="${day.meals.lunch}">
+                <i class="fas fa-utensils mr-1"></i> Order on Uber Eats
+            </button>
+        ` : `
+            <button class="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded transition-colors duration-200 w-full mb-2" 
+                    onclick="showSubscriptionModal('Premium Feature', 'Ordering meals requires a subscription.', 'Upgrade Now', 'Cancel', function() { window.location.href='/pricing/'; })">
+                <i class="fas fa-lock mr-1"></i> Unlock Ordering
+            </button>
+        `}
+    </div>
+` : ''}
                 </div>
             </td>
+            
             ${includeSnacks ? `
                 <td class="py-3 px-4 bg-purple-100">
                     <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-purple-200">
                         ${day.meals.snack || 'No Snack'}
+${day.meals.snack ? `
+    <div class="mt-2">
+        ${hasSubscription ? `
+            <button class="uber-eats-btn text-xs bg-black hover:bg-gray-800 text-white px-3 py-1 rounded transition-colors duration-200 w-full mb-2" data-meal="${day.meals.snack}">
+                <i class="fas fa-utensils mr-1"></i> Order on Uber Eats
+            </button>
+        ` : `
+            <button class="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded transition-colors duration-200 w-full mb-2" 
+                    onclick="showSubscriptionModal('Premium Feature', 'Ordering meals requires a subscription.', 'Upgrade Now', 'Cancel', function() { window.location.href='/pricing/'; })">
+                <i class="fas fa-lock mr-1"></i> Unlock Ordering
+            </button>
+        `}
+    </div>
+` : ''}
                     </div>
                 </td>
             ` : ''}
+            
             ${mealsPerDay >= 3 ? `
                 <td class="py-3 px-4 bg-blue-100">
                     <div class="mb-2 p-2 bg-white bg-opacity-60 rounded-lg border border-blue-200">
                         ${day.meals.dinner || 'No Meal'}
+${day.meals.dinner ? `
+    <div class="mt-2">
+        ${hasSubscription ? `
+            <button class="uber-eats-btn text-xs bg-black hover:bg-gray-800 text-white px-3 py-1 rounded transition-colors duration-200 w-full mb-2" data-meal="${day.meals.dinner}">
+                <i class="fas fa-utensils mr-1"></i> Order on Uber Eats
+            </button>
+        ` : `
+            <button class="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded transition-colors duration-200 w-full mb-2" 
+                    onclick="showSubscriptionModal('Premium Feature', 'Ordering meals requires a subscription.', 'Upgrade Now', 'Cancel', function() { window.location.href='/pricing/'; })">
+                <i class="fas fa-lock mr-1"></i> Unlock Ordering
+            </button>
+        `}
+    </div>
+` : ''}
                     </div>
                 </td>
             ` : ''}
-<td class="py-3 px-4 bg-gray-100">
-    ${hasSubscription ? `
-    <button onclick="shareDayMealPlan(${index})" 
-            class="text-xs bg-white hover:bg-green-100 text-green-800 px-3 py-1 rounded transition-colors duration-200 border border-green-300 w-full mb-2">
-        <i class="fab fa-whatsapp mr-1"></i> Share Day
-    </button>
-    ` : ''}
-</td>
+            
+            <td class="py-3 px-4 bg-gray-100">
+                ${hasSubscription ? `
+                <button onclick="shareDayMealPlan(${index})" 
+                        class="text-xs bg-white hover:bg-green-100 text-green-800 px-3 py-1 rounded transition-colors duration-200 border border-green-300 w-full mb-2">
+                    <i class="fab fa-whatsapp mr-1"></i> Share Day
+                </button>
+                ` : ''}
+            </td>
         </tr>
     `).join('');
 
     $('#mealPlanTable thead').html(headerHtml);
     $('#mealPlanBody').html(mealPlanHtml);
+    
+    // Add event listeners to Uber Eats buttons
+    $('.uber-eats-btn').on('click', async function() {
+        const mealName = $(this).data('meal');
+        const uberEatsLink = await getUberEatsLink(mealName);
+        window.open(uberEatsLink, '_blank');
+    });
 }
 
 
@@ -1708,6 +1875,11 @@ function renderMobileMealPlan(mealPlanData) {
                                     <h3 class="font-medium capitalize">${type}</h3>
                                 </div>
                                 <p class="text-sm">${meal}</p>
+                                <div class="mt-2">
+                                    <button class="uber-eats-btn text-xs bg-black hover:bg-gray-800 text-white px-3 py-1 rounded transition-colors duration-200 w-full" data-meal="${meal}">
+                                        <i class="fas fa-utensils mr-1"></i> Order on Uber Eats
+                                    </button>
+                                </div>
                             </div>
                         `).join('')}
                 </div>
@@ -1715,6 +1887,13 @@ function renderMobileMealPlan(mealPlanData) {
         `;
     });
     $('#mobileMealPlan').html(html);
+    
+    // Add event listeners to Uber Eats buttons
+    $('.uber-eats-btn').on('click', async function() {
+        const mealName = $(this).data('meal');
+        const uberEatsLink = await getUberEatsLink(mealName);
+        window.open(uberEatsLink, '_blank');
+    });
 }
 
 // Shopping List Functions
@@ -1809,19 +1988,275 @@ function filterShoppingList(rawList) {
 }
 
 
+// Add this function to generate UberEats deep links with location
+// Updated Uber Eats link function
+function getUberEatsLink(mealName) {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(`https://www.ubereats.com/search?q=${encodeURIComponent(mealName)}&vertical=RESTAURANTS`);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        // Location data for Uber Eats
+        const locationData = {
+          latitude: lat,
+          longitude: lng
+        };
+        
+        // Encode location and filter for under 30 mins delivery
+        const locationJson = JSON.stringify(locationData);
+        const encodedLocation = btoa(locationJson);
+        const filterData = [{"uuid":"cc5cdb95-a6e6-4371-8d10-a07c2175e509","options":[{"uuid":"cc5cdb95-a6e6-4371-8d10-a07c2175e510"}]}];
+        const encodedFilter = btoa(JSON.stringify(filterData));
+        
+        resolve(`https://www.ubereats.com/search?pl=${encodeURIComponent(encodedLocation)}&q=${encodeURIComponent(mealName)}&sf=${encodeURIComponent(encodedFilter)}&vertical=RESTAURANTS`);
+      },
+      () => resolve(`https://www.ubereats.com/search?q=${encodeURIComponent(mealName)}&vertical=RESTAURANTS`)
+    );
+  });
+}
+
+// Show modal instead of basic alert
+function showSubscriptionModal(title, message, actionText, cancelText, onAction) {
+  const modal = document.getElementById('subscriptionModal');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalMessage = document.getElementById('modalMessage');
+  const modalAction = document.getElementById('modalAction');
+  const modalCancel = document.getElementById('modalCancel');
+  
+  modalTitle.textContent = title;
+  modalMessage.textContent = message;
+  modalAction.textContent = actionText;
+  modalCancel.textContent = cancelText;
+  
+  modalAction.onclick = () => {
+    modal.classList.add('hidden');
+    if (typeof onAction === 'function') onAction();
+  };
+  
+  modalCancel.onclick = () => {
+    modal.classList.add('hidden');
+  };
+  
+  modal.classList.remove('hidden');
+}
+
+
+$('.uber-eats-btn').on('click', function() {
+    const mealName = $(this).data('meal');
+    handleUberEatsOrder(mealName);
+});
+
+function checkAndDisplayOrderLimit() {
+  // Get subscription info from server instead of localStorage
+  fetch('/api/check-order-limit/')
+    .then(response => response.json())
+    .then(data => {
+      const subscriptionType = document.getElementById('mealPlanForm')?.dataset.subscriptionType || 
+                             document.body.dataset.subscriptionType;
+                             
+      // Only proceed for pay_once users
+      if (subscriptionType !== 'pay_once' && subscriptionType !== 'one_time') return;
+      
+      // If no data or user can't order, don't show banner
+      if (!data || !data.orders_remaining) return;
+      
+      const orderCount = data.orders_used || 0;
+      const orderLimit = 5;
+      const remainingOrders = data.orders_remaining;
+      
+      // Add warning banner for pay once users
+      const warningHtml = `
+        <div id="orderLimitWarning" class="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div class="flex items-start">
+            <div class="flex-shrink-0">
+              <i class="fas fa-utensils text-yellow-500 text-xl"></i>
+            </div>
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-yellow-800">UberEats Order Limit</h3>
+              <div class="mt-2 text-sm text-yellow-700">
+                <p>You have used <span class="font-bold">${orderCount}</span> of your <span class="font-bold">${orderLimit}</span> 
+                UberEats orders with your Pay Once plan.</p>
+                <div class="mt-2 w-full bg-gray-200 rounded-full h-2.5">
+                  <div class="bg-green-600 h-2.5 rounded-full" style="width: ${(orderCount/orderLimit*100)}%"></div>
+                </div>
+                ${remainingOrders <= 2 ? 
+                  `<p class="mt-2 text-orange-600 font-medium">Only ${remainingOrders} order${remainingOrders === 1 ? '' : 's'} remaining!</p>` : ''}
+                ${remainingOrders === 0 ? 
+                  `<a href="/pricing/" class="mt-2 inline-block text-green-600 font-medium hover:text-green-700 underline">Upgrade to Weekly</a>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // Insert the warning banner after any existing notices
+      if (!document.getElementById('orderLimitWarning')) {
+        // Find the right place to insert
+        const targetElement = document.querySelector('.bg-white.rounded-xl.shadow-xl.p-6.mb-8');
+        if (targetElement) {
+          // Check if there's an existing banner to insert after
+          const existingBanner = document.querySelector('.mb-6.bg-gradient-to-r, .mb-6.bg-yellow-50');
+          if (existingBanner) {
+            existingBanner.insertAdjacentHTML('afterend', warningHtml);
+          } else {
+            targetElement.insertAdjacentHTML('afterbegin', warningHtml);
+          }
+        }
+      }
+    });
+}
+
+
+function handleUberEatsOrder(mealName) {
+  // Check subscription status first
+  fetch('/api/check-order-limit/')
+    .then(response => response.json())
+    .then(data => {
+      if (!data.can_order) {
+        // Handle restriction based on reason
+        if (data.reason === 'no_subscription' || data.reason === 'invalid_plan') {
+          showSubscriptionModal(
+            'Subscription Required', 
+            'Ordering requires a paid subscription. Would you like to upgrade now?',
+            'Upgrade Now', 'Maybe Later',
+            () => { window.location.href = '/pricing/'; }
+          );
+        } else if (data.reason === 'limit_reached') {
+          showSubscriptionModal(
+            'Order Limit Reached',
+            'You\'ve reached your limit of 5 orders. Please upgrade to weekly for unlimited orders.',
+            'Upgrade to Weekly', 'Close',
+            () => { window.location.href = '/pricing/'; }
+          );
+        }
+        return;
+      }
+      
+      // User can order - get Uber Eats link
+      getUberEatsLink(mealName).then(url => {
+        // For pay_once users, increment the order count
+        if (data.orders_remaining !== undefined) {
+          fetch('/api/increment-order-count/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+          })
+          .then(response => response.json())
+          .then(result => {
+            if (result.success) {
+              showToast(`Order placed! You have ${result.orders_remaining} order${
+                result.orders_remaining === 1 ? '' : 's'} remaining.`, 3000, 'success');
+                afterOrderPlaced(); // Add this line
+            }
+          });
+        }
+        
+        // Open Uber Eats in new tab
+        window.open(url, '_blank');
+      });
+    });
+}
+
+
+// Add this function to update the warning banner with the latest count
+function updateOrderLimitBanner() {
+  const subscriptionType = document.getElementById('mealPlanForm')?.dataset.subscriptionType;
+  if (subscriptionType !== 'pay_once' && subscriptionType !== 'one_time') return;
+  
+  fetch('/api/check-order-limit/')
+    .then(response => response.json())
+    .then(data => {
+      if (!data || !data.orders_remaining) return;
+      
+      const warningBanner = document.getElementById('orderLimitWarning');
+      if (warningBanner) {
+        const countElement = warningBanner.querySelector('.font-bold');
+        if (countElement) {
+          countElement.textContent = data.orders_used;
+        }
+        
+        const progressBar = warningBanner.querySelector('.bg-green-600');
+        if (progressBar) {
+          progressBar.style.width = `${(data.orders_used/5*100)}%`;
+        }
+        
+        // Update the remaining orders text
+        const remainingElement = warningBanner.querySelector('.text-orange-600');
+        if (data.orders_remaining <= 2) {
+          if (!remainingElement) {
+            const container = warningBanner.querySelector('.mt-2.text-sm.text-yellow-700');
+            if (container) {
+              const remainingHtml = `<p class="mt-2 text-orange-600 font-medium">Only ${data.orders_remaining} order${data.orders_remaining === 1 ? '' : 's'} remaining!</p>`;
+              container.insertAdjacentHTML('beforeend', remainingHtml);
+            }
+          } else {
+            remainingElement.textContent = `Only ${data.orders_remaining} order${data.orders_remaining === 1 ? '' : 's'} remaining!`;
+          }
+        } else if (remainingElement) {
+          remainingElement.remove();
+        }
+      }
+    });
+}
+
+// Call this function after incrementing the order count
+function afterOrderPlaced() {
+  updateOrderLimitBanner();
+  checkAndDisplayOrderLimit();
+}
+
+
+$(document).ready(function() {
+  // Check and display order limit for pay once users
+  checkAndDisplayOrderLimit();
+  
+  // Track UberEats button clicks
+  $(document).on('click', '.uber-eats-btn', function() {
+    const mealName = $(this).data('meal');
+    handleUberEatsOrder(mealName);
+  });
+  
+  // Display order count on page load for pay once users
+  const subscriptionType = document.getElementById('mealPlanForm')?.dataset.subscriptionType || 
+                           document.body.dataset.subscriptionType;
+  if (subscriptionType === 'pay_once' || subscriptionType === 'one_time') {
+    fetch('/api/check-order-limit/')
+      .then(response => response.json())
+      .then(data => {
+        if (data && data.orders_used > 0) {
+          setTimeout(() => {
+            showToast(`You have used ${data.orders_used} of 5 UberEats orders. ${data.orders_remaining} remaining.`, 4000);
+          }, 1000);
+        }
+      });
+  }
+});
+
+
+
+
+
 // Document Ready
 $(document).ready(function() {
 
     // Add this to your document ready function
-$('#meals_per_day, #include_snacks').on('change', function() {
-    if (window.currentMealPlan) {
-        if (window.innerWidth < 768) {
-            renderMobileMealPlan(window.currentMealPlan);
-        } else {
-            renderDesktopMealPlan(window.currentMealPlan);
+    $('#meals_per_day, #include_snacks').on('change', function() {
+        if (window.currentMealPlan) {
+            if (window.innerWidth < 768) {
+                renderMobileMealPlan(window.currentMealPlan);
+            } else {
+                renderDesktopMealPlan(window.currentMealPlan);
+            }
         }
-    }
-});
+    });
     // Form submission handler
     $('#mealPlanForm').on('submit', function(e) {
     e.preventDefault();
@@ -1984,6 +2419,22 @@ $('#meals_per_day, #include_snacks').on('change', function() {
     });
 
     
+    // Pre-fetch user location when page loads
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                // Store in a global variable for faster access
+                window.userLocation = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                console.log("Location obtained for Uber Eats linking");
+            },
+            error => {
+                console.warn("Unable to get location:", error);
+            }
+        );
+    }
 
     // Premium feature handlers
     {% if not has_subscription %}

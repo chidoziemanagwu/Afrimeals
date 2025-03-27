@@ -367,6 +367,7 @@ class UserSubscription(models.Model, CacheModelMixin):
     is_active = models.BooleanField(default=True, db_index=True)
     payment_id = models.CharField(max_length=100, blank=True, null=True)
     stripe_subscription_id = models.CharField(max_length=100, blank=True, null=True)
+    orders_used = models.IntegerField(default=0)  # Add this field
     status = models.CharField(max_length=20, default='active', choices=(
         ('active', 'Active'),
         ('canceled', 'Canceled'),
@@ -485,6 +486,14 @@ class UserSubscription(models.Model, CacheModelMixin):
 
         logger.info(f"Subscription {self.id} is not a one-time subscription or is already expired")
         return False
+
+
+    @property
+    def remaining_orders(self):
+        """Returns remaining orders for pay_once subscriptions"""
+        if self.subscription_tier.tier_type == 'one_time':
+            return 5 - self.orders_used
+        return None  # Not applicable for other subscription types
 
 class PaymentHistory(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

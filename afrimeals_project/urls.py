@@ -6,8 +6,8 @@ from dashboard.views import (
     ExchangeRatesView, ExportMealPlanPDF, HomeView, DashboardView, MealGeneratorView,
     PricingView, CheckoutView, RecipeDetailsView, SubscriptionManagementView, SubscriptionSuccessView, MySubscriptionView, RecipeDetailView, RecipeListView, SubscriptionUpgradeSuccessView, TermsAndPolicyView,
     UserProfileView, RecipeCreateView, RecipeUpdateView, ShoppingListView, RecipeDeleteView,
-    ExportMealPlanView, FeedbackView, check_task_status, custom_logout, detect_user_currency, export_activity_pdf, activity_detail_api, find_stores, gemini_chat, 
-    checkout_success, checkout_cancel, mark_feedback_status, meal_plan_history, get_meal_plan_details, update_currency, google_login_redirect
+    ExportMealPlanView, FeedbackView, check_order_limit, check_task_status, custom_logout, detect_user_currency, export_activity_pdf, activity_detail_api, find_stores, gemini_chat, 
+    checkout_success, checkout_cancel, increment_order_count, mark_feedback_status, meal_plan_history, get_meal_plan_details, update_currency, google_login_redirect
 )
 from rest_framework.routers import DefaultRouter
 from dashboard.api import RecipeViewSet, MealPlanViewSet, GroceryListViewSet
@@ -117,6 +117,8 @@ urlpatterns = [
         SubscriptionUpgradeSuccessView.as_view(),
         name='subscription_upgrade_success'
     ),
+    path('api/check-order-limit/', check_order_limit, name='check_order_limit'),
+    path('api/increment-order-count/', increment_order_count, name='increment_order_count'),
 ]
 
 

@@ -1,10 +1,15 @@
 <!-- dashboard/templates/meal_plan_history.html -->
 {% extends 'base.html' %}
+
+
 {% load static %}
 {% csrf_token %}
 
 
+
 {% block content %}
+
+
 <div class="container mx-auto px-4 py-8">
     <h2 class="text-2xl font-bold mb-6">Previously Generated Meal Plans</h2>
     
@@ -21,6 +26,25 @@
                     Upgrade your plan
                 </a> 
                 to unlock this feature.
+            </p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if subscription_type == 'pay_once' %}
+<div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+    <div class="flex">
+        <div class="flex-shrink-0">
+            <i class="fas fa-info-circle text-blue-400"></i>
+        </div>
+        <div class="ml-3">
+            <p class="text-sm text-blue-700">
+                Pay Once subscribers can order from Uber Eats up to 5 times. 
+                <a href="{% url 'pricing' %}" class="font-medium underline text-blue-700 hover:text-blue-600">
+                    Upgrade to weekly
+                </a> 
+                for unlimited ordering capability.
             </p>
         </div>
     </div>
@@ -117,9 +141,30 @@
         </a>
     </div>
 {% endif %}
+
+
+
+<!-- Subscription Modal -->
+<div id="subscriptionModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+    <div class="fixed inset-0 bg-black opacity-50" onclick="closeSubscriptionModal()"></div>
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md relative z-10 transform transition-all">
+      <div class="p-6">
+        <h3 id="modalTitle" class="text-lg font-medium text-gray-900"></h3>
+        <p id="modalContent" class="mt-3 text-gray-600"></p>
+        <div class="mt-6 flex justify-end space-x-3">
+          <button id="modalSecondaryBtn" onclick="closeSubscriptionModal()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"></button>
+          <button id="modalPrimaryBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"></button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
+window.userSubscriptionType = "{{ subscription_type }}";
+console.log("Subscription type set directly:", window.userSubscriptionType);
+
+
     function getCsrfToken() {
     return document.querySelector('[name=csrfmiddlewaretoken]').value;
 }
@@ -131,6 +176,101 @@ let loadedPlans = new Set();
 window.groceryList = [];
 let groceryLists = {};
 let currentPages = {};
+
+
+// Add these functions to your script
+
+function showSubscriptionModal(title, content, primaryBtnText, secondaryBtnText, primaryAction) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalContent').textContent = content;
+  
+  const primaryBtn = document.getElementById('modalPrimaryBtn');
+  primaryBtn.textContent = primaryBtnText;
+  primaryBtn.onclick = () => {
+    closeSubscriptionModal();
+    if (primaryAction) primaryAction();
+  };
+  
+  document.getElementById('modalSecondaryBtn').textContent = secondaryBtnText;
+  
+  const modal = document.getElementById('subscriptionModal');
+  modal.classList.remove('hidden');
+  
+  // Animation
+  const modalContent = modal.querySelector('div:not(.fixed)');
+  modalContent.classList.add('scale-95', 'opacity-0');
+  setTimeout(() => {
+    modalContent.classList.remove('scale-95', 'opacity-0');
+    modalContent.classList.add('scale-100', 'opacity-100');
+  }, 10);
+}
+
+function closeSubscriptionModal() {
+  const modal = document.getElementById('subscriptionModal');
+  const modalContent = modal.querySelector('div:not(.fixed)');
+  
+  // Animation
+  modalContent.classList.add('scale-95', 'opacity-0');
+  modalContent.classList.remove('scale-100', 'opacity-100');
+  
+  setTimeout(() => {
+    modal.classList.add('hidden');
+  }, 200);
+}
+
+function handleUberEatsOrder(mealName) {
+  // Check subscription status first
+  fetch('/api/check-order-limit/')
+    .then(response => response.json())
+    .then(data => {
+      if (!data.can_order) {
+        // Handle restriction based on reason
+        if (data.reason === 'no_subscription' || data.reason === 'invalid_plan') {
+          showSubscriptionModal(
+            'Subscription Required', 
+            'Ordering requires a paid subscription. Would you like to upgrade now?',
+            'Upgrade Now', 'Maybe Later',
+            () => { window.location.href = '/pricing/'; }
+          );
+        } else if (data.reason === 'limit_reached') {
+          showSubscriptionModal(
+            'Order Limit Reached',
+            'You\'ve reached your limit of 5 orders. Please upgrade to weekly for unlimited orders.',
+            'Upgrade to Weekly', 'Close',
+            () => { window.location.href = '/pricing/'; }
+          );
+        }
+        return;
+      }
+      
+      // User can order - get Uber Eats link
+      getUberEatsLink(mealName).then(url => {
+        // For pay_once users, increment the order count
+        if (data.orders_remaining !== undefined) {
+          fetch('/api/increment-order-count/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+          })
+          .then(response => response.json())
+          .then(result => {
+            if (result.success) {
+              showToast(`Order placed! You have ${result.orders_remaining} order${
+                result.orders_remaining === 1 ? '' : 's'} remaining.`, 3000, 'success');
+            }
+          });
+        }
+        
+        // Open Uber Eats in new tab
+        window.open(url, '_blank');
+      });
+    });
+}
+
+
+
 
 // Update the updateShoppingList function
 function updateShoppingList(planId) {
@@ -245,18 +385,17 @@ function getMealIcon(mealType) {
 
 function displayMealPlanDetails(planId, mealPlanData) {
     const content = document.getElementById(`content-${planId}`);
-    if (!content) {
-        console.error('Content element not found');
-        return;
-    }
+    if (!content) return;
 
     try {
+        // Get user subscription type from data attribute
+        const subscriptionType = document.body.dataset.subscriptionType || 'free';
+        
         // Determine which meal types are present in the data
         const availableMealTypes = new Set();
         mealPlanData.days.forEach(day => {
             if (day.meals) {
                 Object.keys(day.meals).forEach(mealType => {
-                    // Only add basic meal types, not recipe objects
                     if (day.meals[mealType] && !mealType.endsWith('_recipe')) {
                         availableMealTypes.add(mealType);
                     }
@@ -264,7 +403,7 @@ function displayMealPlanDetails(planId, mealPlanData) {
             }
         });
 
-        // Create table structure with only available meal types
+        // Create table structure with available meal types
         const tableHTML = `
             <div class="overflow-x-auto">
                 <table class="w-full">
@@ -297,14 +436,22 @@ function displayMealPlanDetails(planId, mealPlanData) {
                                 </td>
                                 ${Array.from(availableMealTypes).map(mealType => {
                                     const meal = day.meals?.[mealType];
-                                    const recipe = day.meals?.[`${mealType}_recipe`];
                                     
                                     return `
                                         <td class="px-4 py-3 border-b">
-                                            <div class="flex items-center">
-                                                <i class="fas ${getMealIcon(mealType)} text-gray-500 mr-2"></i>
-                                                <span>${meal || '<span class="text-gray-400">Not planned</span>'}</span>
-
+                                            <div class="flex flex-col">
+                                                <div class="flex items-center">
+                                                    <i class="fas ${getMealIcon(mealType)} text-gray-500 mr-2"></i>
+                                                    <span>${meal || '<span class="text-gray-400">Not planned</span>'}</span>
+                                                </div>
+                                                ${meal ? `
+    <div class="mt-2">
+        <button class="text-xs bg-black hover:bg-gray-800 text-white px-3 py-1 rounded transition-colors duration-200 w-full" 
+                onclick="handleUberEatsOrder('${meal.replace(/'/g, "\\'")}')">
+            <i class="fas fa-utensils mr-1"></i> Order on Uber Eats
+        </button>
+    </div>
+` : ''}
                                             </div>
                                         </td>
                                     `;
@@ -335,6 +482,8 @@ function displayMealPlanDetails(planId, mealPlanData) {
         `;
     }
 }
+
+
 
 
 // Helper function to create meal cells
@@ -465,6 +614,49 @@ function shareShoppingList(planId) {
     window.open(`https://wa.me/?text=${shareText}`, '_blank');
 }
 
+// Updated function to focus on restaurants
+function getUberEatsLink(mealName) {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(`https://www.ubereats.com/search?q=${encodeURIComponent(mealName)}&vertical=RESTAURANTS`);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        // Location data for Uber Eats
+        const locationData = {
+          latitude: lat,
+          longitude: lng
+        };
+        
+        // Encode location and filter for under 30 mins delivery
+        const locationJson = JSON.stringify(locationData);
+        const encodedLocation = btoa(locationJson);
+        const filterData = [{"uuid":"cc5cdb95-a6e6-4371-8d10-a07c2175e509","options":[{"uuid":"cc5cdb95-a6e6-4371-8d10-a07c2175e510"}]}];
+        const encodedFilter = btoa(JSON.stringify(filterData));
+        
+        resolve(`https://www.ubereats.com/search?pl=${encodeURIComponent(encodedLocation)}&q=${encodeURIComponent(mealName)}&sf=${encodeURIComponent(encodedFilter)}&vertical=RESTAURANTS`);
+      },
+      () => resolve(`https://www.ubereats.com/search?q=${encodeURIComponent(mealName)}&vertical=RESTAURANTS`)
+    );
+  });
+}
+
+
+
+
+
+// Update debug element
+document.addEventListener('DOMContentLoaded', function() {
+    const debugElement = document.getElementById('subscription-check');
+    if (debugElement) {
+        debugElement.textContent = window.userSubscriptionType || 'not set';
+    }
+});
 
 // Initialize event listeners when the document is ready
 document.addEventListener('DOMContentLoaded', function() {
@@ -540,5 +732,7 @@ function shareMealPlan(planId) {
         alert('Sorry, there was an error sharing the meal plan. Please try again.');
     });
 }
+
+
 </script>
 {% endblock %}

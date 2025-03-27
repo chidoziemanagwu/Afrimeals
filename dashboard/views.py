@@ -73,6 +73,59 @@ CACHE_TIMEOUTS = {
     'very_long': 86400,  # 24 hours
 }
 
+
+def check_order_limit(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'can_order': False, 'reason': 'not_authenticated'})
+
+    subscription = UserSubscription.get_active_subscription(request.user.id)
+
+    if not subscription:
+        return JsonResponse({'can_order': False, 'reason': 'no_subscription'})
+
+    if subscription.subscription_tier.tier_type not in ['one_time', 'weekly']:
+        return JsonResponse({'can_order': False, 'reason': 'invalid_plan'})
+
+    if subscription.subscription_tier.tier_type == 'one_time':
+        remaining = 5 - subscription.orders_used
+        return JsonResponse({
+            'can_order': remaining > 0,
+            'orders_used': subscription.orders_used,
+            'orders_remaining': remaining,
+            'reason': 'limit_reached' if remaining <= 0 else None
+        })
+
+    # Weekly plan has unlimited orders
+    return JsonResponse({'can_order': True})
+
+def increment_order_count(request):
+    if request.method != 'POST' or not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+    subscription = UserSubscription.get_active_subscription(request.user.id)
+
+    if not subscription:
+        return JsonResponse({'success': False, 'error': 'No active subscription'})
+
+    if subscription.subscription_tier.tier_type == 'one_time':
+        if subscription.orders_used < 5:
+            subscription.orders_used += 1
+            subscription.save()
+
+            # Clear subscription cache
+            cache.delete(f'active_subscription_{request.user.id}')
+
+            return JsonResponse({
+                'success': True,
+                'orders_used': subscription.orders_used,
+                'orders_remaining': 5 - subscription.orders_used
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Order limit reached'})
+
+    return JsonResponse({'success': True})  # Weekly plan - no limitations
+
+    
 # views.py
 
 def detect_user_currency(request):
@@ -279,6 +332,10 @@ def meal_plan_history(request):
         logger.error(f"Error in meal plan history: {str(e)}")
         messages.error(request, "An error occurred while loading your meal plan history.")
         return redirect('dashboard')
+
+
+
+
 
 @login_required
 def get_meal_plan_details(request, meal_plan_id):
