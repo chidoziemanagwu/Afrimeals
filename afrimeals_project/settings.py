@@ -55,7 +55,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount',  
     'allauth.socialaccount.providers.google',  
     'dashboard',
-    'sslserver',
+    'django_extensions',
     'rest_framework',
     'django.contrib.humanize',
 ]  
