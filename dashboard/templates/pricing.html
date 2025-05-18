@@ -61,6 +61,8 @@ body > nav {
 {% endblock %}
 
 {% block content %}
+<!-- Add this at the top of your content block -->
+{% csrf_token %}
 <div class="min-h-screen bg-gradient-to-b from-green-50 to-white">
 
 
@@ -347,9 +349,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.priceManager = new PriceManager();
 });
     // Add this to your existing script section
-function handleCheckout(tierId) {
-    // Check if user is authenticated
-    if (!document.body.dataset.userAuthenticated) {
+    function handleCheckout(tierId) {
+    // Check if user is authenticated - using the data attribute from body
+    if (document.body.dataset.userAuthenticated !== 'true') {
         showLoginModal();
         return;
     }
@@ -358,21 +360,32 @@ function handleCheckout(tierId) {
     const currency = document.getElementById('currency-select').value || 'GBP';
 
     // Show loading state
-    const button = event.target;
+    const button = event.currentTarget || event.target; // More reliable event target handling
     const originalContent = button.innerHTML;
     button.disabled = true;
     button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+    // Get CSRF token from the hidden input in the body
+    const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
     // Create checkout session
     fetch(`/checkout/${tierId}/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken'),
+            'X-CSRFToken': csrftoken,
             'X-Currency': currency
-        }
+        },
+        body: JSON.stringify({})
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || `HTTP error! Status: ${response.status}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.error) {
             throw new Error(data.error);
@@ -390,6 +403,7 @@ function handleCheckout(tierId) {
         button.innerHTML = originalContent;
     });
 }
+
 
 function showLoginModal() {
     const modal = document.getElementById('login-modal');
