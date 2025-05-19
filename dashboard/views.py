@@ -54,6 +54,18 @@ from django.views.decorators.http import require_GET
 from math import radians, sin, cos, sqrt, atan2
 from .services.store_finder import StoreFinder
 from mailjet_rest import Client
+import httpx
+
+
+# Check if proxies are defined in settings
+proxies = getattr(settings, 'PROXIES', None)
+if proxies:
+    http_client = httpx.Client(proxies=proxies)
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), http_client=http_client)
+else:
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -167,6 +179,9 @@ def detect_user_currency(request):
             'currency': 'GBP',
             'error': str(e)
         })
+
+
+
 
 def check_subscription_status(user):
     """Utility function to check subscription status"""
