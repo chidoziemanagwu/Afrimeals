@@ -156,7 +156,6 @@ def detect_user_currency(request):
             'error': str(e)
         })
 
-
 def check_subscription_status(user):
     """Utility function to check subscription status"""
     subscription = UserSubscription.objects.filter(
@@ -374,6 +373,7 @@ def google_login_redirect(request):
     request.session.flush()
     # Always force account selection
     return redirect(f'/accounts/google/login/?next={next_url}&prompt=select_account')
+
 @require_http_methods(["GET"])
 def custom_logout(request):
     logout(request)
@@ -403,6 +403,7 @@ class HomeView(TemplateView):
         context['page_title'] = 'Welcome to NaijaPlate'
         context['meta_description'] = 'AI-powered Nigerian meal planning for the UK diaspora'
         return context
+
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
     def get_context_data(self, **kwargs):
@@ -839,6 +840,7 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
             "Monitor cooking temperatures carefully"
         ], 3)
         return "Additional Tips:\n- " + "\n- ".join(tips)
+
     def _generate_random_variations(self):
         """Generate random recipe variations"""
         variations = random.sample([
@@ -850,6 +852,7 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
             "Create a quick weeknight version"
         ], 2)
         return "Recipe Variations:\n- " + "\n- ".join(variations)
+
     def _generate_random_cultural_notes(self):
         """Generate random cultural context"""
         notes = random.sample([
@@ -893,6 +896,7 @@ class MealGeneratorView(LoginRequiredMixin, TemplateView):
             }
             sequential_meal_plan.append(day_plan)
         return sequential_meal_plan
+
     def _generate_meal_plan(self, user, form_data):
         """Generate meal plan using OpenAI with enhanced reliability"""
         try:
@@ -1469,7 +1473,7 @@ class CheckoutView(LoginRequiredMixin, View):
                         "Name": user.get_full_name() or user.username
                     }],
                     "Subject": subject,
-                    "HTMLPart': html_content
+                    "HTMLPart": html_content
                 }]
             }
             response = mailjet.send.create(data=data)
